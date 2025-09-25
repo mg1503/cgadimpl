@@ -41,5 +41,8 @@ Value logsumexp_row(const Value& z); // [B,C] -> [B,1]
 
 // composite loss (one-hot targets)
 Value cross_entropy_with_logits(const Value& logits, const Value& onehot);
+Value kldivergence(const Value& logits, const Value& onehot);
+Value fmab(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
+
 
 } // namespace ag

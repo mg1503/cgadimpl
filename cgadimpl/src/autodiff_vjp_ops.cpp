@@ -23,6 +23,17 @@ void vjp_Mul(Node* n, const Tensor& gy){
     if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
 }
 
+// ----- elementwise trinary -----
+void vjp_FMA(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get(); Node* C = n->inputs[2].get();
+
+
+        if (A->requires_grad) A->grad.add_( Tensor::matmul(gy, Tensor::transpose(B->value)) );
+    if (B->requires_grad) B->grad.add_( Tensor::matmul(Tensor::transpose(A->value), gy) );
+    if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+}
+
+
 // ----- unary activations -----
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
@@ -146,6 +157,23 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy /*unused: scalar gy*/){
         Tensor lse = Tensor::logsumexp_row(Z->value);
         Tensor lsm = Z->value - lse;
         Tensor gY  = lsm * (-1.0f / float(B));
+        Y->grad.add_( gY );
+    }
+}
+
+
+
+void vjp_KLDivergence(Node* n, const Tensor& gy /*unused: scalar gy*/){
+    Node* Z = n->inputs[0].get();
+    Node* Y = n->inputs[1].get();
+    int B = Z->value.rows();
+    Tensor sm = Tensor::softmax_row(Z->value);
+    Tensor gZ = (sm - Y->value) * (1.0f / float(B));
+    if (Z->requires_grad) Z->grad.add_( gZ );
+    if (Y->requires_grad) {
+        Tensor lse = Tensor::logsumexp_row(Z->value);
+        Tensor lsm = Z->value - lse;
+        Tensor gY = (Tensor::log(Y->value) + Tensor::ones_like(Y->value) - lsm) * (1.0f / float(B));
         Y->grad.add_( gY );
     }
 }

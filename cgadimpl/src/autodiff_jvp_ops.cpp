@@ -74,6 +74,9 @@ Tensor jvp_MatMul(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* A=n->inputs[0].get(); Node* B=n->inputs[1].get();
     return Tensor::matmul(T(t,A), B->value) + Tensor::matmul(A->value, T(t,B));
 }
+Tensor jvp_FMA(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
 
 // ---- reductions ----
 Tensor jvp_Sum(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -114,6 +117,12 @@ Tensor jvp_CeWithLogits(Node* n, const std::function<const Tensor&(Node*)>& t){
     float dotY = (gY * t(Y)).sum_scalar();
     Tensor out(1,1); out(0,0) = dotZ + dotY; return out;
 }
+
+Tensor jvp_KLDivergence(Node* n, const std::function<const Tensor&(Node*)>& t){
+    // leave it
+    return Tensor();
+}
+
 Tensor jvp_Leaf(Node*, const std::function<const Tensor&(Node*)>&){
     return Tensor(); // unused
 }

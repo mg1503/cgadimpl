@@ -97,12 +97,12 @@ int main() {
     // print_value("L2", L2);
 
     // L3 = LeakyReLU(L2 @ W3 + b3, alpha=0.1)
-    Value L3_pre = matmul(L2, W3) + b3;              // [B,H3]
+    Value L3_pre = fmab(L2, W3, b3);              // [B,H3]
     Value L3 = leaky_relu(L3_pre, 0.1f);             // [B,H3]
     // print_value("L3", L3); 
 
     // L4 = Softplus(L3 @ W4 + b4)
-    Value L4 = softplus( matmul(L3, W4) + b4 );      // [B,H4]
+    Value L4 = softplus( fmab(L3, W4,  b4) );      // [B,H4]
     // print_value("L4", L4);
 
     // Logits = L4 @ W5 + b5
