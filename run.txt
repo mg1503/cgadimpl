@@ -1,0 +1,7 @@
+rm -f *.o build/libag.a build/test_ag
+mkdir -p build
+
+g++ -O2 -std=gnu++17 -Iinclude -c src/tensor.cpp src/schema.cpp src/graph.cpp src/ops.cpp src/autodiff.cpp
+ar rcs build/libag.a tensor.o schema.o graph.o ops.o autodiff.o
+g++ -O2 -std=gnu++17 -Iinclude tests/test_ag.cpp build/libag.a -o build/test_ag
+./build/test_ag
