@@ -139,13 +139,13 @@ int main() {
     auto b4 = param(ag::Tensor::zeros(1, Out),  "b4");
 
     // ----- Forward (4 layers): X -> L1 -> L2 -> L3 -> logits -----
-    ag::Value L1 = relu(linear(X,  W1, b1));              // [B,H1]
+    ag::Value L1 = relu(fmab(X,  W1, b1));              // [B,H1]
     print_value("L1", L1);
-    ag::Value L2 = relu(linear(L1, W2, b2));              // [B,H2]
+    ag::Value L2 = relu(fmab(L1, W2, b2));              // [B,H2]
     print_value("L2", L2);
-    ag::Value L3 = relu(linear(L2, W3, b3));              // [B,H3]
+    ag::Value L3 = relu(fmab(L2, W3, b3));              // [B,H3]
     print_value("L3", L3);  
-    ag::Value logits =       linear(L3, W4, b4);          // [B,Out]
+    ag::Value logits =       fmab(L3, W4, b4);          // [B,Out]
     print_value("logits", logits);
 
     // NOTE: Using MSE on logits for now (no softmax yet).
