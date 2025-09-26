@@ -63,6 +63,8 @@ static Tensor relu (const Tensor& x);
 static Tensor relu_mask(const Tensor& x); // 1 where x>0 else 0
 static Tensor transpose(const Tensor& x);
 static Tensor matmul (const Tensor& A, const Tensor& B);
+static Tensor abs (const Tensor& x);
+static Tensor sign (const Tensor& x);
 
 // Reduce G to the shape of `like` by summing broadcasted axes.
 static Tensor reduce_to(const Tensor& G, const Tensor& like);
@@ -71,6 +73,9 @@ static Tensor reduce_to(const Tensor& G, const Tensor& like);
 // elementwise unary
 static Tensor exp(const Tensor& x);
 static Tensor log(const Tensor& x);
+static Tensor cos(const Tensor& x);
+static Tensor sin(const Tensor& x);
+
 static Tensor tanh(const Tensor& x);
 static Tensor sigmoid(const Tensor& x);
 static Tensor softplus(const Tensor& x);

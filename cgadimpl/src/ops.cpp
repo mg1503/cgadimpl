@@ -128,6 +128,14 @@ namespace ag {
         ag::debug::on_node_created(n);  
         return Value(n);
     }
+
+    Value gcu(const Value& x){ 
+        Tensor y = x.val() * Tensor::cos(x.val());
+        auto n=std::make_shared<Node>(y, x.node->requires_grad, Op::GCU, "gcu"); 
+        n->inputs={x.node}; 
+        ag::debug::on_node_created(n);  
+        return Value(n);
+    }
     
     Value silu(const Value& x){ 
         Tensor y = Tensor::sigmoid(x.val()); 
@@ -242,6 +250,22 @@ namespace ag {
         ag::debug::on_node_created(n);  
     return Value(n);                 // broadcast scalar
 }
+
+
+    Value mae_loss(const Value& pred, const Value& target) {
+    Tensor diff = pred.val() - target.val();
+    Tensor sq   = Tensor::abs(diff);               // elementwise
+    Tensor s    = Tensor::sum_all(sq);                   // scalar [1,1]
+    int B = pred.shape().first, C = pred.shape().second;
+    Tensor scale = Tensor::ones(1,1);
+    scale(0,0) = 1.0f / float(B * C);
+    Tensor loss = s * scale;                 // broadcast scalar
+    auto n = std::make_shared<Node>(loss, pred.node->requires_grad || target.node->requires_grad, Op::MAELoss, "maeloss");
+    n->inputs = {pred.node, target.node};
+        ag::debug::on_node_created(n);  
+    return Value(n);                 // broadcast scalar
+}
+
 
 
 } // namespace ag

@@ -24,3 +24,5 @@ OP(KLDivergence,2,  "kldivergence")
 OP(FMA,       3,    "fmab") // fused multiply-add
 OP(Attention,       4,    "attention") // attention
 OP(MSELoss,       2,    "mseloss") // mse loss
+OP(MAELoss,       2,    "maeloss") // mae loss
+OP(GCU,       1,    "gcu") // Growing Cosine Unit

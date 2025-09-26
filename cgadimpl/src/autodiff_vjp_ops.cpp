@@ -87,6 +87,13 @@ void vjp_Log(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
 }
+
+void vjp_GCU(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
+}
+
+
 void vjp_Tanh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
@@ -221,6 +228,17 @@ void vjp_MSELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
     Tensor diff = Z->value - Y->value;
     Tensor gZ = diff * (2.0f / float(B * C));
     Tensor gY = -diff * (2.0f / float(B * C));
+    if (Z->requires_grad) Z->grad.add_(gZ);
+    if (Y->requires_grad) Y->grad.add_(gY);
+}
+
+void vjp_MAELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
+    Node* Z = n->inputs[0].get();
+    Node* Y = n->inputs[1].get();
+    int B = Z->value.rows(), C = Z->value.cols();
+    Tensor diff = Tensor::sign(Z->value - Y->value);
+    Tensor gZ = diff * (1.0f / float(B * C));
+    Tensor gY = -diff * (1.0f / float(B * C));
     if (Z->requires_grad) Z->grad.add_(gZ);
     if (Y->requires_grad) Y->grad.add_(gY);
 }

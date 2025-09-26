@@ -92,6 +92,8 @@ Tensor operator*(float s, const Tensor& a){ return a*s; }
 
 Tensor Tensor::relu(const Tensor& x){ Tensor y(x.r,x.c); for(std::size_t i=0;i<x.d.size();++i) y.d[i] = x.d[i] > 0.f ? x.d[i] : 0.f; return y; }
 Tensor Tensor::relu_mask(const Tensor& x){ Tensor m(x.r,x.c); for(std::size_t i=0;i<x.d.size();++i) m.d[i] = x.d[i] > 0.f ? 1.f : 0.f; return m; }
+Tensor Tensor::abs(const Tensor& x){ Tensor m(x.r,x.c); for(std::size_t i=0;i<x.d.size();++i) m.d[i] = x.d[i] >= 0.f ? x.d[i] : -x.d[i]; return m; }
+Tensor Tensor::sign(const Tensor& x){ Tensor m(x.r,x.c); for(std::size_t i=0;i<x.d.size();++i) m.d[i] = x.d[i] >= 0.f ? 1.f : -1.f; return m; }
 
 
 
@@ -119,6 +121,8 @@ Tensor Tensor::sigmoid(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d
 Tensor Tensor::softplus(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i){ float z=x.d[i]; y.d[i]=std::log1p(std::exp(-std::fabs(z))) + std::max(z,0.f); } return y; }
 Tensor Tensor::gelu_tanh(const Tensor& x){ Tensor y(x.r,x.c); const float c = std::sqrt(2.f/M_PI); for(size_t i=0;i<x.d.size();++i){ float z=x.d[i]; float u = c*(z + 0.044715f*z*z*z); y.d[i] = 0.5f*z*(1.f+std::tanh(u)); } return y; }
 Tensor Tensor::leaky_relu(const Tensor& x, float a){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i){ float z=x.d[i]; y.d[i] = z>0.f? z : a*z; } return y; }
+Tensor Tensor::cos(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::cos(x.d[i]); return y; }
+Tensor Tensor::sin(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::sin(x.d[i]); return y; }
 
 
 Tensor operator/(const Tensor& a, const Tensor& b){

@@ -149,7 +149,7 @@ int main() {
     print_value("logits", logits);
 
     // NOTE: Using MSE on logits for now (no softmax yet).
-    ag::Value loss = mse_loss(logits, Y);                 // scalar [1,1]
+    ag::Value loss = mae_loss(logits, Y);                 // scalar [1,1]
     print_value("Y(one-hot)", Y);
     
     
