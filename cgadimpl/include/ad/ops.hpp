@@ -24,6 +24,7 @@ inline Value operator*(const Value& a, const Value& b){ return mul(a,b);}
 Value exp (const Value& x);
 Value log (const Value& x);
 Value tanh (const Value& x);
+Value gcu (const Value& x);
 Value sigmoid(const Value& x);
 Value softplus(const Value& x);
 Value gelu (const Value& x); // tanh approx

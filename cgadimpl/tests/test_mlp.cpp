@@ -120,6 +120,7 @@ int main() {
         for (int j=0;j<Out;++j) Yt(i,j) = (j==k) ? 1.f : 0.f;
     }
     ag::Value Y = constant(Yt, "Y");
+    
 
     // ----- Parameters -----
     // Weights W*[in,out], biases b*[1,out]
@@ -143,13 +144,13 @@ int main() {
     print_value("L1", L1);
     ag::Value L2 = relu(fmab(L1, W2, b2));              // [B,H2]
     print_value("L2", L2);
-    ag::Value L3 = relu(fmab(L2, W3, b3));              // [B,H3]
+    ag::Value L3 = gcu(fmab(L2, W3, b3));              // [B,H3]
     print_value("L3", L3);  
     ag::Value logits =       fmab(L3, W4, b4);          // [B,Out]
     print_value("logits", logits);
 
     // NOTE: Using MSE on logits for now (no softmax yet).
-    ag::Value loss = mae_loss(logits, Y);                 // scalar [1,1]
+    ag::Value loss = mse_loss(logits, Y);                 // scalar [1,1]
     print_value("Y(one-hot)", Y);
     
     
