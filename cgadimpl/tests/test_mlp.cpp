@@ -87,7 +87,7 @@ static inline ag::Value linear(const ag::Value& X, ag::Value& W, ag::Value& b) {
 }
 
 // Mean-squared error over all elements (batch & classes)
-static inline ag::Value mse_loss(const ag::Value& pred, const ag::Value& target) {
+static inline ag::Value mse_lossa(const ag::Value& pred, const ag::Value& target) {
     ag::Value diff = pred - target;
     ag::Value sq   = diff * diff;               // elementwise
     ag::Value s    = sum(sq);                   // scalar [1,1]

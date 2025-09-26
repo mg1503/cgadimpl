@@ -1,6 +1,8 @@
 // =====================
 // file: src/ops.cpp
 // =====================
+
+#include <iostream>
 #include "ad/ops.hpp"
 #include "ad/debug.hpp"
 #include <math.h>
@@ -54,6 +56,22 @@ namespace ag {
         n->inputs = {a.node, b.node, c.node}; ag::debug::on_node_created(n); 
         return Value(n); 
     }
+
+
+    Value attention(const Value& a, const Value& b, const Value& c, const Value& d){ 
+    Tensor q = Tensor::matmul(a.val(), b.val()); 
+    Tensor k = Tensor::matmul(a.val(), c.val()); 
+    Tensor v = Tensor::matmul(a.val(), d.val());
+    Tensor g = Tensor::matmul(q, Tensor::transpose(k)) *(1/sqrt(float(k.cols())));
+    Tensor s = Tensor::softmax_row(g);
+    Tensor y = Tensor::matmul(s, v);
+    auto n = std::make_shared<Node>(y, a.node->requires_grad || b.node->requires_grad || c.node->requires_grad || d.node->requires_grad, Op::Attention, "attention"); 
+    n->inputs = {a.node, b.node, c.node, d.node};
+    ag::debug::on_node_created(n); 
+    return Value(n); 
+    }
+
+
 
     Value sum(const Value& x){ 
         Tensor y = Tensor::sum_all(x.val()); 
@@ -210,6 +228,20 @@ namespace ag {
         ag::debug::on_node_created(n);  
         return Value(n);
     }
+
+    Value mse_loss(const Value& pred, const Value& target) {
+    Tensor diff = pred.val() - target.val();
+    Tensor sq   = diff * diff;               // elementwise
+    Tensor s    = Tensor::sum_all(sq);                   // scalar [1,1]
+    int B = pred.shape().first, C = pred.shape().second;
+    Tensor scale = Tensor::ones(1,1);
+    scale(0,0) = 1.0f / float(B * C);
+    Tensor loss = s * scale;                 // broadcast scalar
+    auto n = std::make_shared<Node>(loss, pred.node->requires_grad || target.node->requires_grad, Op::MSELoss, "mseloss");
+    n->inputs = {pred.node, target.node};
+        ag::debug::on_node_created(n);  
+    return Value(n);                 // broadcast scalar
+}
 
 
 } // namespace ag

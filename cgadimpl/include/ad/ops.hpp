@@ -43,6 +43,7 @@ Value logsumexp_row(const Value& z); // [B,C] -> [B,1]
 Value cross_entropy_with_logits(const Value& logits, const Value& onehot);
 Value kldivergence(const Value& logits, const Value& onehot);
 Value fmab(const Value& a, const Value& b, const Value& c); // fused multiply-add a@b + c
-
+Value attention(const Value& a, const Value& b, const Value& c, const Value& d);
+Value mse_loss(const Value& pred, const Value& target);
 
 } // namespace ag

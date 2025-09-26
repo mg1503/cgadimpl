@@ -1,4 +1,5 @@
 #include "ad/autodiff_ops.hpp"
+#include <cmath>
 
 namespace ag {
 namespace {
@@ -31,6 +32,40 @@ void vjp_FMA(Node* n, const Tensor& gy){
         if (A->requires_grad) A->grad.add_( Tensor::matmul(gy, Tensor::transpose(B->value)) );
     if (B->requires_grad) B->grad.add_( Tensor::matmul(Tensor::transpose(A->value), gy) );
     if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+}
+
+
+// ----- elementwise quarternary -----
+void vjp_Attention(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get(); Node* C = n->inputs[2].get(); Node* D = n->inputs[3].get();
+    Tensor q = Tensor::matmul(A->value, B->value); 
+        Tensor k = Tensor::matmul(A->value, C->value); 
+        Tensor v = Tensor::matmul(A->value, D->value); 
+        Tensor g = Tensor::matmul(q, Tensor::transpose(k)) *(1/sqrt(float(k.cols())));
+        Tensor s = Tensor::softmax_row(g);
+
+        Tensor x = Tensor::matmul(Tensor::transpose(s), gy);
+        Tensor t = Tensor::matmul(Tensor::transpose(A->value), x);
+
+
+    Tensor h = Tensor::matmul(gy, Tensor::transpose(v));
+
+    Tensor dot = Tensor::row_sum( s * h ); // [B,1]
+    Tensor f = s * (h - dot);
+    Tensor r = Tensor::matmul(Tensor::transpose(q*(1/sqrt(float(k.cols())))), f);
+    Tensor m = Tensor::matmul(Tensor::transpose(A->value), r);
+
+
+
+    Tensor w = Tensor::matmul(f, Tensor::transpose(k*(1/sqrt(float(k.cols())))));
+    Tensor u = Tensor::matmul(Tensor::transpose(A->value), w);
+
+    Tensor j = Tensor::matmul(w, Tensor::transpose(B->value)) + Tensor::matmul(r, Tensor::transpose(C->value)) + Tensor::matmul(x, Tensor::transpose(D->value));
+
+        if (A->requires_grad) A->grad.add_( rt( j, A->value) ); //?????
+        if (B->requires_grad) B->grad.add_(rt( u, B->value) );
+    if (C->requires_grad) C->grad.add_(rt( m, C->value) );
+    if (D->requires_grad) D->grad.add_(rt( t, D->value) );
 }
 
 
@@ -177,6 +212,20 @@ void vjp_KLDivergence(Node* n, const Tensor& gy /*unused: scalar gy*/){
         Y->grad.add_( gY );
     }
 }
+
+
+void vjp_MSELoss(Node* n, const Tensor& gy /*unused: scalar gy*/){
+    Node* Z = n->inputs[0].get();
+    Node* Y = n->inputs[1].get();
+    int B = Z->value.rows(), C = Z->value.cols();
+    Tensor diff = Z->value - Y->value;
+    Tensor gZ = diff * (2.0f / float(B * C));
+    Tensor gY = -diff * (2.0f / float(B * C));
+    if (Z->requires_grad) Z->grad.add_(gZ);
+    if (Y->requires_grad) Y->grad.add_(gY);
+}
+
+
 void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
 
 } // anon
