@@ -25,6 +25,7 @@ Value exp (const Value& x);
 Value log (const Value& x);
 Value tanh (const Value& x);
 Value gcu (const Value& x);
+Value mish (const Value& x);
 Value sigmoid(const Value& x);
 Value softplus(const Value& x);
 Value gelu (const Value& x); // tanh approx

@@ -118,4 +118,8 @@ std::cout << "dL/dA = " << a.grad()
 <<","<< endl<< "dL/dB = " << b.grad()<<","<< endl
 << "dL/dC = " << c.grad()<<","<< endl
 << "dL/dD = " << d.grad() << endl;
+std::cout << "A = " << a.val()
+<<","<< endl<< "B = " << b.val()<<","<< endl
+<< "C = " << c.val()<<","<< endl
+<< "D = " << d.val() << endl;
 }

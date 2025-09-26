@@ -96,6 +96,15 @@ namespace ag {
         ag::debug::on_node_created(n);  
         return Value(n);
     }
+
+
+    Value mish(const Value& x){ 
+        Tensor y = x.val() * Tensor::tanh( Tensor::softplus(x.val()) ); 
+        auto n=std::make_shared<Node>(y, x.node->requires_grad, Op::Mish, "mish"); 
+        n->inputs={x.node}; 
+        ag::debug::on_node_created(n);  
+        return Value(n);
+    }
     
     Value tanh(const Value& x){ 
         Tensor y = Tensor::tanh(x.val()); 

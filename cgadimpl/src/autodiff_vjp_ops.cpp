@@ -50,8 +50,9 @@ void vjp_Attention(Node* n, const Tensor& gy){
 
     Tensor h = Tensor::matmul(gy, Tensor::transpose(v));
 
-    Tensor dot = Tensor::row_sum( s * h ); // [B,1]
-    Tensor f = s * (h - dot);
+    Tensor z = Tensor::row_sum( s * h ); // [B,1]
+    Tensor p = (h - z);
+    Tensor f = s * p;
     Tensor r = Tensor::matmul(Tensor::transpose(q*(1/sqrt(float(k.cols())))), f);
     Tensor m = Tensor::matmul(Tensor::transpose(A->value), r);
 
@@ -91,6 +92,11 @@ void vjp_Log(Node* n, const Tensor& gy){
 void vjp_GCU(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
+}
+
+void vjp_Mish(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::tanh( Tensor::softplus(X->value) )-(  (X->value*Tensor::sigmoid(X->value))  / (Tensor::cosh( Tensor::softplus(X->value)*Tensor::cosh( Tensor::softplus(X->value) ))    )            )), X->value) );
 }
 
 
