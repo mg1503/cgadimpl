@@ -124,7 +124,7 @@ Tensor Tensor::leaky_relu(const Tensor& x, float a){ Tensor y(x.r,x.c); for(size
 Tensor Tensor::cos(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::cos(x.d[i]); return y; }
 Tensor Tensor::sin(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::sin(x.d[i]); return y; }
 Tensor Tensor::cosh(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::cosh(x.d[i]); return y; }
-
+Tensor Tensor::sinh(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::sinh(x.d[i]); return y; }
 
 Tensor operator/(const Tensor& a, const Tensor& b){
 auto [R,C] = bshape(a.r,a.c,b.r,b.c); Tensor y(R,C);

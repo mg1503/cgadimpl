@@ -204,6 +204,7 @@ namespace ag {
         ag::debug::on_node_created(n);  
         return Value(n);
     }
+    
 
 
     Value cross_entropy_with_logits(const Value& logits, const Value& onehot){

@@ -76,6 +76,7 @@ static Tensor log(const Tensor& x);
 static Tensor cos(const Tensor& x);
 static Tensor sin(const Tensor& x);
 static Tensor cosh(const Tensor& x);
+static Tensor sinh(const Tensor& x);
 
 static Tensor tanh(const Tensor& x);
 static Tensor sigmoid(const Tensor& x);
