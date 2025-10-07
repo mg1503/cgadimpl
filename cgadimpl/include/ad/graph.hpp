@@ -10,13 +10,21 @@
 
 namespace ag {
 
+struct Node;
+struct Value;
 
-struct Node {
+struct Node : std::enable_shared_from_this<Node>{
 Op op{Op::Leaf};
 std::vector<std::shared_ptr<Node>> inputs; // parents held via shared_ptr to keep them alive // parents in the compute graph
 Tensor value; // forward value
 Tensor grad; // same shape as value
 bool requires_grad{false};
+bool is_checkpoint{false};
+
+std::vector<Value> saved_inputs;
+std::vector<uint8_t> saved_rng_blob;
+
+bool has_saved_rng{false};
 const char* debug_name{""};
 std::vector<std::shared_ptr<Tensor>> tape;// optional: for ops that need to save intermediates for backward
 

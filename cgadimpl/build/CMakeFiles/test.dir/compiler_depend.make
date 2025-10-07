@@ -155,6 +155,7 @@ CMakeFiles/test.dir/tests/test.cpp.o: ../tests/test.cpp \
   ../include/ad/schema.hpp \
   /usr/include/c++/11/cstdint \
   ../include/ad/detail/ops.def \
+  ../include/ad/checkpoint.hpp \
   ../include/ad/debug.hpp \
   /usr/include/c++/11/string \
   /usr/include/c++/11/bits/char_traits.h \
@@ -336,6 +337,8 @@ CMakeFiles/test.dir/tests/test.cpp.o: ../tests/test.cpp \
 /usr/include/c++/11/string:
 
 ../include/ad/debug.hpp:
+
+../include/ad/checkpoint.hpp:
 
 /usr/include/c++/11/cstdio:
 

@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl
+CMAKE_SOURCE_DIR = /home/blubridge-029/fine/cgadimpl/cgadimpl
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build
+CMAKE_BINARY_DIR = /home/blubridge-029/fine/cgadimpl/cgadimpl/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build/CMakeFiles /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/blubridge-029/fine/cgadimpl/cgadimpl/build/CMakeFiles /home/blubridge-029/fine/cgadimpl/cgadimpl/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/blubridge-029/fine/cgadimpl/cgadimpl/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -113,7 +113,7 @@ preinstall/fast:
 
 # clear depends
 depend:
-	$(CMAKE_COMMAND) -P /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build/CMakeFiles/VerifyGlobs.cmake
+	$(CMAKE_COMMAND) -P /home/blubridge-029/fine/cgadimpl/cgadimpl/build/CMakeFiles/VerifyGlobs.cmake
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
@@ -195,6 +195,19 @@ test/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test.dir/build.make CMakeFiles/test.dir/build
 .PHONY : test/fast
 
+#=============================================================================
+# Target rules for targets named test_checkpoint
+
+# Build rule for target.
+test_checkpoint: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_checkpoint
+.PHONY : test_checkpoint
+
+# fast build rule for target.
+test_checkpoint/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_checkpoint.dir/build.make CMakeFiles/test_checkpoint.dir/build
+.PHONY : test_checkpoint/fast
+
 src/autodiff/autodiff_jvp_ops.o: src/autodiff/autodiff_jvp_ops.cpp.o
 .PHONY : src/autodiff/autodiff_jvp_ops.o
 
@@ -266,6 +279,30 @@ src/core/autodiff.s: src/core/autodiff.cpp.s
 src/core/autodiff.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ag.dir/build.make CMakeFiles/ag.dir/src/core/autodiff.cpp.s
 .PHONY : src/core/autodiff.cpp.s
+
+src/core/checkpoint.o: src/core/checkpoint.cpp.o
+.PHONY : src/core/checkpoint.o
+
+# target to build an object file
+src/core/checkpoint.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ag.dir/build.make CMakeFiles/ag.dir/src/core/checkpoint.cpp.o
+.PHONY : src/core/checkpoint.cpp.o
+
+src/core/checkpoint.i: src/core/checkpoint.cpp.i
+.PHONY : src/core/checkpoint.i
+
+# target to preprocess a source file
+src/core/checkpoint.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ag.dir/build.make CMakeFiles/ag.dir/src/core/checkpoint.cpp.i
+.PHONY : src/core/checkpoint.cpp.i
+
+src/core/checkpoint.s: src/core/checkpoint.cpp.s
+.PHONY : src/core/checkpoint.s
+
+# target to generate assembly for a file
+src/core/checkpoint.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ag.dir/build.make CMakeFiles/ag.dir/src/core/checkpoint.cpp.s
+.PHONY : src/core/checkpoint.cpp.s
 
 src/core/graph.o: src/core/graph.cpp.o
 .PHONY : src/core/graph.o
@@ -507,6 +544,30 @@ tests/test_ag.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_ag.dir/build.make CMakeFiles/test_ag.dir/tests/test_ag.cpp.s
 .PHONY : tests/test_ag.cpp.s
 
+tests/test_checkpoint.o: tests/test_checkpoint.cpp.o
+.PHONY : tests/test_checkpoint.o
+
+# target to build an object file
+tests/test_checkpoint.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_checkpoint.dir/build.make CMakeFiles/test_checkpoint.dir/tests/test_checkpoint.cpp.o
+.PHONY : tests/test_checkpoint.cpp.o
+
+tests/test_checkpoint.i: tests/test_checkpoint.cpp.i
+.PHONY : tests/test_checkpoint.i
+
+# target to preprocess a source file
+tests/test_checkpoint.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_checkpoint.dir/build.make CMakeFiles/test_checkpoint.dir/tests/test_checkpoint.cpp.i
+.PHONY : tests/test_checkpoint.cpp.i
+
+tests/test_checkpoint.s: tests/test_checkpoint.cpp.s
+.PHONY : tests/test_checkpoint.s
+
+# target to generate assembly for a file
+tests/test_checkpoint.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_checkpoint.dir/build.make CMakeFiles/test_checkpoint.dir/tests/test_checkpoint.cpp.s
+.PHONY : tests/test_checkpoint.cpp.s
+
 tests/test_complex_mlp.o: tests/test_complex_mlp.cpp.o
 .PHONY : tests/test_complex_mlp.o
 
@@ -590,6 +651,7 @@ help:
 	@echo "... ag"
 	@echo "... test"
 	@echo "... test_ag"
+	@echo "... test_checkpoint"
 	@echo "... test_complex_mlp"
 	@echo "... test_graph_compile"
 	@echo "... test_mlp"
@@ -602,6 +664,9 @@ help:
 	@echo "... src/core/autodiff.o"
 	@echo "... src/core/autodiff.i"
 	@echo "... src/core/autodiff.s"
+	@echo "... src/core/checkpoint.o"
+	@echo "... src/core/checkpoint.i"
+	@echo "... src/core/checkpoint.s"
 	@echo "... src/core/graph.o"
 	@echo "... src/core/graph.i"
 	@echo "... src/core/graph.s"
@@ -632,6 +697,9 @@ help:
 	@echo "... tests/test_ag.o"
 	@echo "... tests/test_ag.i"
 	@echo "... tests/test_ag.s"
+	@echo "... tests/test_checkpoint.o"
+	@echo "... tests/test_checkpoint.i"
+	@echo "... tests/test_checkpoint.s"
 	@echo "... tests/test_complex_mlp.o"
 	@echo "... tests/test_complex_mlp.i"
 	@echo "... tests/test_complex_mlp.s"
@@ -652,7 +720,7 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	$(CMAKE_COMMAND) -P /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build/CMakeFiles/VerifyGlobs.cmake
+	$(CMAKE_COMMAND) -P /home/blubridge-029/fine/cgadimpl/cgadimpl/build/CMakeFiles/VerifyGlobs.cmake
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

@@ -2,4 +2,4 @@ cd build
 rm -rf CMakeCache.txt CMakeFiles
 cmake ..
 cmake __build .
-./bin/test_mlp
+./bin/test_checkpoint

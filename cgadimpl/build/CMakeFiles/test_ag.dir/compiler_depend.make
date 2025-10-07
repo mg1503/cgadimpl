@@ -225,6 +225,7 @@ CMakeFiles/test_ag.dir/tests/test_ag.cpp.o: ../tests/test_ag.cpp \
   /usr/include/c++/11/cstddef \
   ../include/ad/schema.hpp \
   ../include/ad/detail/ops.def \
+  ../include/ad/checkpoint.hpp \
   ../include/ad/debug.hpp \
   ../include/optim.hpp \
   ../include/ad/detail/autodiff_ops.hpp \
@@ -311,6 +312,8 @@ CMakeFiles/test_ag.dir/tests/test_ag.cpp.o: ../tests/test_ag.cpp \
 /usr/include/c++/11/tr1/riemann_zeta.tcc:
 
 /usr/include/c++/11/tr1/poly_laguerre.tcc:
+
+/usr/include/c++/11/tr1/poly_hermite.tcc:
 
 /usr/include/c++/11/tr1/exp_integral.tcc:
 
@@ -716,8 +719,6 @@ CMakeFiles/test_ag.dir/tests/test_ag.cpp.o: ../tests/test_ag.cpp \
 
 /usr/include/c++/11/bits/locale_facets.h:
 
-/usr/include/c++/11/tr1/poly_hermite.tcc:
-
 /usr/include/c++/11/cwctype:
 
 /usr/include/c++/11/bits/streambuf_iterator.h:
@@ -783,6 +784,8 @@ CMakeFiles/test_ag.dir/tests/test_ag.cpp.o: ../tests/test_ag.cpp \
 /usr/include/c++/11/bits/stl_bvector.h:
 
 /usr/include/c++/11/bits/vector.tcc:
+
+../include/ad/checkpoint.hpp:
 
 /usr/include/c++/11/tr1/ell_integral.tcc:
 

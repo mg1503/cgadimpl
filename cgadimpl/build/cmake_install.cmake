@@ -1,4 +1,4 @@
-# Install script for directory: /home/ble-bridge022/Desktop/grishma/implementations/cgadimpl
+# Install script for directory: /home/blubridge-029/fine/cgadimpl/cgadimpl
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/blubridge-029/fine/cgadimpl/cgadimpl/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

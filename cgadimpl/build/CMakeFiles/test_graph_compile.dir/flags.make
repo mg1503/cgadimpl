@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/ble-bridge022/Desktop/grishma/implementations/cgadimpl/include
+CXX_INCLUDES = -I/home/blubridge-029/fine/cgadimpl/cgadimpl/include
 
 CXX_FLAGS = -Wall -Wextra -Wpedantic -std=gnu++17
 

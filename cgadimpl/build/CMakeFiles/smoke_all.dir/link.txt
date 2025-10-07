@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/smoke_all.dir/tests/smoke_all.cpp.o -o bin/smoke_all  lib/libag.a 
