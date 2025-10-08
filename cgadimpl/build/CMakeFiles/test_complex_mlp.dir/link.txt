@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/test_complex_mlp.dir/tests/test_complex_mlp.cpp.o -o bin/test_complex_mlp  lib/libag.a 

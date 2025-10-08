@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/test_graph_compile.dir/tests/test_graph_compile.cpp.o -o bin/test_graph_compile  lib/libag.a 

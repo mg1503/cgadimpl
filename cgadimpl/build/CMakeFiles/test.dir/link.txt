@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/test.dir/tests/test.cpp.o -o bin/test  lib/libag.a 
