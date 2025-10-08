@@ -4,8 +4,11 @@
 
 #include <iostream>
 #include "ad/ops.hpp"
+#include "ad/graph.hpp"
 #include "ad/debug.hpp"
+#include "ad/kernels_api.hpp"
 #include <math.h>
+#include <iterator>
 #include "ad/checkpoint.hpp"
 
 namespace ag {
@@ -47,11 +50,16 @@ namespace ag {
     }
 
     Value relu(const Value& x){ 
-        Tensor y = Tensor::relu(x.val()); 
-        auto n = std::make_shared<Node>(y, x.node->requires_grad, Op::Relu, "relu"); 
-        n->inputs = {x.node}; 
-        ag::debug::on_node_created(n);  
-        return Value(n); 
+        const Tensor& xin = x.val();
+        Tensor y = Tensor::zeros_like(xin);
+
+        auto* fn = ag::kernels::cpu().relu;
+        if (!fn) throw std::runtime_error("No CPU ReLU kernel registered");
+        fn(xin.data(), y.data(), static_cast<int64_t>(xin.numel()));
+
+        auto n = std::make_shared<Node>(y, x.node->requires_grad, Op::Relu, "relu");
+        n->inputs = { x.node };
+        return Value(std::move(n));
     }
 
 
@@ -59,10 +67,24 @@ namespace ag {
 
 
     Value matmul(const Value& a, const Value& b){ 
-        Tensor y = Tensor::matmul(a.val(), b.val()); 
-        auto n = std::make_shared<Node>(y, a.node->requires_grad || b.node->requires_grad, Op::MatMul, "matmul"); 
-        n->inputs = {a.node, b.node}; ag::debug::on_node_created(n); 
-        return Value(n); 
+         const Tensor& A = a.val();
+         const Tensor& B = b.val();
+
+         auto [M,K]  = A.shape();
+         auto [K2,N] = B.shape();
+         if (K != K2) throw std::runtime_error("matmul: inner dims mismatch");
+
+         Tensor C({M,N});
+
+         auto* fn = ag::kernels::cpu().matmul;
+         if (!fn) throw std::runtime_error("No CPU MatMul kernel registered");
+         fn(A.data(), B.data(), C.data(), M, K, N);
+
+         auto n = std::make_shared<Node>(C,
+             (a.node->requires_grad || b.node->requires_grad),
+             Op::MatMul, "matmul");
+         n->inputs = { a.node, b.node };
+         return Value(std::move(n));
     }
 
     Value fmab(const Value& a, const Value& b, const Value& c){ 

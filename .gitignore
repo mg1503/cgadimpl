@@ -29,3 +29,15 @@ build/
 *.dll
 *.pdb
 *.class         
+build/
+bin/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+*.o
+*.o.d
+.vscode/
+*.swp
+*~

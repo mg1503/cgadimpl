@@ -25,6 +25,16 @@ static Tensor randn(int r, int c, unsigned seed=42);
 static Tensor zeros_like(const Tensor& x);
 static Tensor ones_like (const Tensor& x);
 
+// Raw contiguous storage accessors (read/write)
+inline float* data() noexcept { return d.data(); }
+inline const float* data() const noexcept { return d.data(); }
+
+// Total number of elements
+inline std::size_t numel() const noexcept { return d.size(); }
+// (If you ever change storage layout, a safe equivalent is:
+// inline std::size_t numel() const noexcept {
+//   return static_cast<std::size_t>(r) * static_cast<std::size_t>(c);
+// })
 
 // shape/info
 int rows() const;
