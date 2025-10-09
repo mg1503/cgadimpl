@@ -597,4 +597,90 @@ Value checkpoint(const Value &v, const CheckpointOptions &opts) {
     return v;
 }
 
+
+    switch (node->op) {
+        case Op::Add: {
+            const Tensor &A = node->inputs[0]->value;
+            const Tensor &B = node->inputs[1]->value;
+            return A + B;
+        }
+        case Op::Sub: {
+            const Tensor &A = node->inputs[0]->value;
+            const Tensor &B = node->inputs[1]->value;
+            return A - B;
+        }
+        case Op::Mul: {
+            const Tensor &A = node->inputs[0]->value;
+            const Tensor &B = node->inputs[1]->value;
+            return A * B;
+        }
+        case Op::MatMul: {
+            const Tensor &A = node->inputs[0]->value;
+            const Tensor &B = node->inputs[1]->value;
+            return Tensor::matmul(A, B);
+        }
+        case Op::Relu: {
+            const Tensor &X = node->inputs[0]->value;
+            return Tensor::relu(X);
+        }
+        case Op::Sigmoid: {
+            const Tensor &X = node->inputs[0]->value;
+            return Tensor::sigmoid(X);
+        }
+        case Op::Tanh: {
+            const Tensor &X = node->inputs[0]->value;
+            return Tensor::tanh(X);
+        }
+        case Op::Exp: {
+            const Tensor &X = node->inputs[0]->value;
+            return Tensor::exp(X);
+        }
+        case Op::Log: {
+            const Tensor &X = node->inputs[0]->value;
+            return Tensor::log(X);
+        }
+        case Op::AlibiAttention: {
+            const Tensor &a = node->inputs[0]->value;
+            const Tensor &b = node->inputs[1]->value;
+            const Tensor &c = node->inputs[2]->value;
+            const Tensor &d = node->inputs[3]->value;
+
+            Tensor q = Tensor::matmul(a, b);
+            Tensor k = Tensor::matmul(a, c);
+            Tensor v = Tensor::matmul(a, d);
+
+            Tensor logits = Tensor::matmul(q, Tensor::transpose(k) * (1.f / sqrt(float(k.cols()))));
+            Tensor bias   = Tensor::alibi(logits.rows(), logits.cols(), /*m*/128);
+            Tensor g      = logits + bias;
+            Tensor s      = Tensor::softmax_row(g);
+            Tensor y      = Tensor::matmul(s, v);
+            return y;
+        }
+        case Op::Leaf:
+            return node->value;
+        default:
+            if (!node->tape.empty()) {
+                return *(node->tape.back());
+            }
+            throw std::runtime_error("forward_eval_node: unsupported op for recompute");
+    }
+}
+
+// ------------------------------------------------------------
+// Small adapter so checkpoint.cpp (which uses Node*) can link.
+// ------------------------------------------------------------
+Tensor forward_eval_node(Node* node) {
+    // Non-owning shared_ptr wrapper (no deletion)
+    return forward_eval_node(std::shared_ptr<Node>(node, [](Node*){}));
+}
+
+// ------------------------------------------------------------
+// checkpoint() — mark a node for checkpointing
+// ------------------------------------------------------------
+Value checkpoint(const Value &v, const CheckpointOptions &opts) {
+    if (!v.node) return v;
+    ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);
+    return v;
+}
+
 } // namespace ag

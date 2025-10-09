@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
+#include "ad/ops.hpp"
 #include "ad/graph.hpp"
 #include "ad/schema.hpp"
 
@@ -16,7 +17,7 @@ struct CheckpointOptions {
     bool force = false;
 };
 
-Value checkpoint(const Value &v, const CheckpointOptions &opts = CheckpointOptions());
+// Value checkpoint(const Value &v, const CheckpointOptions &opts = CheckpointOptions());
 
 void auto_checkpoint_every_n(const Value &root, int n);
 

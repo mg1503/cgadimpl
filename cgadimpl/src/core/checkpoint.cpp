@@ -5,8 +5,6 @@
 // - simple auto_checkpoint_every_n utility
 
 #include "ad/checkpoint.hpp"
-#include "ad/ops.hpp"
-#include "ad/graph.hpp"
 #include <unordered_set>
 #include <stdexcept>
 #include <iostream>

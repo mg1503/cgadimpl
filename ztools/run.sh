@@ -66,6 +66,11 @@ cmake -S "$KERNELS_SRC" -B "$KERNELS_BUILD" \
 echo "== Building kernels/cpu"
 cmake --build "$KERNELS_BUILD" -j
 
+cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
+  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DAG_BUILD_TESTS=ON     # or OFF if you prefer
+
+
 # Locate plugin
 PLUGIN_CANDIDATES=(
   "$KERNELS_BUILD/cpu/libagkernels_cpu.${SO_SUFFIX}"

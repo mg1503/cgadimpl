@@ -8,7 +8,9 @@
 
 namespace ag {
 
+struct CheckpointOptions;
 
+Value checkpoint(const Value &v, const CheckpointOptions &opts);
 
 Value add (const Value& a, const Value& b);
 Value sub (const Value& a, const Value& b);
@@ -65,5 +67,8 @@ Value mse_loss(const Value& pred, const Value& target);
 Value mae_loss(const Value& pred, const Value& target);
 Tensor forward_eval_node(Node* node);
 Value checkpoint(const Value &v, const CheckpointOptions &opts);
+
+Tensor forward_eval_node(Node* node);
+
 
 } // namespace ag
