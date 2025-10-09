@@ -1,7 +1,7 @@
-// cgadimpl/src/kernels_loader.cpp
 #include "ad/kernels_api.hpp"
 #include <stdexcept>
 #include <string>
+#include <cstdlib>   // <<< add this for std::getenv
 
 #if defined(_WIN32)
   #include <windows.h>
@@ -35,9 +35,39 @@ void load_cpu_plugin(const char* path) {
     throw std::runtime_error("CPU kernels ABI mismatch or plugin init failed");
   }
 
-  // Fill registry (allow partial tables)
   g_cpu.relu   = table.relu;
   g_cpu.matmul = table.matmul;
 }
+
+#ifndef AG_NO_AUTOLOAD_KERNELS
+static bool try_default_autoload() {
+  // Try a few common names in the current working dir
+  const char* cands[] = {
+#if defined(_WIN32)
+    "./agkernels_cpu.dll"
+#elif defined(__APPLE__)
+    "./agkernels_cpu.dylib"
+#else
+    "./libagkernels_cpu.so"
+#endif
+  };
+  for (const char* p : cands) {
+    try { load_cpu_plugin(p); return true; } catch (...) {}
+  }
+  return false;
+}
+
+struct AutoLoader {
+  AutoLoader() {
+    // <<< use g_cpu (lowercase), not G
+    if (!g_cpu.matmul && !g_cpu.relu) {
+      if (const char* p = std::getenv("AG_KERNELS_CPU_PATH")) {
+        try { load_cpu_plugin(p); return; } catch (...) {}
+      }
+      (void)try_default_autoload();
+    }
+  }
+} _auto_loader;
+#endif
 
 } // namespace ag::kernels

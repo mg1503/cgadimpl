@@ -81,7 +81,7 @@ using namespace ag;
 
 int main() {
     std::cout << "===== Auto Gradient Checkpointing Test =====\n";
-    ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
+    // ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
     // ------------------------------------------------------------
     // 1. Prepare small deterministic tensors
     Tensor x_data = Tensor::randn(2, 4, 42);
