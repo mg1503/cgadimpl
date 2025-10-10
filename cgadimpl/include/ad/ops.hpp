@@ -3,6 +3,7 @@
 // =====================
 #pragma once
 #include "ad/graph.hpp"
+#include "ad/nodeops.hpp"
 #include "ad/checkpoint.hpp"
 
 
