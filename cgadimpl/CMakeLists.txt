@@ -106,13 +106,44 @@ if(AG_PACKAGING)
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 
-  install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endfunction()
 
-  include(CMakePackageConfigHelpers)
-  write_basic_package_version_file(
+# Add the tests you have
+add_ag_test(test_ag           tests/test_ag.cpp)
+add_ag_test(test_mlp          tests/test_mlp.cpp)
+add_ag_test(test_complex_mlp  tests/test_complex_mlp.cpp)
+target_compile_definitions(test_complex_mlp PRIVATE AG_EXPOSE_AUTODIFF_RULES)
+add_ag_test(test_graph_compile tests/test_graph_compile.cpp)
+add_ag_test(test              tests/test.cpp)
+add_ag_test(test_checkpoint    tests/test_checkpoint.cpp)
+# add_ag_test(smoke_all         tests/smoke_all.cpp)
+
+# ---- Install & Packaging ----
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/cgadimplConfigVersion.cmake"
+  VERSION 0.1.0
+  COMPATIBILITY SameMajorVersion
+)
+
+# Template is tiny; create once: cgadimpl/cmake/cgadimplConfig.cmake.in
+#   @PACKAGE_INIT@
+#   include("${CMAKE_CURRENT_LIST_DIR}/cgadimplTargets.cmake")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cgadimplConfig.cmake.in")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cgadimplConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cgadimplConfig.cmake" @ONLY
+  )
+  install(EXPORT cgadimplTargets
+    NAMESPACE cgadimpl::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cgadimpl
+  )
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/cgadimplConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/cgadimplConfigVersion.cmake"
-    VERSION 0.1.0
-    COMPATIBILITY SameMajorVersion
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cgadimpl
   )
 
   # Template lives at: cgadimpl/cmake/cgadimplConfig.cmake.in

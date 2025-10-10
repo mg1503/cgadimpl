@@ -66,7 +66,8 @@ Value fmab(const Value& a, const Value& b, const Value& c); // fused multiply-ad
 Value attention(const Value& a, const Value& b, const Value& c, const Value& d);
 Value mse_loss(const Value& pred, const Value& target);
 Value mae_loss(const Value& pred, const Value& target);
-
+Tensor forward_eval_node(Node* node);
+Value checkpoint(const Value &v, const CheckpointOptions &opts);
 
 Tensor forward_eval_node(Node* node);
 

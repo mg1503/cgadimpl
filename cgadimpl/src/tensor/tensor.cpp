@@ -191,7 +191,10 @@ Tensor Tensor::logsumexp_row(const Tensor& Z){
 }
 
 // mean of all elements
-Tensor Tensor::mean_all(const Tensor& X){ Tensor y(1,1); y(0,0) = X.sum_scalar() / float(X.r * X.c); return y; }
+Tensor Tensor::mean_all(const Tensor& X){ 
+    Tensor y(1,1); y(0,0) = X.sum_scalar() / float(X.r * X.c); 
+    return y; 
+}
 
 // to print the tensor in a readable format
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
