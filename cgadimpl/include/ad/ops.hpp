@@ -12,7 +12,7 @@ namespace ag {
 struct CheckpointOptions;
 
 Value checkpoint(const Value &v, const CheckpointOptions &opts);
-
+Value inplace_checkpoint(const Value& v);
 Value add (const Value& a, const Value& b);
 Value sub (const Value& a, const Value& b);
 Value mul (const Value& a, const Value& b);

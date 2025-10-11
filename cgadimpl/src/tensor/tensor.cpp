@@ -67,12 +67,27 @@ float& Tensor::operator()(int i, int j){ return d[static_cast<std::size_t>(i)*c 
 const float& Tensor::operator()(int i, int j) const { return d[static_cast<std::size_t>(i)*c + j]; }
 
 
-Tensor& Tensor::add_(const Tensor& g){
-if(r!=g.r || c!=g.c) throw std::runtime_error("add_: shape mismatch");
-for(std::size_t i=0;i<d.size();++i) d[i]+=g.d[i];
-return *this;
-}
+// Tensor& Tensor::add_(const Tensor& g){
+// if(r!=g.r || c!=g.c) throw std::runtime_error("add_: shape mismatch");
+// for(std::size_t i=0;i<d.size();++i) d[i]+=g.d[i];
+// return *this;
+// }
 
+Tensor& Tensor::add_(const Tensor& g) {
+    // If self (this) tensor is uninitialized, allocate like g
+    if (d.empty()) {
+        r = g.r;
+        c = g.c;
+        d.resize(static_cast<std::size_t>(r) * c, 0.f);
+    }
+
+    if (r != g.r || c != g.c)
+        throw std::runtime_error("add_: shape mismatch");
+
+    for (std::size_t i = 0; i < d.size(); ++i)
+        d[i] += g.d[i];
+    return *this;
+}
 
 float Tensor::sum_scalar() const { float s=0.f; for(float x: d) s+=x; return s; }
 Tensor Tensor::sum_all(const Tensor& X){ Tensor y(1,1); y(0,0) = X.sum_scalar(); return y; }

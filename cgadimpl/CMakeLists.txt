@@ -415,6 +415,7 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_graph_compile tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test      tests/test.cpp)
   add_ag_test(test_checkpoint    tests/test_checkpoint.cpp)
+  add_ag_test(test_inplace      tests/test_inplace.cpp)
   # add_ag_test(smoke_all        tests/smoke_all.cpp)
 endif()
 
