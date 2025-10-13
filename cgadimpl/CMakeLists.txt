@@ -23,6 +23,8 @@ else()
     src/core/debug.cpp
     src/core/export_hlo.cpp
     src/core/nodeops.cpp
+    src/core/inplace.cpp
+    src/core/careful_deletion.cpp
     src/autodiff/autodiff.cpp
     src/autodiff/autodiff_vjp_ops.cpp
     src/autodiff/autodiff_jvp_ops.cpp
@@ -92,6 +94,9 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_graph_compile tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test      tests/test.cpp)
   add_ag_test(test_checkpoint    tests/test_checkpoint.cpp)
+  add_ag_test(test_inplace      tests/test_inplace.cpp)
+  add_ag_test(test_careful_deletion tests/test_careful_deletion.cpp)
+  add_ag_test(test_version           tests/test_version.cpp)
   # add_ag_test(smoke_all        tests/smoke_all.cpp)
 endif()
 
