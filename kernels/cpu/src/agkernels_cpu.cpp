@@ -40,6 +40,9 @@
 #include <immintrin.h>
 #include <omp.h>
 
+#include "matker.cuh"
+
+
 extern "C" {
 
 // ---------------- Optimized Implementations ----------------
@@ -64,6 +67,16 @@ void relu_impl_optimized(const float* x, float* y, int64_t n) {
                 y[j] = x[j] > 0.0f ? x[j] : 0.0f;
             }
         }
+    }
+}
+
+void gemm_impl_optimized(const float* A, const float* B,  float* C, int M, int K, int N) {
+    int q = N;
+    int p = K;
+    int s = p+q;
+    if(s)
+    {
+    run_cuda_gemm(A, B, C, M);
     }
 }
 
@@ -138,13 +151,28 @@ void matmul_impl_optimized(const float* A, const float* B, float* C, int M, int 
 }
 
 
+void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
+    // This is a placeholder for a CUDA-tiled implementation.
+    // In a real scenario, this function would offload computation to a GPU.
+    // For now, we will just call the naive implementation as a stub.
+    int q = N;
+    int p = K;
+    int s = p+q;
+    if(s)
+    {
+    run_cuda_matrix(A, B, C, M);
+    }
+}
+
+
 // ---------------- required export ----------------
 // This part exports the new optimized functions.
 AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
   if (!out) return -1;
   out->abi_version = AG_KERNELS_ABI_V1;
   out->relu   = &relu_impl_optimized;
-  out->matmul = &matmul_impl_optimized;
+  out->matmul = &matmul_impl_cudatile;
+  out->fmab = &gemm_impl_optimized;
   return 0;
 }
 
