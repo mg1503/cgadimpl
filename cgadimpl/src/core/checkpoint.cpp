@@ -10,7 +10,6 @@
 #include <iostream>
 #include <deque>
 #include <queue>
-#include "ad/inplace.hpp"
 
 namespace ag {
 namespace checkpoint_impl {
@@ -98,7 +97,6 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
     try {
         Tensor out = forward_eval_node(node.get());
         node->value = out;
-        ag::inplace::on_recomputed(node.get());
     } catch (const std::exception &e) {
         std::cerr << "[checkpoint] recompute exception: " << e.what() << "\n";
         return false;

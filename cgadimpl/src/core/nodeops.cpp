@@ -82,10 +82,24 @@ namespace detail {
     }
 
     std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
-        Tensor y = Tensor::matmul(a->value, b->value)+c->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad, Op::FMA, "fmab"); 
-        n->inputs = {a, b, c}; ag::debug::on_node_created(n); 
-        return n; 
+        const Tensor& A = a->value;
+         const Tensor& B = b->value;
+
+         auto [M,K]  = A.shape();
+         auto [K2,N] = B.shape();
+         if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
+
+         Tensor& C = c->value; 
+
+         auto* fn = ag::kernels::cpu().matmul;
+         if (!fn) throw std::runtime_error("No CPU MatMul kernel registered");
+         fn(A.data(), B.data(), C.data(), M, K, N);
+
+         auto n = std::make_shared<Node>(C,
+             (a->requires_grad || b->requires_grad),
+             Op::FMA, "fmab");
+         n->inputs = { a, b , c};
+         return n;
     }
 
 

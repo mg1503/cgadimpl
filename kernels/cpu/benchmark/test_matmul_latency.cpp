@@ -4,6 +4,7 @@
 extern "C" {
     void matmul_impl_naive(const float*, const float*, float*, int, int, int);
     void matmul_impl_optimized(const float*, const float*, float*, int, int, int);
+    void matmul_impl_cudatile(const float*, const float*, float*, int, int, int);
 }
 
 void benchmark_latency(int M, int K, int N, int runs) {
@@ -37,6 +38,7 @@ void benchmark_latency(int M, int K, int N, int runs) {
     run_latency("Naive", matmul_impl_naive);
     run_latency("Optimized", matmul_impl_optimized);
     run_latency("Eigen", eigen_func);
+    run_latency("CUDA Tiling", matmul_impl_cudatile);
 }
 
 int main() {
@@ -44,5 +46,7 @@ int main() {
     benchmark_latency(8, 8, 8, 100000);
     benchmark_latency(16, 16, 16, 50000);
     benchmark_latency(32, 32, 32, 10000);
+    benchmark_latency(256, 256, 256, 100);
+    benchmark_latency(1024, 1024, 1024, 10);
     return 0;
 }
