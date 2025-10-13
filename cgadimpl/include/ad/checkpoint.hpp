@@ -15,6 +15,7 @@ struct CheckpointOptions {
     bool save_inputs = true;
     bool detach_inputs = false;
     bool force = false;
+    bool verbose = false;
 };
 
 // Value checkpoint(const Value &v, const CheckpointOptions &opts = CheckpointOptions());
