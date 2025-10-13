@@ -5,6 +5,8 @@
 #include "ad/detail/autodiff_ops.hpp"
 #include "ad/debug.hpp"
 #include <ad/checkpoint.hpp>
+#include <ad/careful_deletion.hpp>
+#include <memory>
 namespace ag {
 
 void zero_grad(const Value& root){
@@ -37,6 +39,8 @@ void backward(const Value& root, const Tensor* grad_seed){
         }
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
+        
+        ag::memory::try_delete_node(n);
     }
 }
 

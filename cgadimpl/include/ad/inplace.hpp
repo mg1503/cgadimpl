@@ -38,7 +38,7 @@ struct SnapshotEntry {
 // -----------------------------------------------------------------------------
 // Inplace checkpoint API
 // -----------------------------------------------------------------------------
-
+void on_recomputed(Node* node);
 // Mark a node for in-place checkpointing
 void mark_inplace_checkpoint(const std::shared_ptr<Node>& node,
                              const InplaceOptions& opts = {});
@@ -67,6 +67,22 @@ size_t get_tensor_version(Node* node);
 
 // Print diagnostic info (optional)
 void debug_alias_table();
+
+// -----------------------------------------------------------------------------
+// Public helper accessors for memory management modules
+// -----------------------------------------------------------------------------
+namespace detail {
+// Returns true if given node is part of any alias group.
+bool has_alias(Node* node);
+
+// Deletes snapshot entry for node if exists.
+bool erase_snapshot(Node* node);
+}
+namespace debug {
+// Returns a snapshot of the current version table for inspection.
+void print_version_table();
+}
+
 
 } // namespace inplace
 } // namespace ag

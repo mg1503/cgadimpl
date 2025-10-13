@@ -292,6 +292,22 @@ bool ensure_inplace_value(const NodePtr& node) {
     std::cerr << "[inplace] no snapshot and not checkpointed for node@" << raw << "\n";
     return false;
 }
+// public: called by other modules when recompute completed
+void on_recomputed(Node* raw) {
+    if (!raw) return;
+    // Update meta/snapshot under lock
+    {
+        std::lock_guard<std::mutex> guard(g_lock);
+        size_t current_ver = 0;
+        auto mit = g_meta.find(raw);
+        if (mit != g_meta.end()) current_ver = mit->second.version;
+        size_t new_ver = current_ver + 1;
+        g_meta[raw].version = new_ver;
+        g_snapshots[raw] = { raw->value, new_ver };
+    }
+    // propagate value to aliases
+    propagate_to_aliases(raw, raw->value);
+}
 
 void clear_inplace_checkpoints() {
     std::lock_guard<std::mutex> guard(g_lock);
@@ -312,6 +328,45 @@ void debug_alias_table() {
             std::cout << "   node@" << n << " version=" << get_tensor_version(n) << "\n";
     }
 }
+
+namespace detail {
+
+bool has_alias(Node* node) {
+    if (!node) return false;
+    std::lock_guard<std::mutex> guard(g_lock);
+    for (auto& [ptr, nodes] : g_alias) {
+        if (nodes.find(node) != nodes.end())
+            return true;
+    }
+    return false;
+}
+
+bool erase_snapshot(Node* node) {
+    if (!node) return false;
+    std::lock_guard<std::mutex> guard(g_lock);
+    auto it = g_snapshots.find(node);
+    if (it != g_snapshots.end()) {
+        g_snapshots.erase(it);
+        return true;
+    }
+    return false;
+}
+
+} // namespace detail
+namespace debug {
+
+void print_version_table() {
+    std::lock_guard<std::mutex> guard(g_lock);
+    std::cout << "\n=== Inplace Version Table Dump ===\n";
+    for (auto& [node_ptr, meta] : g_meta) {
+        std::cout << " Node@" << node_ptr
+                  << " op=" << op_name(node_ptr->op)
+                  << " version=" << meta.version << "\n";
+    }
+    std::cout << "===============================\n";
+}
+
+} // namespace debug
 
 } // namespace inplace
 } // namespace ag
