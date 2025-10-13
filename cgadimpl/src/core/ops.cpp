@@ -3,6 +3,7 @@
 // =====================
 #include "ad/ops.hpp"
 #include "ad/nodeops.hpp" // Include the new node-level declarations
+#include "ad/inplace.hpp"
 
 namespace ag {
 
@@ -14,7 +15,11 @@ namespace ag {
         
         return Value(detail::sub_nodeops(a.node, b.node)); 
     }
-
+    Value inplace_checkpoint(const Value& v) {
+        if (!v.node) return v;
+        ag::inplace::mark_inplace_checkpoint(v.node);
+        return v;
+    }
 
 
     Value mul(const Value& a, const Value& b){ 

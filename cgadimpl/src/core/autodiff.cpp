@@ -5,6 +5,8 @@
 #include "ad/detail/autodiff_ops.hpp"
 #include "ad/debug.hpp"
 #include <ad/checkpoint.hpp>
+#include <ad/careful_deletion.hpp>
+#include <memory>
 namespace ag {
 
 void zero_grad(const Value& root){
@@ -37,6 +39,8 @@ void backward(const Value& root, const Tensor* grad_seed){
         }
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
+        
+        ag::memory::try_delete_node(n);
     }
 }
 
@@ -55,7 +59,8 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
     for (Node* n : order) {
         // seed tangent for this node (if provided), else zeros
         Tensor t = Tensor::zeros_like(n->value);
-        if (auto it = seed.find(n); it != seed.end()) t = it->second;
+        auto it = seed.find(n);
+        if (it != seed.end()) t = it->second;
 
         ag::debug::on_jvp_step(n); // (optional) prints forward-mode step
 
