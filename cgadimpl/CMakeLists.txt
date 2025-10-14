@@ -346,6 +346,9 @@ else()
     src/core/schema.cpp
     src/core/debug.cpp
     src/core/export_hlo.cpp
+    src/core/nodeops.cpp
+    src/core/inplace.cpp
+    src/core/careful_deletion.cpp
     src/autodiff/autodiff.cpp
     src/autodiff/autodiff_vjp_ops.cpp
     src/autodiff/autodiff_jvp_ops.cpp
