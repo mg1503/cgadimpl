@@ -4,10 +4,7 @@
 #include <unordered_set>
 #include <functional>
 #include <cassert>
-#include <iostream>
-#include <variant>
 #include "ad/graph.hpp"
-#include "ad/checkpoint.hpp"
 #include "nn/nn.hpp" // for silu
 
 
@@ -15,8 +12,7 @@ namespace ag {
 
 
     Node::Node() = default;
-    Node::Node(const Tensor& v, bool rg, Op op_, const char* nm)
-        : op(op_), value(v), grad(Tensor::zeros_like(v)), requires_grad(rg), debug_name(nm ? nm : "") {}
+    Node::Node(const Tensor& v, bool rg, Op op_, const char* nm) : op(op_), value(v), grad(Tensor::zeros_like(v)), requires_grad(rg), debug_name(nm) {}
 
 
     Value::Value() = default;
@@ -44,17 +40,12 @@ namespace ag {
         return Value(std::make_shared<Node>(v,true ,Op::Leaf,name));
     }
 
-    std::vector<Node*> topo_from(Node* root) {
-        std::vector<Node*> order;
-        std::unordered_set<Node*> visited;
-        std::function<void(Node*)> dfs = [&](Node* n) {
-            if (!n || visited.count(n)) return;
-            visited.insert(n);
-            for (auto& p : n->inputs) dfs(p.get());
-            order.push_back(n);
-        };
+    std::vector<Node*> topo_from(Node* root){
+        std::vector<Node*> order; order.reserve(256);
+        std::unordered_set<Node*> vis; vis.reserve(256);
+        std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
         dfs(root);
-        return order;
+        return order; // parents before child
     }
 
 
@@ -123,7 +114,6 @@ struct Compiled::Impl {
         const Tensor& lit = std::get<ArgLit>(a).t;
         tmp = lit;
         return tmp;
-        
     }
 
     static Tensor broadcast_to(const Tensor& X, int R, int C) {
