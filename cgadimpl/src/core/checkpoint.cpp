@@ -38,14 +38,16 @@ void mark_node_checkpoint(const NodePtr &node, const CheckpointOptions &opts) {
     if (node->is_checkpoint) return; // idempotent
 
     node->is_checkpoint = true;
-
+std::cerr << "[checkpoint] mark_node_checkpoint: node=" << node.get()
+          << " name=\"" << (node->debug_name ? node->debug_name : "(null)") << "\""
+          << " inputs=" << node->inputs.size() << "\n";
     // Save minimal inputs as Values (these reference parents' nodes).
     node->saved_inputs.clear();
     for (auto &p : node->inputs) {
         if (p) node->saved_inputs.emplace_back(Value(p));
         else node->saved_inputs.emplace_back(Value()); // empty
     }
-
+std::cerr << "[checkpoint] saved_inputs_count=" << node->saved_inputs.size() << " for node=" << node.get() << "\n";
     if (opts.save_rng) {
         node->saved_rng_blob = save_rng_state();
         node->has_saved_rng = true;
@@ -60,11 +62,17 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
     if (!node->is_checkpoint) return false;
 
     // We require that saved_inputs was populated when checkpoint was marked.
-    if (node->saved_inputs.empty()) {
-        std::cerr << "[checkpoint] no saved inputs for recompute\n";
-        return false;
-    }
-
+    // if (node->saved_inputs.empty()) {
+    //     std::cerr << "[checkpoint] no saved inputs for recompute\n";
+    //     return false;
+    // }
+if (node->saved_inputs.empty()) {
+    std::cerr << "[checkpoint] no saved inputs for recompute -- node=" << node.get()
+              << " name=\"" << (node->debug_name ? node->debug_name : "(null)") << "\""
+              << " inputs=" << node->inputs.size()
+              << " is_checkpoint=" << node->is_checkpoint << "\n";
+    return false;
+}
     // Restore RNG if present
     if (node->has_saved_rng) {
         restore_rng_state(node->saved_rng_blob);
