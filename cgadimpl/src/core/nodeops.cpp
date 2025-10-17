@@ -46,32 +46,13 @@ namespace detail {
 
 //     }
 
-std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
-
-    if (A.shape() != B.shape()) {
-        throw std::runtime_error("add: tensor shapes must match for element-wise addition");
+std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
+        Tensor y = a->value + b->value; 
+        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Add, "+"); 
+        n->inputs = {a, b}; 
+        ag::debug::on_node_created(n); 
+        return n; 
     }
-
-    Tensor C = Tensor::zeros_like(A);
-
-    // Direct implementation of element-wise addition
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    float* c_data = C.data();
-    const int64_t num_elements = A.numel();
-
-    for (int64_t i = 0; i < num_elements; ++i) {
-        c_data[i] = a_data[i] + b_data[i];
-    }
-
-    auto n = std::make_shared<Node>(C,
-        (a->requires_grad || b->requires_grad),
-        Op::Add, "+");
-    n->inputs = { a, b };
-    return n;
-}
 
 
     // std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
@@ -109,32 +90,13 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
     // }
 
-std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
-
-    if (A.shape() != B.shape()) {
-        throw std::runtime_error("sub: tensor shapes must match for element-wise subtraction");
+   std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
+        Tensor y = a->value - b->value; 
+        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
+        n->inputs = {a, b}; 
+        ag::debug::on_node_created(n); 
+        return n; 
     }
-
-    Tensor C = Tensor::zeros_like(A);
-
-    // Direct implementation of element-wise subtraction
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    float* c_data = C.data();
-    const int64_t num_elements = A.numel();
-
-    for (int64_t i = 0; i < num_elements; ++i) {
-        c_data[i] = a_data[i] - b_data[i];
-    }
-
-    auto n = std::make_shared<Node>(C,
-        (a->requires_grad || b->requires_grad),
-        Op::Sub, "-");
-    n->inputs = { a, b };
-    return n;
-}
 
 
 
@@ -171,34 +133,15 @@ std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::sha
     //      return n;
     // }
 
-std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
-
-    if (A.shape() != B.shape()) {
-        throw std::runtime_error("mul: tensor shapes must match for element-wise multiplication");
+    std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
+        Tensor y = a->value * b->value; 
+        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Mul, "*"); 
+        n->inputs = {a, b}; 
+        ag::debug::on_node_created(n); 
+        return n; 
     }
 
-    Tensor C = Tensor::zeros_like(A);
-
-    // Direct implementation of element-wise multiplication (Hadamard product)
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    float* c_data = C.data();
-    const int64_t num_elements = A.numel();
-
-    for (int64_t i = 0; i < num_elements; ++i) {
-        c_data[i] = a_data[i] * b_data[i];
-    }
-
-    auto n = std::make_shared<Node>(C,
-        (a->requires_grad || b->requires_grad),
-        Op::Mul, "*");
-    n->inputs = { a, b };
-    return n;
-}
-
-    std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b){ 
+  std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b){ 
         auto c = std::make_shared<Node>(b*Tensor::ones_like(a->value), false, Op::Leaf, "leaf");
         Tensor y = a->value * c->value; 
         auto n = std::make_shared<Node>(y, a->requires_grad || c->requires_grad, Op::Mul, "*"); 
@@ -207,7 +150,8 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
         return n; 
     }
 
-    std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
+
+   std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
         const Tensor& xin = x->value;
         Tensor y = Tensor::zeros_like(xin);
 
@@ -219,8 +163,6 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
         n->inputs = { x };
         return n;
     }
-
-
 
 
 
@@ -244,7 +186,6 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
          n->inputs = { a, b };
          return n;
     }
-
     // std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
     //     const Tensor& A = a->value;
     //      const Tensor& B = b->value;
@@ -268,46 +209,12 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
     //      n->inputs = { a, b , c};
     //      return n;
     // }
-
-std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){
-    const Tensor& A = a->value;
-    const Tensor& B = b->value;
-
-    auto [M,K]  = A.shape();
-    auto [K2,N] = B.shape();
-    if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
-
-    const Tensor& C = c->value;
-
-    Tensor E({M,N});
-
-    // Direct implementation of fused multiply-add: E = (A * B) + C
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    const float* c_data = C.data();
-    float* e_data = E.data();
-
-    for (int64_t i = 0; i < M; ++i) {
-        for (int64_t j = 0; j < N; ++j) {
-            float sum = 0.0f;
-            // Matrix multiplication to calculate one element of the result
-            for (int64_t k = 0; k < K; ++k) {
-                // Assuming row-major memory layout for A and B
-                sum += a_data[i * K + k] * b_data[k * N + j];
-            }
-            // Add the corresponding element from C (the bias)
-            // This handles cases where C is a full matrix or a broadcastable vector
-            float bias = (C.numel() == N) ? c_data[j] : c_data[i * N + j];
-            e_data[i * N + j] = sum + bias;
-        }
+    std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
+        Tensor y = Tensor::matmul(a->value, b->value)+c->value; 
+        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad, Op::FMA, "fmab"); 
+        n->inputs = {a, b, c}; ag::debug::on_node_created(n); 
+        return n; 
     }
-
-    auto n = std::make_shared<Node>(E,
-        (a->requires_grad || b->requires_grad || c->requires_grad),
-        Op::FMA, "fmab");
-    n->inputs = { a, b , c};
-    return n;
-}
 
 // std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
 //     Tensor q = Tensor::matmul(a->value, b->value); 
@@ -355,42 +262,21 @@ std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::sh
 //     }
 
 
-std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){
-    // Step 1: Project input 'a' into Query, Key, and Value tensors
-    // q = x * Wq, k = x * Wk, v = x * Wv
-    Tensor q = Tensor::matmul(a->value, b->value);
-    Tensor k = Tensor::matmul(a->value, c->value);
+    std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
+    Tensor q = Tensor::matmul(a->value, b->value); 
+    Tensor k = Tensor::matmul(a->value, c->value); 
     Tensor v = Tensor::matmul(a->value, d->value);
-
-    // Step 2: Calculate scaled dot-product attention scores
-    // g = (q @ k.T) / sqrt(d_k)
-    // d_k is the dimension of the key vectors, i.e., k.cols()
-    float scale_factor = 1.0f / sqrt(static_cast<float>(k.cols()));
-    Tensor g = Tensor::matmul(q, Tensor::transpose(k) * scale_factor);
-
-    // Step 3: Apply softmax row-wise to get attention weights
+    Tensor g = Tensor::matmul(q, Tensor::transpose(k)*(1.f/sqrt(float(k.cols())))) ;
     Tensor s = Tensor::softmax_row(g);
-
-    // Step 4: Compute the output by multiplying attention weights with the Value tensor
-    // This is the direct implementation that replaces the kernel call.
-    Tensor o = Tensor::matmul(s, v);
-
-    // Now wrap it in a Node for the computation graph
-    auto n = std::make_shared<Node>(
-        o,
-        a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad,
-        Op::Attention,
-        "attention"
-        );
-
-    // Store inputs and intermediate tensors required for the backward pass
+    Tensor y = Tensor::matmul(s, v);
+    auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad || c->requires_grad || d->requires_grad, Op::Attention, "attention"); 
     n->inputs = {a, b, c, d};
     n->tape.resize(4);
     n->tape={std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
-    
-    ag::debug::on_node_created(n);
-    return n;
-}
+    ag::debug::on_node_created(n); 
+    return n; 
+    }
+
 
 std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
     Tensor q = Tensor::matmul(a->value, b->value); 
@@ -691,7 +577,6 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
 }
 
 
-
     std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
     Tensor y = Tensor::matmul(x->value, Tensor::transpose(a->value))+b->value; 
     debug::print_tensor("y",y);
@@ -704,11 +589,6 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
     }
 
 
-
-
-
-
-
     std::shared_ptr<Node> sum_nodeops(const std::shared_ptr<Node>& x){ 
         Tensor y = Tensor::sum_all(x->value); 
         auto n = std::make_shared<Node>(y, x->requires_grad, Op::Sum, "sum"); 
@@ -719,11 +599,12 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
 
     std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x){ 
         Tensor y = Tensor::transpose(x->value); 
-        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Transpose, "transpose"); 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Transpose, "exp"); 
         n->inputs={x}; 
         ag::debug::on_node_created(n);  
         return n;
     }
+
 
     // std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){ 
     //           const Tensor& xin = x->value;
@@ -738,22 +619,13 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::
     //     return n;
     // }
 
-std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
-    const Tensor& xin = x->value;
-    Tensor y = Tensor::zeros_like(xin);
-
-    // Direct implementation of element-wise exponential
-    const float* x_data = xin.data();
-    float* y_data = y.data();
-    for (int64_t i = 0; i < xin.numel(); ++i) {
-        y_data[i] = std::exp(x_data[i]);
+    std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){ 
+        Tensor y = Tensor::exp(x->value); 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Exp, "exp"); 
+        n->inputs={x}; 
+        ag::debug::on_node_created(n);  
+        return n;
     }
-
-    auto n = std::make_shared<Node>(y, x->requires_grad, Op::Exp, "exp");
-    n->inputs = { x };
-    return n;
-}
-
 
     
     std::shared_ptr<Node> log_nodeops(const std::shared_ptr<Node>& x){ 
@@ -794,21 +666,13 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     //     return n;
     // }
 
-    std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
-    const Tensor& xin = x->value;
-    Tensor y = Tensor::zeros_like(xin);
-
-    // Direct implementation of element-wise sigmoid
-    const float* x_data = xin.data();
-    float* y_data = y.data();
-    for (int64_t i = 0; i < xin.numel(); ++i) {
-        y_data[i] = 1.0f / (1.0f + std::exp(-x_data[i]));
+  std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){ 
+        Tensor y = Tensor::sigmoid(x->value); 
+        auto n=std::make_shared<Node>(y, x->requires_grad, Op::Sigmoid, "sigmoid"); 
+        n->inputs={x}; 
+        ag::debug::on_node_created(n);  
+        return n;
     }
-
-    auto n = std::make_shared<Node>(y, x->requires_grad, Op::Sigmoid, "sigmoid");
-    n->inputs = { x };
-    return n;
-}
     
     std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){ 
         Tensor y = Tensor::softplus(x->value); 
@@ -897,31 +761,32 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
         return n;
     }
 
-    std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x){ 
-Tensor z = Tensor::row_sum(x->value*x->value) * (1.f/x->value.cols());
-Tensor q = Tensor::sqrt(z + 1e-8f);
-Tensor y = x->value / q;
 
-auto n = std::make_shared<Node>(y, x->requires_grad, Op::RMSNorm, "rmsnorm");
-n->tape.resize(2);
-n->tape[0] = std::make_shared<Tensor>(q); // denominator
-n->tape[1] = std::make_shared<Tensor>(y);   // normalized output
-n->inputs = {x};
-return n;
+    std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x){ 
+        Tensor z = Tensor::row_sum(x->value*x->value) * (1.f/x->value.cols());
+        Tensor q = Tensor::sqrt(z + 1e-8f);
+        Tensor y = x->value / q;
+
+        auto n = std::make_shared<Node>(y, x->requires_grad, Op::RMSNorm, "rmsnorm");
+        n->tape.resize(2);
+        n->tape[0] = std::make_shared<Tensor>(q); // denominator
+        n->tape[1] = std::make_shared<Tensor>(y);   // normalized output
+        n->inputs = {x};
+        return n;
     }
 
     std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g){ 
-Tensor z = Tensor::row_sum(x->value*x->value) * (1.f/x->value.cols());
-Tensor q = Tensor::sqrt(z + 1e-8f);
-Tensor y = (x->value) / q;
-        std::shared_ptr<Node> G =  std::make_shared<Node>(g*Tensor::ones_like(y), false, Op::Leaf, "leaf");;
+        Tensor z = Tensor::row_sum(x->value*x->value) * (1.f/x->value.cols());
+        Tensor q = Tensor::sqrt(z + 1e-8f);
+        Tensor y = (x->value) / q;
+                std::shared_ptr<Node> G =  std::make_shared<Node>(g*Tensor::ones_like(y), false, Op::Leaf, "leaf");;
 
-auto n = std::make_shared<Node>(y*g, x->requires_grad || G->requires_grad, Op::RealRMSNorm, "realrmsnorm");
-n->tape.resize(2);
-n->tape[0] = std::make_shared<Tensor>(q); // denominator
-n->tape[1] = std::make_shared<Tensor>(y);   // normalized output
-n->inputs = {x, G};
-return n;
+        auto n = std::make_shared<Node>(y*g, x->requires_grad || G->requires_grad, Op::RealRMSNorm, "realrmsnorm");
+        n->tape.resize(2);
+        n->tape[0] = std::make_shared<Tensor>(q); // denominator
+        n->tape[1] = std::make_shared<Tensor>(y);   // normalized output
+        n->inputs = {x, G};
+        return n;
     }
 
     std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x){ 
@@ -1003,7 +868,7 @@ return n;
     }
 
 
-    std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
+std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
 
         if (z->tape.size()==0) {
 
@@ -1017,12 +882,12 @@ return n;
             z->inputs.push_back(W);
                     ag::debug::on_node_created(n);  
                     std::cout<<"Initialized SSM state"<<std::endl;
-return n;
-        }
-        else
-        {
+        return n;
+                }
+                else
+                {
 
-Tensor w = Tensor::matmul(z->value, b->value)+(z->inputs.back()->value); 
+        Tensor w = Tensor::matmul(z->value, b->value)+(z->inputs.back()->value); 
                     Tensor q = Tensor::matmul(w, c->value);
                     Tensor y = (z->value* d->value)+q;
                     auto W = std::make_shared<Node>(w, false, Op::Leaf, "leaf");
@@ -1032,11 +897,12 @@ Tensor w = Tensor::matmul(z->value, b->value)+(z->inputs.back()->value);
             z->inputs.push_back(W);
                     ag::debug::on_node_created(n);  
                     std::cout<<"SSM step"<<std::endl;
-return n;
-        }
+        return n;
+                }
 
         
     }
+
 
 
      std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<Node>& logits,const std::shared_ptr<Node>& onehot){

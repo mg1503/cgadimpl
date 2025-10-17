@@ -3,8 +3,14 @@
 // =====================
 #include "ad/ops.hpp"
 #include "ad/nodeops.hpp" // Include the new node-level declarations
+#include "ad/inplace.hpp"
 
 namespace ag {
+    Value inplace_checkpoint(const Value& v) {
+        if (!v.node) return v;
+        ag::inplace::mark_inplace_checkpoint(v.node);
+        return v;
+    }
 
     Value add(const Value& a, const Value& b){ 
         return Value(detail::add_nodeops(a.node, b.node)); 
