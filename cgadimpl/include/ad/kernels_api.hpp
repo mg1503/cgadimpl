@@ -22,13 +22,57 @@ typedef void (*ag_matmul_fn)(const float* A, const float* B, float* C,
                              int M, int K, int N);
 typedef void (*ag_gemm_fn)(const float* A, const float* B, float* C,
                              int M, int K, int N);
-
+typedef void (*ag_gelu_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_leakyrelu_fn)(const float* x, float* y, int64_t n, float alpha);
+typedef void (*ag_sigmoid_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_tanh_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_softmax_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_exp_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_log_fn)(const float* x, float* y, int64_t n);
+typedef void (*ag_sqrt_fn) (const float* x, float* y, int64_t n);
+typedef void (*ag_pow_fn) (const float* x, float* y, int64_t n, float exponent);
 // CPU function table (can be partially filled; nulls mean "not provided")
+typedef void (*elem_bwd_fn)(const float*, const float*, float*, int64_t);
+typedef void (*elem_bwd_alpha_fn)(const float*, const float*, float*, int64_t, float);
+void relu_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n);
+    void leakyrelu_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n, float alpha);
+    void sigmoid_bwd_impl_optimized_from_s(const float* s, const float* dY, float* dX, int64_t n);
+    void tanh_bwd_impl_optimized_from_t(const float* t, const float* dY, float* dX, int64_t n);
+    void gelu_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n);
+    void softplus_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n);
+    void exp_bwd_impl_optimized_from_y(const float* y, const float* dY, float* dX, int64_t n);
+    void log_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n);
+    void sqrt_bwd_impl_optimized_from_y(const float* y, const float* dY, float* dX, int64_t n);
+    void matmul_bwd_dA_impl_optimized(const float* dC, const float* B, float* dA, int M, int K, int N);
+    void matmul_bwd_dB_impl_optimized(const float* A, const float* dC, float* dB, int M, int K, int N);
 struct ag_cpu_v1 {
   uint32_t abi_version;   // must be AG_KERNELS_ABI_V1
   ag_relu_fn   relu;
   ag_matmul_fn matmul;
   ag_gemm_fn fmab;
+  ag_gelu_fn gelu;
+  ag_leakyrelu_fn leakyrelu;
+  ag_sigmoid_fn sigmoid;
+  ag_tanh_fn tanh;
+  ag_softmax_fn softmax;
+  ag_exp_fn exp;
+  ag_log_fn log;
+  ag_sqrt_fn sqrt;
+  ag_pow_fn pow;
+  //backwards
+  elem_bwd_fn relu_bwd;
+  elem_bwd_alpha_fn leakyrelu_bwd; // takes alpha
+  elem_bwd_fn sigmoid_bwd_from_s;  // if forward stored s
+  elem_bwd_fn tanh_bwd_from_t;
+  elem_bwd_fn gelu_bwd;
+  elem_bwd_fn softplus_bwd;
+  elem_bwd_fn exp_bwd_from_y;
+  elem_bwd_fn log_bwd;
+  elem_bwd_fn sqrt_bwd_from_y;
+  // matmul backward wrappers
+  void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);
+  void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);
+ 
 };
 
 // Every CPU plugin must export this symbol.
@@ -43,6 +87,28 @@ struct Cpu {
   ag_relu_fn   relu   = nullptr;
   ag_matmul_fn matmul = nullptr;
   ag_gemm_fn fmab = nullptr;
+  ag_gelu_fn gelu = nullptr;
+  ag_leakyrelu_fn leakyrelu = nullptr;
+  ag_sigmoid_fn sigmoid = nullptr;
+  ag_tanh_fn tanh = nullptr;
+  ag_softmax_fn softmax = nullptr;
+  ag_exp_fn exp = nullptr;
+  ag_log_fn log = nullptr;
+  ag_sqrt_fn sqrt = nullptr;
+  ag_pow_fn pow = nullptr;
+  elem_bwd_fn relu_bwd = nullptr;
+  elem_bwd_alpha_fn leakyrelu_bwd = nullptr;
+  elem_bwd_fn sigmoid_bwd_from_s = nullptr;
+  elem_bwd_fn tanh_bwd_from_t = nullptr;
+  elem_bwd_fn gelu_bwd = nullptr;
+  elem_bwd_fn softplus_bwd = nullptr;
+  elem_bwd_fn exp_bwd_from_y = nullptr;
+  elem_bwd_fn log_bwd = nullptr;
+  elem_bwd_fn sqrt_bwd_from_y = nullptr;
+
+  void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);
+  void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);
+ 
 };
 
 // Global registry accessor

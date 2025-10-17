@@ -369,7 +369,7 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/ad/kernels_api.hpp")
 endif()
 
 # ---- Library ----
-add_library(cgadimpl ${CGADIMPL_SRC})
+add_library(cgadimpl SHARED ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
 # Clean exported include dirs (fixes earlier export error)

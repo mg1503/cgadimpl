@@ -16,6 +16,7 @@ include_directories(${CGADIMPL_INCLUDE_DIR})
 # ===========================================================
 add_library(agkernels_cpu SHARED
     src/agkernels_cpu.cpp
+    src/adkernels_cpu.cpp
     src/matker.cu
 )
 
@@ -65,3 +66,4 @@ add_matmul_benchmark(test_throughput   test_matmul_throughput.cpp)
 add_matmul_benchmark(test_aspect       test_matmul_aspect.cpp)
 add_matmul_benchmark(test_scalability  test_matmul_scalability.cpp)
 add_matmul_benchmark(test_cache        test_matmul_cache.cpp)
+add_matmul_benchmark(test_kernels      test_kernels.cpp)

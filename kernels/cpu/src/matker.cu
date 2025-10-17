@@ -3,7 +3,7 @@
 #include <cuda_runtime.h>
 
 
-#define TILE 4
+#define TILE 16
 
 __global__ void tile_matrix_multiply(float* A, float* B, float* C, int width)
 {
