@@ -156,11 +156,20 @@ return out;
 }
 
 
+Tensor Tensor::reciprocal(const Tensor& x){ Tensor y(x.r,x.c); for(int i=0;i < x.d.size(); ++i) y.d[i]=1.0f/(x.d[i]); return y; }
+
+
+
 Tensor Tensor::matmul(const Tensor& A, const Tensor& B){ if(A.c!=B.r) throw std::runtime_error("matmul: inner dim mismatch"); Tensor Y(A.r, B.c);
 // ...existing code...
 for(int i=0;i<A.r;++i){ for(int k=0;k<A.c;++k){ float aik=A(i,k); 
     for(int j=0;j<B.c;++j){ Y(i,j) += aik * B(k,j); } } }
 return Y; }
+
+Tensor operator/(float s, const Tensor& a){ return s*(Tensor::reciprocal(a)); }
+Tensor operator/(const Tensor& a, float s){ return a*(1.0f/s); }
+
+Tensor Tensor::sinh(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::sinh(x.d[i]); return y; }
 
 Tensor Tensor::exp(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::exp(x.d[i]); return y; }
 Tensor Tensor::log(const Tensor& x){ Tensor y(x.r,x.c); for(size_t i=0;i<x.d.size();++i) y.d[i]=std::log(x.d[i]); return y; }

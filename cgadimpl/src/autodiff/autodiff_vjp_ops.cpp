@@ -1,6 +1,7 @@
 #include "ad/detail/autodiff_ops.hpp"
 
 #include <cmath>
+#include "ad/nodeops.hpp"
 
 namespace ag {
 namespace detail{
@@ -344,25 +345,90 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 
 
 // ----- unary activations -----
+// void vjp_Relu(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+
+//         auto* mm = ag::kernels::cpu().relumask;
+//             auto [K2, N] = (X->value).shape();
+
+//                 Tensor dA(K2, N);                   // temp buffer
+
+//         if(mm)
+//             mm((X->value).data(), dA.data(), dA.numel());
+
+//         else
+
+//         {
+//             std::cout<<"CUDA is unused";
+//     dA = Tensor::relu_mask(X->value);
+
+//         }
+
+
+//     X->grad.add_( rt( gy * dA, X->value) );
+
+// }
+
+
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
-
-    Tensor& gx = X->grad;
-    const Tensor& y = n->value;  // relu(x) == y; mask with y>0
-
-    int R = y.rows(), C = y.cols();
-    for (int i = 0; i < R; ++i){
-        for (int j = 0; j < C; ++j){
-            if (y(i,j) > 0.f) gx(i,j) += gy(i,j);
-        }
+    if (!X->requires_grad) {
+        return;
     }
+
+    // Direct implementation of the ReLU derivative calculation.
+    // The derivative is 1 for positive inputs and 0 for non-positive inputs.
+    // This is calculated by creating a "ReLU mask" from the original input tensor.
+    // The original input is X->value. Note: We use the input X->value, not the output n->value.
+    Tensor dA = Tensor::relu_mask(X->value);
+
+    // Apply the chain rule: multiply the incoming gradient (gy) by the local derivative (dA)
+    // and add the result to the gradient of the input node X.
+    X->grad.add_( rt( gy * dA, X->value) );
 }
 
+// void vjp_Exp(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+
+//         auto* mm = ag::kernels::cpu().exp;
+//             auto [K2, N] = (X->value).shape();
+
+//                 Tensor dA(K2, N);                   // temp buffer
+
+//         if(mm)
+//             mm((X->value).data(), dA.data(), dA.numel());
+
+//         else
+
+//         {
+//             std::cout<<"CUDA is unused";
+//     dA = Tensor::relu_mask(X->value);
+
+//         }
+
+
+//     X->grad.add_( rt( gy * dA, X->value) );
+// }
 void vjp_Exp(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad) X->grad.add_( rt( gy * Tensor::exp(X->value), X->value) );
+    if (!X->requires_grad) {
+        return;
+    }
+
+    // Direct implementation of the exponential derivative calculation.
+    // The derivative of exp(x) is exp(x).
+    // The result of the forward pass, exp(X->value), is already stored in n->value.
+    // Therefore, the local derivative (dA) is simply the node's own value.
+    const Tensor& dA = n->value;
+
+    // Apply the chain rule: multiply the incoming gradient (gy) by the local derivative (dA)
+    // and add the result to the gradient of the input node X.
+    X->grad.add_( rt( gy * dA, X->value) );
 }
+
+
 void vjp_Log(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
@@ -383,13 +449,54 @@ void vjp_Tanh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
     Tensor th = n->value, one = Tensor::ones_like(th);
+    
     X->grad.add_( rt( gy * (one - th*th), X->value) );
 }
+
+
+// void vjp_Sigmoid(Node* n, const Tensor& gy){
+
+//  Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+
+//         auto* mm = ag::kernels::cpu().sigmoidiff;
+//             auto [K2, N] = (X->value).shape();
+
+//                 Tensor dA(K2, N);                   // temp buffer
+
+//         if(mm)
+//             mm((X->value).data(), dA.data(), dA.numel());
+
+//         else
+
+//         {
+//             std::cout<<"CUDA is unused";
+//              Tensor s = Tensor::sigmoid(X->value);
+
+//     dA = ( s * (Tensor::ones_like(s)-s));
+
+//         }
+
+//     X->grad.add_( rt( gy * dA, X->value) );
+// }
+
 void vjp_Sigmoid(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
-    Tensor s = Tensor::sigmoid(X->value);
-    X->grad.add_( rt( gy * ( s * (Tensor::ones_like(s)-s) ), X->value) );
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad) {
+        return;
+    }
+
+    // Direct implementation of the sigmoid derivative calculation.
+    // The derivative of sigmoid(x) is y * (1 - y), where y is the output of the sigmoid.
+    // The output 'y' is already stored in the node's value from the forward pass.
+    const Tensor& Y = n->value; // This is sigmoid(X->value)
+    Tensor dA = Y * (Tensor::ones_like(Y) - Y);
+
+    // Chain rule: multiply the incoming gradient (gy) by the local derivative (dA)
+    // and add it to the gradient of the input node X.
+    X->grad.add_( rt( gy * dA, X->value) );
 }
+
 void vjp_Softplus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
     X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
@@ -580,6 +687,258 @@ void vjp_KLDivergence(Node* n, const Tensor& gy /*unused: scalar gy*/){
         Tensor gY = (Tensor::log(Y->value) + Tensor::ones_like(Y->value) - lsm) * (1.0f / float(B));
         Y->grad.add_( gY );
     }
+}
+
+void vjp_Div(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
+    if (A->requires_grad) A->grad.add_( rt( gy * (Tensor::reciprocal(B->value)), A->value) );
+    if (B->requires_grad) B->grad.add_( rt( -gy * (Tensor::reciprocal(B->value)) * (Tensor::reciprocal(B->value)) * A->value, B->value) );
+}
+void vjp_Reciprocal(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get(); if (!X->requires_grad) return;
+    X->grad.add_( rt( -gy * (Tensor::reciprocal(X->value)) * (Tensor::reciprocal(X->value)), X->value) );
+}
+
+
+
+
+
+void vjp_Linear(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
+
+    // External kernel (if plugin loaded), else fallback to Tensor::matmul
+    auto* mm = ag::kernels::cpu().matmul;
+
+    // Shapes
+    const Tensor& At = A->value;
+    const Tensor& Bt = B->value;
+    auto [M, K]  = At.shape();
+    auto [K2, N] = Bt.shape();
+    (void)K2; // assume forward already checked
+
+    if (A->requires_grad){
+        Tensor BT = Bt; // (N x K)
+        Tensor dA(M, K);                   // temp buffer
+
+        if (mm) {
+            // dA = gy (MxN) * BT (NxK)
+            mm(gy.data(), BT.data(), dA.data(), M, N, K);
+        } else {
+            dA = Tensor::matmul(gy, BT);
+        }
+        A->grad.add_(dA);
+    }
+
+    if (B->requires_grad){
+        Tensor AT = Tensor::transpose(At); // (K x M)
+        Tensor dB(K, N);                   // temp buffer
+
+        if (mm) {
+            // dB = AT (KxM) * gy (MxN)
+            mm(AT.data(), gy.data(), dB.data(), K, M, N);
+        } else {
+            dB = Tensor::matmul(AT, gy);
+        }
+        B->grad.add_(dB);
+    }
+    if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+}
+
+
+
+
+
+
+void vjp_Cosh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::sinh(X->value)), X->value) );
+}
+
+
+void vjp_Sinh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cosh(X->value)), X->value) );
+}
+
+
+void vjp_Sign(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad) return;
+    Tensor th = n->value, one = Tensor::ones_like(th);
+    
+    X->grad.add_( rt( gy * 0.0f, X->value) );
+}
+
+void vjp_Cos(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( -1.0 * gy* (Tensor::sin(X->value)), X->value) );
+}
+
+
+void vjp_Sin(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt( gy * (Tensor::cos(X->value)), X->value) );
+}
+
+
+void vjp_Sqrt(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad) X->grad.add_( rt(0.5f * gy * Tensor::sqrt(  Tensor::reciprocal(X->value)), X->value) );
+}
+
+void vjp_Relumask(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad) return;
+    Tensor th = n->value, one = Tensor::ones_like(th);
+
+    X->grad.add_( rt( gy * 0.0f, X->value) );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void vjp_RELUAtt(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
+    Node* D = n->inputs[3].get();
+
+    Tensor q = n->tape[0] ? *n->tape[0] : Tensor();
+    Tensor k = n->tape[1] ? *n->tape[1] : Tensor();
+    Tensor v = n->tape[2] ? *n->tape[2] : Tensor();
+    float scale = 1.0f / std::sqrt(float(k.cols()));
+    Tensor s = n->tape[3] ? *n->tape[3] : Tensor();
+
+    // ---- Backprop chain ----
+
+    // y = s v
+    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+
+    // s = softmax(g)
+    Tensor dL_dg; 
+    {
+        Tensor dot = Tensor::relu_mask(s )* dL_ds;
+        dL_dg = dot;
+    }
+
+    // g = q k^T
+    Tensor dL_dq = Tensor::matmul(dL_dg, k);
+    Tensor dL_dk = Tensor::matmul(Tensor::transpose(dL_dg), q);
+
+// q = A B^T
+Tensor dL_dA_q = Tensor::matmul(dL_dq, B->value) * scale;
+Tensor dL_dB   = Tensor::matmul(Tensor::transpose(dL_dq), A->value) * scale;
+
+// k = A C^T
+Tensor dL_dA_k = Tensor::matmul(dL_dk, C->value) * scale;
+Tensor dL_dC   = Tensor::matmul(Tensor::transpose(dL_dk), A->value) * scale;
+
+// v = A D^T
+Tensor dL_dA_v = Tensor::matmul(dL_dv, D->value);
+Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
+
+    // combine A contributions
+    Tensor dL_dA = dL_dA_q + dL_dA_k + dL_dA_v;
+
+    // ---- Accumulate ----
+    if (A->requires_grad) A->grad.add_(dL_dA);
+    if (B->requires_grad) B->grad.add_(dL_dB);
+    if (C->requires_grad) C->grad.add_(dL_dC);
+    if (D->requires_grad) D->grad.add_(dL_dD);
+
+
+}
+
+
+
+
+
+
+void vjp_MOE(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    Node* W = n->inputs[1].get();
+    Node* B = n->inputs[2].get();
+
+    Tensor y = Tensor::matmul(X->value, Tensor::transpose(W->value)) + B->value; 
+
+    Tensor dL_dB = gy;
+    Tensor dL_dW = Tensor::matmul(Tensor::transpose(gy), X->value);
+    Tensor dL_dX = Tensor::matmul(gy, W->value);
+
+    if (X->requires_grad) X->grad.add_(dL_dX);
+    if (W->requires_grad) W->grad.add_(dL_dW);
+    if (B->requires_grad) B->grad.add_(dL_dB);
+
+}
+
+
+
+void vjp_SigAtt(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
+    Node* D = n->inputs[3].get();
+
+    Tensor q = n->tape[0] ? *n->tape[0] : Tensor();
+    Tensor k = n->tape[1] ? *n->tape[1] : Tensor();
+    Tensor v = n->tape[2] ? *n->tape[2] : Tensor();
+    float scale = 1.0f / std::sqrt(float(k.cols()));
+    Tensor s = n->tape[3] ? *n->tape[3] : Tensor();
+
+    // ---- Backprop chain ----
+
+    // y = s v
+    Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));   // [B x B]
+    Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);   // [A x D]
+
+    // s = softmax(g)
+    Tensor dL_dg; 
+    {
+        Tensor dot = ( s * (Tensor::ones_like(s)-s))* dL_ds;
+
+        dL_dg = dot;
+    }
+
+    // g = q k^T
+    Tensor dL_dq = Tensor::matmul(dL_dg, k);
+    Tensor dL_dk = Tensor::matmul(Tensor::transpose(dL_dg), q);
+
+// q = A B^T
+Tensor dL_dA_q = Tensor::matmul(dL_dq, B->value) * scale;
+Tensor dL_dB   = Tensor::matmul(Tensor::transpose(dL_dq), A->value) * scale;
+
+// k = A C^T
+Tensor dL_dA_k = Tensor::matmul(dL_dk, C->value) * scale;
+Tensor dL_dC   = Tensor::matmul(Tensor::transpose(dL_dk), A->value) * scale;
+
+// v = A D^T
+Tensor dL_dA_v = Tensor::matmul(dL_dv, D->value);
+Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
+
+    // combine A contributions
+    Tensor dL_dA = dL_dA_q + dL_dA_k + dL_dA_v;
+
+    // ---- Accumulate ----
+    if (A->requires_grad) A->grad.add_(dL_dA);
+    if (B->requires_grad) B->grad.add_(dL_dB);
+    if (C->requires_grad) C->grad.add_(dL_dC);
+    if (D->requires_grad) D->grad.add_(dL_dD);
+
+
 }
 
 

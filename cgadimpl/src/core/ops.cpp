@@ -6,6 +6,11 @@
 #include "ad/inplace.hpp"
 
 namespace ag {
+    Value inplace_checkpoint(const Value& v) {
+        if (!v.node) return v;
+        ag::inplace::mark_inplace_checkpoint(v.node);
+        return v;
+    }
 
     Value add(const Value& a, const Value& b){ 
         return Value(detail::add_nodeops(a.node, b.node)); 
@@ -15,19 +20,49 @@ namespace ag {
         
         return Value(detail::sub_nodeops(a.node, b.node)); 
     }
-    Value inplace_checkpoint(const Value& v) {
-        if (!v.node) return v;
-        ag::inplace::mark_inplace_checkpoint(v.node);
-        return v;
-    }
+
 
 
     Value mul(const Value& a, const Value& b){ 
         return Value(detail::mul_nodeops(a.node, b.node)); 
     }
 
+    Value div(const Value& a, const Value& b){ 
+        
+        return Value(detail::div_nodeops(a.node, b.node)); 
+    }
+
+    Value sign(const Value& a, const Value& b){ 
+        return Value(detail::sign_nodeops(a.node)); 
+    }
+
+    Value sinh(const Value& a, const Value& b){ 
+        return Value(detail::sinh_nodeops(a.node)); 
+    }
+
+    Value cosh(const Value& a, const Value& b){ 
+        return Value(detail::cosh_nodeops(a.node)); 
+    }
+
+    Value sin(const Value& a, const Value& b){ 
+        return Value(detail::sin_nodeops(a.node)); 
+    }
+
+    Value cos(const Value& a, const Value& b){ 
+        return Value(detail::cos_nodeops(a.node)); 
+    }
+
+
     Value flomul(const Value& a, float b){ 
         return Value(detail::flomul_nodeops(a.node, b));
+    }
+
+    Value floadd(const Value& a, float b){ 
+        return Value(detail::floadd_nodeops(b, a.node));
+    }
+
+     Value flodiv(const Value& a, float b){ 
+        return Value(detail::flodiv_nodeops(b, a.node));
     }
 
     Value relu(const Value& x){ 
@@ -35,7 +70,41 @@ namespace ag {
         return Value(detail::relu_nodeops(x.node));
     }
 
+    Value reci(const Value& x){ 
+      
+        return Value(detail::reci_nodeops(x.node));
+    }
 
+    Value cos(const Value& x){ 
+      
+        return Value(detail::cos_nodeops(x.node));
+    }
+
+    Value sinh(const Value& x){ 
+      
+        return Value(detail::sinh_nodeops(x.node));
+    }
+
+    Value cosh(const Value& x){ 
+      
+        return Value(detail::cosh_nodeops(x.node));
+    }
+
+
+
+
+    Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
+    return Value(detail::sigatt_nodeops(a.node, b.node, c.node, d.node));
+    }
+
+    Value linear(const Value& a, const Value& b, const Value& c){ 
+        return Value(detail::linear_nodeops(a.node, b.node, c.node)); 
+    }
+
+
+        Value moewe(const Value& x, const Value& w, const Value& b){ 
+        return Value(detail::moewe_nodeops(x.node, w.node, b.node));
+    }
 
 
 
@@ -77,7 +146,7 @@ namespace ag {
     }
     
     Value log(const Value& x){ 
-        return Value(detail::exp_nodeops(x.node));
+        return Value(detail::log_nodeops(x.node));
     }
 
 
@@ -88,7 +157,18 @@ namespace ag {
     Value tanh(const Value& x){ 
         return Value(detail::tanh_nodeops(x.node));
     }
+
     
+    Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
+    return Value(detail::reluatt_nodeops(a.node, b.node, c.node, d.node));
+    }
+
+
+  
+
+
+ 
+
     Value sigmoid(const Value& x){ 
         return Value(detail::sigmoid_nodeops(x.node));
     }

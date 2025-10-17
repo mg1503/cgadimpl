@@ -74,7 +74,8 @@ friend Tensor operator+(float s, const Tensor& a); // scalar scale
 static Tensor relu (const Tensor& x);
 static Tensor relu_mask(const Tensor& x); // 1 where x>0 else 0
 static Tensor transpose(const Tensor& x);
-static Tensor matmul (const Tensor& A, const Tensor& B);
+static Tensor reciprocal(const Tensor &x);
+static Tensor matmul(const Tensor &A, const Tensor &B);
 static Tensor abs (const Tensor& x);
 static Tensor sign (const Tensor& x);
 
@@ -82,6 +83,8 @@ static Tensor sign (const Tensor& x);
 static Tensor reduce_to(const Tensor& G, const Tensor& like);
 static Tensor floten(float q);
 static Tensor alibi(int rows, int cols, float m); // m = slope factor
+
+static Tensor sinh(const Tensor &x);
 
 // elementwise unary
 static Tensor exp(const Tensor& x);
