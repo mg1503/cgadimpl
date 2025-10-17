@@ -38,3 +38,16 @@ OP(Dyntanh,      4,    "dyntanh")
 OP(RealLayerNorm,      4,    "reallayernorm") 
 OP(AlibiAttention,      3,    "alibiattention")
 OP(RealRMSNorm,      1,    "rmsnorm")
+OP(Div,       2,    "mul")
+OP(Reciprocal,       1,    "reciprocal")
+OP(Sign, 1, "sign")
+OP(Cosh, 1, "cosh")
+OP(Sinh, 1, "sinh")
+OP(Sqrt, 1, "sqrt")
+OP(Relumask, 1, "relumask")
+OP(Cos, 1, "cosh")
+OP(Sin, 1, "sinh")
+OP(MOE,      3,    "moe") // mixture of experts with weights and bias
+OP(RELUAtt,     4,    "reluatt") // relu attention
+OP(SigAtt,    4,    "sigatt") // sigmoid attention
+OP(Linear, 3, "linear") // linear layer

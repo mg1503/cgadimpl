@@ -75,7 +75,13 @@ Tensor jvp_MatMul(Node* n, const std::function<const Tensor&(Node*)>& t){
     return Tensor::matmul(T(t,A), B->value) + Tensor::matmul(A->value, T(t,B));
 }
 Tensor jvp_FMA(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+        Node* A=n->inputs[0].get(); Node* B=n->inputs[1].get(); 
+    return Tensor::matmul(T(t,A), Tensor::transpose( B->value)) + Tensor::matmul(A->value, T(t,B))+ T(t,n->inputs[2].get());
+}
+
+Tensor jvp_Linear(Node* n, const std::function<const Tensor&(Node*)>& t){
+        Node* A=n->inputs[0].get(); Node* B=n->inputs[1].get(); 
+    return Tensor::matmul(T(t,A), B->value) + Tensor::matmul(A->value, T(t,B))+ T(t,n->inputs[2].get());
 }
 
 Tensor jvp_Attention(Node* n, const std::function<const Tensor
@@ -83,28 +89,93 @@ Tensor jvp_Attention(Node* n, const std::function<const Tensor
     return Tensor();
 }
 
-Tensor jvp_MSELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
+Tensor jvp_AlibiAttention(Node* n, const std::function<const Tensor&(Node*)>& t){
     return Tensor();
+}
+
+Tensor jvp_RELUAtt(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_SigAtt(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+
+
+Tensor jvp_Div(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Reciprocal(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Sign(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+
+Tensor jvp_Sqrt(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Relumask(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Cosh(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Sinh(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+
+
+Tensor jvp_Cos(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+Tensor jvp_Sin(Node* n, const std::function<const Tensor&(Node*)>& t){
+    return Tensor();
+}
+
+Tensor jvp_MOE(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X=n->inputs[0].get(); return T(t,X) * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value)));
+}
+
+Tensor jvp_MSELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* Z = n->inputs[0].get();
+    Node* Y = n->inputs[1].get();
+    int B = Z->value.rows(), C = Z->value.cols();
+    Tensor diff = Z->value - Y->value;
+    Tensor gZ = diff * (2.0f / float(B * C));
+    Tensor gY = -diff * (2.0f / float(B * C));
+    float dotY = (gY * t(Y)).sum_scalar();
+        float dotZ = (gZ * t(Z)).sum_scalar();
+
+    Tensor out(1,1); out(0,0) = dotZ + dotY; return out;
 }
 
 Tensor jvp_MAELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* Z = n->inputs[0].get();
+    Node* Y = n->inputs[1].get();
+    int B = Z->value.rows(), C = Z->value.cols();
+    Tensor diff = Tensor::sign(Z->value - Y->value);
+    Tensor gZ = diff * (1.0f / float(B * C));
+    Tensor gY = -diff * (1.0f / float(B * C));
+    float dotY = (gY * t(Y)).sum_scalar();
+        float dotZ = (gZ * t(Z)).sum_scalar();
+
+    Tensor out(1,1); out(0,0) = dotZ + dotY; return out;
 }
 
 Tensor jvp_GCU(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X=n->inputs[0].get(); return T(t,X) *  (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value)));
 }
 
 Tensor jvp_Parcon(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X=n->inputs[0].get(); return T(t,X) * ( 2 *Tensor::ones_like(X->value)- 2*X->value  );
 }
 
 Tensor jvp_LiSHT(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X=n->inputs[0].get(); return T(t,X) * ( Tensor::tanh(X->value)+ (Tensor::sech(X->value)*Tensor::sech(X->value)*X->value ) );
 }
 
 Tensor jvp_Transpose(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X=n->inputs[0].get(); return Tensor::transpose(T(t,X));
 }
 
 Tensor jvp_SWIGLU(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -112,10 +183,10 @@ Tensor jvp_SWIGLU(Node* n, const std::function<const Tensor&(Node*)>& t){
 }
 
 Tensor jvp_Mish(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X=n->inputs[0].get(); return T(t,X) *(Tensor::tanh( Tensor::softplus(X->value) )-(  (X->value*Tensor::sigmoid(X->value))  / (Tensor::cosh( Tensor::softplus(X->value)*Tensor::cosh( Tensor::softplus(X->value) ))    )            ));
 }
 Tensor jvp_Gaus(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+     Node* X=n->inputs[0].get(); return T(t,X) * -2*X->value*Tensor::exp(-1*X->value*X->value);
 }
 
 Tensor jvp_LayerNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -123,7 +194,14 @@ Tensor jvp_LayerNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
 }
 
 Tensor jvp_RMSNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
+    Node* X = n->inputs[0].get();
+    Tensor rms = *n->tape[0];
+    Tensor y   = *n->tape[1];   // normalized x
+
+    // upstream dot
+    Tensor dot = Tensor::row_sum(T(t,X) * y);  // [batch x 1]
+
+   return  (T(t,X) / rms) - (y * dot / (rms*X->value.cols()));
 }
 
 Tensor jvp_Dyntanh(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -138,9 +216,6 @@ Tensor jvp_RealRMSNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
     return Tensor();
 }
 
-Tensor jvp_AlibiAttention(Node* n, const std::function<const Tensor&(Node*)>& t){
-    return Tensor();
-}
 
 // ---- reductions ----
 Tensor jvp_Sum(Node* n, const std::function<const Tensor&(Node*)>& t){
