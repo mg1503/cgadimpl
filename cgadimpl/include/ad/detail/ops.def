@@ -1,3 +1,6 @@
+// =============================================
+// cgadimpl/include/ad/detail/ops.def
+// =============================================
 // name       arity  string
 OP(Leaf,      0,    "leaf")
 OP(Add,       2,    "add")

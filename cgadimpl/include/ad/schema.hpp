@@ -1,3 +1,6 @@
+// =====================
+// file: cgadimpl/include/ag/schema.hpp (declarations only)
+// =====================
 #pragma once
 #include <cstdint>
 

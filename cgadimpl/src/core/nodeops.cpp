@@ -1,7 +1,40 @@
 // =====================
-// file: src/nodeops.cpp
+// file: cgadimpl/src/nodeops.cpp
+/*
+ *  *****************    ~~~coder guide~~~    *****************/
+//
+//
+// example demonstration of how to use custom kernel implementations
+// for node operations like add, relu, etc.
+// You can implement these functions to call optimized CPU/GPU kernels
+// instead of using the default tensor operations.
+// This is especially useful for performance-critical applications.
+// The following is a skeleton implementation showing where to integrate
+// your custom kernels.
+// something like the below can be done inside each node operation function.
+//
+//
+// *******************************************************
+// std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x) {
+//   const Tensor& xin = x->value;
+//   Tensor y = Tensor::zeros_like(xin);
+//
+//   if (A.is_cpu()) ag::kernels::cpu().relu /*or add*/( /* your CPU args */ );
+//   else            ag::kernels::cuda().relu /*or add*/( /* + current_stream() */ );
+//
+//   auto n = std::make_shared<Node>(y, x->requires_grad, Op::Relu, "relu");
+//   n->inputs = { x };
+//   return n;
+// }
+//
+
+// *******************************************************/
+
 // =====================
 #include "ad/nodeops.hpp"
+#include "ad/runtime.hpp"
+#include "ad/kernels_api.hpp"
+#include <cuda_runtime.h>
 
 
 namespace ag {
@@ -46,15 +79,33 @@ namespace detail {
 
 //     }
 
-std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-        Tensor y = a->value + b->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Add, "+"); 
-        n->inputs = {a, b}; 
-        ag::debug::on_node_created(n); 
-        return n; 
-    }
+// std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
+//         Tensor y = a->value + b->value; 
+//         auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Add, "+"); 
+//         n->inputs = {a, b}; 
+//         ag::debug::on_node_created(n); 
+//         return n; 
+//     }
 
+std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a,
+                                  const std::shared_ptr<Node>& b)
+{
+  const Tensor& A = a->value;
+  const Tensor& B = b->value;
+  Tensor Y = Tensor::zeros_like(A); // shape match
 
+  if (A.is_cpu()) {
+    Y = A + B; // CPU fallback for now
+  } else {
+    ag::kernels::cuda().add(A.data(), B.data(), Y.data(),
+                            (int64_t)Y.numel(), ag::current_stream());
+  }
+
+  auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Add, "add");
+  n->inputs = {a, b};
+  ag::debug::on_node_created(n);
+  return n;
+}
     // std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
  
     //  const Tensor& A = a->value;
@@ -166,26 +217,31 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
 
 
-    std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-         const Tensor& A = a->value;
-         const Tensor& B = b->value;
+std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
+    const Tensor& A = a->value;        // (M, K)
+    const Tensor& B = b->value;        // (K, N)
+    const int M = A.rows();
+    const int K = A.cols();
+    const int N = B.cols();
 
-         auto [M,K]  = A.shape();
-         auto [K2,N] = B.shape();
-         if (K != K2) throw std::runtime_error("matmul: inner dims mismatch");
+    Tensor Y(M, N); // allocate output (CPU-only Tensor for now)
 
-         Tensor C({M,N});
-
-         auto* fn = ag::kernels::cpu().matmul;
-         if (!fn) throw std::runtime_error("No CPU MatMul kernel registered");
-         fn(A.data(), B.data(), C.data(), M, K, N);
-
-         auto n = std::make_shared<Node>(C,
-             (a->requires_grad || b->requires_grad),
-             Op::MatMul, "matmul");
-         n->inputs = { a, b };
-         return n;
+    if (A.is_cpu()) {
+        ag::kernels::cpu().matmul(A.data(), B.data(), Y.data(), M, K, N);
+        std::cout<<"Using CPU MatMul kernel"<<std::endl;
+    } else {
+        ag::kernels::cuda().matmul(A.data(), B.data(), Y.data(), M, K, N,
+                                   ag::current_stream());
+        std::cout<<"Using CUDA MatMul kernel"<<std::endl;
     }
+
+    auto n = std::make_shared<Node>(Y,
+                                    a->requires_grad || b->requires_grad,
+                                    Op::MatMul, "matmul");
+    n->inputs = {a, b};
+    ag::debug::on_node_created(n);
+    return n;
+}
     // std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
     //     const Tensor& A = a->value;
     //      const Tensor& B = b->value;

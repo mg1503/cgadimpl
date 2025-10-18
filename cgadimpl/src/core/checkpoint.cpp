@@ -1,4 +1,6 @@
-// src/core/checkpoint.cpp
+// =============================================
+// cgadimpl/src/core/checkpoint.cpp
+// =============================================
 // Core checkpointing logic (manual + auto) for cgadimpl
 // - mark_node_checkpoint: mark node and save minimal inputs (Value objects)
 // - recompute_subgraph: restore inputs and re-run forward-eval for the node

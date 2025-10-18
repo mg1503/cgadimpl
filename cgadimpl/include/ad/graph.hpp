@@ -1,5 +1,5 @@
 // =====================
-// file: include/ag/graph.hpp (declarations only)
+// file: cgadimpl/include/ag/graph.hpp (declarations only)
 // =====================
 #pragma once
 #include <memory>

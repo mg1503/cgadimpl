@@ -1,4 +1,6 @@
-// src/autodiff.cpp
+// =============================================
+// cgadimpl/src/core/autodiff.cpp
+// =============================================
 #include <unordered_map>
 #include <stdexcept>
 #include "ad/autodiff.hpp"
@@ -41,6 +43,7 @@ void backward(const Value& root, const Tensor* grad_seed){
 }
 
 Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
+    if (!root.node) return Tensor{};
     auto order = topo_from(root.node.get());
     std::unordered_map<Node*, Tensor> T;
     T.reserve(order.size());

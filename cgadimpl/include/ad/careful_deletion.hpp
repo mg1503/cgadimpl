@@ -1,3 +1,6 @@
+// =============================================
+// cgadimpl/include/ad/careful_deletion.hpp
+// =============================================
 #pragma once
 #include "ad/graph.hpp"
 #include <unordered_set>

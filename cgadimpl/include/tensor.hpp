@@ -1,5 +1,5 @@
 // =====================
-// file: include/ag/tensor.hpp (declarations only)
+// file: cgadimpl/include/ag/tensor.hpp (declarations only)
 // =====================
 #pragma once
 #include <cstddef>
@@ -17,11 +17,25 @@ public:
 Tensor();
 Tensor(int rows, int cols);
 
+ Tensor(int rows, int cols, bool on_cuda);
+
+  inline bool is_cpu()  const noexcept { return !on_cuda_; }
+  inline bool is_cuda() const noexcept { return on_cuda_; }
+
+  // factories (add optional flag)
+
+inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(g, like); }
 
 // factories
 static Tensor zeros(int r, int c);
 static Tensor ones (int r, int c);
 static Tensor randn(int r, int c, unsigned seed=42);
+
+static Tensor zeros(int r, int c, bool on_cuda);
+static Tensor ones (int r, int c, bool on_cuda);
+static Tensor randn(int r, int c, unsigned seed, bool on_cuda);
+
+
 static Tensor zeros_like(const Tensor& x);
 static Tensor ones_like (const Tensor& x);
 
@@ -127,6 +141,7 @@ friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 private:
 int r{0}, c{0};
 std::vector<float> d; // private storage
+ bool on_cuda_{false};
 };
 
 

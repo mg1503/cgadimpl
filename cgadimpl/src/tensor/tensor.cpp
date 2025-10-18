@@ -1,5 +1,5 @@
 // =====================
-// file: src/tensor.cpp (implementations)
+// file: cgadimpl/src/tensor.cpp (implementations)
 // =====================
 #include <random>
 #include <algorithm>
@@ -35,6 +35,9 @@ inline int pick(int i, int dim){ return dim==1 ? 0 : i; }
 
 Tensor::Tensor() = default;
 Tensor::Tensor(int rows, int cols) : r(rows), c(cols), d(static_cast<std::size_t>(rows)*cols, 0.f) {}
+Tensor::Tensor(int rows, int cols, bool on_cuda)
+  : r(rows), c(cols), d(rows*cols), on_cuda_(on_cuda) {}
+
 
 
 Tensor Tensor::zeros(int r, int c){ return Tensor(r,c); }
@@ -44,8 +47,29 @@ Tensor Tensor::ones (int r, int c){ Tensor t(r,c); std::fill(t.d.begin(), t.d.en
 Tensor Tensor::randn(int r, int c, unsigned seed){ Tensor t(r,c); std::mt19937 gen(seed); std::normal_distribution<float> N(0.f,1.f); 
 for(auto &x: t.d) x = N(gen); 
 return t; }
-Tensor Tensor::zeros_like(const Tensor& x){ return zeros(x.r, x.c); }
-Tensor Tensor::ones_like (const Tensor& x){ return ones (x.r, x.c); }
+
+Tensor Tensor::zeros(int rows, int cols, bool on_cuda) {
+  Tensor t(rows, cols);
+  t.on_cuda_ = on_cuda;
+  std::fill(t.data(), t.data() + t.numel(), 0.f);
+  return t;
+}
+Tensor Tensor::ones(int rows, int cols, bool on_cuda) {
+  Tensor t(rows, cols);
+  t.on_cuda_ = on_cuda;
+  std::fill(t.data(), t.data() + t.numel(), 1.f);
+  return t;
+}
+Tensor Tensor::randn(int rows, int cols, unsigned seed, bool on_cuda) {
+  Tensor t(rows, cols);
+  t.on_cuda_ = on_cuda;
+  std::mt19937 gen(seed);
+  std::normal_distribution<float> dist(0.f, 1.f);
+  for (std::size_t i = 0; i < t.numel(); ++i) t.data()[i] = dist(gen);
+  return t;
+}
+Tensor Tensor::zeros_like(const Tensor& x){ return zeros(x.r, x.c, x.is_cuda()); }
+Tensor Tensor::ones_like (const Tensor& x){ return ones (x.r, x.c, x.is_cuda()); }
 
 Tensor Tensor::floten (float q){
     Tensor t(1,1);

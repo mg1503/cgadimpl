@@ -1,11 +1,4 @@
-#include <iostream>
-#include <random>
-#include "ad/ag_all.hpp"
-#include "ad/export_hlo.hpp"
 
-#include <iomanip>
-#include <fstream>
-#include <filesystem>
 // ==========================================================================
 // CSV dump utilities
 // ==========================================================================
@@ -41,6 +34,18 @@
 // {
 //     write_csv_tensor(v.grad(), dir + "/" + label + "_grad.csv");
 // }
+
+//=========================================================================
+// MLP test
+//========================================================================= 
+#include <iostream>
+#include <random>
+#include "ad/ag_all.hpp"
+#include "ad/export_hlo.hpp"
+
+#include <iomanip>
+#include <fstream>
+#include <filesystem>
 
 
 // ==========================================================================

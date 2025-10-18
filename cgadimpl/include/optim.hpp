@@ -1,5 +1,5 @@
 // =====================
-// file: include/ag/optim.hpp (declarations only)
+// file: cgadimpl/include/ag/optim.hpp (declarations only)
 // =====================
 #pragma once
 #include "ad/ops.hpp"

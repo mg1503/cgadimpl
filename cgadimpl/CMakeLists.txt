@@ -1,3 +1,6 @@
+# ====================
+# cgadimpl/CMakeLists.txt
+# ====================
 cmake_minimum_required(VERSION 3.20)
 project(cgadimpl LANGUAGES CXX)
 
@@ -91,12 +94,15 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_mlp           tests/test_mlp.cpp)
   add_ag_test(test_complex_mlp   tests/test_complex_mlp.cpp)
   target_compile_definitions(test_complex_mlp PRIVATE AG_EXPOSE_AUTODIFF_RULES)
+  add_ag_test(test_bench_relu    tests/bench_relu.cpp)
+  add_ag_test(test_tiny_handcalc tests/tiny_handcalc.cpp)
   add_ag_test(test_graph_compile tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test      tests/test.cpp)
   add_ag_test(test_checkpoint    tests/test_checkpoint.cpp)
   add_ag_test(test_inplace      tests/test_inplace.cpp)
   add_ag_test(test_careful_deletion tests/test_careful_deletion.cpp)
   add_ag_test(test_version           tests/test_version.cpp)
+  add_ag_test(test_nodeops          tests/test_nodeops.cpp)
   # add_ag_test(smoke_all        tests/smoke_all.cpp)
 endif()
 

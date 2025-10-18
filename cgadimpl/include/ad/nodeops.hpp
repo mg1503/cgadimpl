@@ -1,5 +1,5 @@
 // =====================
-// file: include/ag/detail/nodeops.hpp
+// file: cgadimpl/include/ag/detail/nodeops.hpp
 // =====================
 #pragma once
 
