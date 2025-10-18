@@ -1,12 +1,15 @@
 // cgadimpl/kernels/cpu/src/adkernels_cpu.cpp
 #include "ad/kernels_api.hpp"
 #include "matker.cuh"
-// adkernels_cpu.cpp  (extract: elementwise backward section)
 #include <immintrin.h>
 #include <omp.h>
 #include <cstdint>
 #include <cmath>
 #include <cstddef>
+#include <cassert>
+#include <vector>
+#include <cstring>
+#include <algorithm>
 
 extern "C" {
 
@@ -271,6 +274,163 @@ void matmul_bwd_dB_impl_optimized(const float* A, const float* dC, float* dB, in
             }
             dB[k*N + n] = sum;
         }
+    }
+}
+// Compute dW = X^T @ dY   (In x Out)  ; X (B x In), dY (B x Out)
+void linear_dW_impl_optimized(const float* X, const float* dY, float* dW,
+                              int B, int In, int Out) {
+    assert(X && dY && dW);
+    if (B <= 0 || In <= 0 || Out <= 0) return;
+
+    const int TILE_I = 32;   // tile over In (rows of dW)
+    const int TILE_O = 64;   // tile over Out (cols of dW)
+    const int TILE_B = 64;   // accumulate blocks of batch
+    const int VEC = 8;
+    
+    // Zero dW
+    std::fill(dW, dW + (size_t)In * Out, 0.0f);
+
+    // For each block of (i0..i1) x (o0..o1) compute partial sums
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int i0 = 0; i0 < In; i0 += TILE_I) {
+        for (int o0 = 0; o0 < Out; o0 += TILE_O) {
+            int i1 = std::min(i0 + TILE_I, In);
+            int o1 = std::min(o0 + TILE_O, Out);
+
+            // Use a local buffer to accumulate over B blocks to reduce contention
+            std::vector<float> local((size_t)(i1 - i0) * (o1 - o0));
+            std::fill(local.begin(), local.end(), 0.0f);
+
+            for (int b0 = 0; b0 < B; b0 += TILE_B) {
+                int b1 = std::min(b0 + TILE_B, B);
+
+                for (int b = b0; b < b1; ++b) {
+                    const float* Xrow = X + (size_t)b * In;
+                    const float* DYrow = dY + (size_t)b * Out;
+
+                    // accumulate into local[(i-i0)*(o1-o0) + (o-o0)]
+                    for (int i = i0; i < i1; ++i) {
+                        __m256 x_bcast = _mm256_set1_ps(Xrow[i]);
+                        int o = o0;
+                        // vector loop
+                        for (; o + VEC <= o1; o += VEC) {
+                            __m256 dy_vec = _mm256_loadu_ps(DYrow + o);
+                            __m256 acc = _mm256_loadu_ps(&local[(i - i0) * (o1 - o0) + (o - o0)]);
+                            acc = _mm256_fmadd_ps(x_bcast, dy_vec, acc);
+                            _mm256_storeu_ps(&local[(i - i0) * (o1 - o0) + (o - o0)], acc);
+                        }
+                        for (; o < o1; ++o) {
+                            local[(i - i0) * (o1 - o0) + (o - o0)] += Xrow[i] * DYrow[o];
+                        }
+                    }
+                } // b block
+            } // b0
+
+            // write local into global dW
+            for (int i = i0; i < i1; ++i) {
+                float* dWrow = dW + (size_t)i * Out;
+                int o = o0;
+                // vector copy
+                for (; o + VEC <= o1; o += VEC) {
+                    __m256 v = _mm256_loadu_ps(&local[(i - i0) * (o1 - o0) + (o - o0)]);
+                    __m256 orig = _mm256_loadu_ps(dWrow + o);
+                    orig = _mm256_add_ps(orig, v);
+                    _mm256_storeu_ps(dWrow + o, orig);
+                }
+                for (; o < o1; ++o) dWrow[o] += local[(i - i0) * (o1 - o0) + (o - o0)];
+            }
+        }
+    }
+}
+
+// Compute dX = dY @ W^T   (B x In) ; dY (B x Out), W (In x Out)
+void linear_dX_impl_optimized(const float* dY, const float* W, float* dX,
+                              int B, int In, int Out) {
+    assert(dY && W && dX);
+    if (B <= 0 || In <= 0 || Out <= 0) return;
+
+    const int TILE_B = 32;
+    const int TILE_I = 32;
+    const int TILE_O = 64;
+    const int VEC = 8;
+
+    // Zero dX
+    #pragma omp parallel for schedule(static)
+    for (int b = 0; b < B; ++b) {
+        float* dxrow = dX + (size_t)b * In;
+        for (int i = 0; i < In; ++i) dxrow[i] = 0.0f;
+    }
+
+    // We compute for each b and i: dX[b,i] += sum_o dY[b,o] * W[i,o]
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int b0 = 0; b0 < B; b0 += TILE_B) {
+        for (int i0 = 0; i0 < In; i0 += TILE_I) {
+            int b1 = std::min(b0 + TILE_B, B);
+            int i1 = std::min(i0 + TILE_I, In);
+
+            for (int o0 = 0; o0 < Out; o0 += TILE_O) {
+                int o1 = std::min(o0 + TILE_O, Out);
+
+                for (int b = b0; b < b1; ++b) {
+                    const float* dyrow = dY + (size_t)b * Out;
+                    float* dxrow = dX + (size_t)b * In;
+
+                    for (int i = i0; i < i1; ++i) {
+                        // compute dot(dyrow[o0..o1), W[i*Out + o0..o1))
+                        __m256 acc = _mm256_setzero_ps();
+                        int o = o0;
+                        for (; o + VEC <= o1; o += VEC) {
+                            __m256 dy_vec = _mm256_loadu_ps(dyrow + o);
+                            __m256 w_vec  = _mm256_loadu_ps(W + (size_t)i * Out + o);
+                            acc = _mm256_fmadd_ps(dy_vec, w_vec, acc);
+                        }
+                        float tmp[VEC];
+                        _mm256_storeu_ps(tmp, acc);
+                        float sum = tmp[0]+tmp[1]+tmp[2]+tmp[3]+tmp[4]+tmp[5]+tmp[6]+tmp[7];
+                        for (; o < o1; ++o) sum += dyrow[o] * W[i * Out + o];
+                        dxrow[i] += sum;
+                    }
+                } // b
+            } // o0
+        } // i0
+    } // b0
+}
+
+// Compute db = sum_rows(dY)  (1 x Out)
+void linear_db_impl_optimized(const float* dY, float* db, int B, int Out) {
+    assert(dY && db);
+    if (B <= 0 || Out <= 0) return;
+
+    const int VEC = 8;
+    // zero
+    std::fill(db, db + Out, 0.0f);
+
+    // Accumulate in parallel with per-thread local buffer to avoid atomic adds
+    int num_threads = omp_get_max_threads();
+    std::vector<std::vector<float>> local(num_threads, std::vector<float>(Out, 0.0f));
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        auto &loc = local[tid];
+
+        #pragma omp for schedule(static)
+        for (int b = 0; b < B; ++b) {
+            const float* dyrow = dY + (size_t)b * Out;
+            int o = 0;
+            for (; o + VEC <= Out; o += VEC) {
+                __m256 v = _mm256_loadu_ps(dyrow + o);
+                __m256 cur = _mm256_loadu_ps(&loc[o]);
+                cur = _mm256_add_ps(cur, v);
+                _mm256_storeu_ps(&loc[o], cur);
+            }
+            for (; o < Out; ++o) loc[o] += dyrow[o];
+        } // for b
+    } // parallel
+
+    // reduce locals into db
+    for (int t = 0; t < num_threads; ++t) {
+        for (int o = 0; o < Out; ++o) db[o] += local[t][o];
     }
 }
 } // extern "C"

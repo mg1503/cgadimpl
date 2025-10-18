@@ -40,8 +40,8 @@
 #include <immintrin.h>
 #include <omp.h>
 #include "matker.cuh"
-
-
+#include <cstdio>
+#include <cassert>
 extern "C" {
 
 // ---------------- Optimized Implementations ----------------
@@ -653,6 +653,67 @@ void pow_impl_optimized(const float* x, float* y, int64_t n, float exponent) {
         }
     }
 }
+void linear_impl_optimized(const float* X, const float* W, const float* b, float* Y,
+                           int B, int In, int Out) {
+    assert(X != nullptr && W != nullptr && Y != nullptr);
+    if (B <= 0 || In <= 0 || Out <= 0) return;
+
+    // Tunable tile sizes (good starting points)
+    constexpr int TILE_B = 16;  // tile over batch
+    constexpr int TILE_O = 64;  // tile over output (columns)
+    constexpr int TILE_I = 64;  // tile over input (k)
+
+    const int VEC = 8; // AVX2 vector width
+
+    // Initialize output with bias if provided, otherwise zero
+    #pragma omp parallel for schedule(static)
+    for (int bi = 0; bi < B; ++bi) {
+        float* Yrow = Y + (size_t)bi * Out;
+        if (b) {
+            for (int j = 0; j < Out; ++j) Yrow[j] = b[j];
+        } else {
+            for (int j = 0; j < Out; ++j) Yrow[j] = 0.0f;
+        }
+    }
+
+    // Blocked matmul-like accumulation: for each block of batch x out, accumulate over In
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int b0 = 0; b0 < B; b0 += TILE_B) {
+        for (int o0 = 0; o0 < Out; o0 += TILE_O) {
+            int b1 = std::min(b0 + TILE_B, B);
+            int o1 = std::min(o0 + TILE_O, Out);
+
+            for (int k0 = 0; k0 < In; k0 += TILE_I) {
+                int k1 = std::min(k0 + TILE_I, In);
+
+                // Process the tile (b0..b1) x (o0..o1), accumulating over k0..k1
+                for (int bi = b0; bi < b1; ++bi) {
+                    const float* Xrow = X + (size_t)bi * In;
+                    float* Yrow = Y + (size_t)bi * Out;
+
+                    for (int k = k0; k < k1; ++k) {
+                        // broadcast X[bi,k]
+                        __m256 a_vec = _mm256_set1_ps(Xrow[k]);
+                        const float* Wrow = W + (size_t)k * Out; // W[k, 0..Out-1]
+
+                        int oj = o0;
+                        // vectorized loop over outputs
+                        for (; oj + VEC <= o1; oj += VEC) {
+                            __m256 w_vec = _mm256_loadu_ps(Wrow + oj);
+                            __m256 y_vec = _mm256_loadu_ps(Yrow + oj);
+                            y_vec = _mm256_fmadd_ps(a_vec, w_vec, y_vec); // y += a * w
+                            _mm256_storeu_ps(Yrow + oj, y_vec);
+                        }
+                        // scalar tail
+                        for (; oj < o1; ++oj) {
+                            Yrow[oj] += Xrow[k] * Wrow[oj];
+                        }
+                    } // k
+                } // bi
+            } // k0
+        } // o0
+    } // b0
+}
 // ---------------- required export ----------------
 // This part exports the new optimized functions.
 AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
@@ -670,6 +731,7 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
     out->log = &log_impl_optimized; 
     out->sqrt = &sqrt_impl_optimized;
     out->pow = &pow_impl_optimized;  
+    out->linear = &linear_impl_optimized;
   //backwards
     out->relu_bwd = &relu_bwd_impl_optimized;
     out->leakyrelu_bwd = &leakyrelu_bwd_impl_optimized;
@@ -682,6 +744,9 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
     out->sqrt_bwd_from_y = &sqrt_bwd_impl_optimized_from_y;
     out->matmul_bwd_dA = &matmul_bwd_dA_impl_optimized;
     out->matmul_bwd_dB = &matmul_bwd_dB_impl_optimized;
+    out->linear_dW = &linear_dW_impl_optimized;
+    out->linear_dX = &linear_dX_impl_optimized;
+    out->linear_db = &linear_db_impl_optimized;
   return 0;
 }
 
