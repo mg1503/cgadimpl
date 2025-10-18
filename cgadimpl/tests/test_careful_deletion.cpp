@@ -225,7 +225,7 @@ bool allclose(const Tensor& A, const Tensor& B, float tol = 1e-5f) {
 
 int main() {
     std::cout << "===== COMPLEX CAREFUL DELETION TEST =====\n";
-
+ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
     // -------------------------------------------------------------
     // 1️⃣ BUILD A COMPLEX COMPUTATION GRAPH
     // -------------------------------------------------------------

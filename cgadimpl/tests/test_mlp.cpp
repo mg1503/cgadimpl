@@ -99,12 +99,13 @@ static inline ag::Value mse_loss(const ag::Value& pred, const ag::Value& target)
 
 
 int main() {
+    // ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
     // ----- Shapes (tweak freely) -----
     const int B = 4;     // batch
     const int In = 8;    // input dim
-    const int H1 = 32;
-    const int H2 = 32;
-    const int H3 = 16;
+    const int H1 = 8;
+    const int H2 = 8;
+    const int H3 = 8;
     const int Out = 10;  // classes
 
     // ----- Data -----
@@ -161,7 +162,7 @@ int main() {
     // dump_csv_val("logits", logits);
     // dump_csv_val("Y", Y);
 
-    ag::hlo::dump_stablehlo(loss, "build/graph_stablehlo.mlir");
+    // ag::hlo::dump_stablehlo(loss, "build/graph_stablehlo.mlir");
 
     // ----- Backprop -----
     zero_grad(loss);
