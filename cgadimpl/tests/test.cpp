@@ -65,7 +65,8 @@ static void print_tensor(const char* name, const ag::Tensor& t) {
 
 int main() {
   ag::Tensor cpu = ag::Tensor::ones(2, 3);                        // default CPU
- ag::Tensor gpu = ag::Tensor::ones(2, 3, /*on_cuda=*/true);      // pretend CUDA
+//  ag::Tensor gpu = ag::Tensor::ones(2, 3, /*on_cuda=*/true);      // pretend CUDA
+ag::Tensor gpu = ag::Tensor::ones(2, 3, ag::Device::CUDA);
   ag::Tensor cpu2 = ag::Tensor::zeros_like(cpu);
   ag::Tensor gpu2 = ag::Tensor::zeros_like(gpu);
 

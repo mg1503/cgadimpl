@@ -1,5 +1,5 @@
 // ====================================================================
-// FILE: cgadimpl/src/tensor/tensor.cpp (The New Device-Aware Version)
+// FILE: cgadimpl/src/tensor/tensor.cpp (The Complete and Correct Version)
 // ====================================================================
 #include "tensor.hpp"
 #include <random>
@@ -8,6 +8,7 @@
 #include <ostream>
 #include <iomanip>
 #include <cmath>
+#include <numeric>
 #include <cuda_runtime.h>
 
 #define CUDA_CHECK(call) \
@@ -122,60 +123,304 @@ Tensor& Tensor::add_(const Tensor& g) {
     if (is_cpu()) {
         for(size_t i=0; i<numel(); ++i) data()[i] += g.data()[i];
     } else {
-        // Here we would call an 'add' kernel. For now, we error.
         throw std::runtime_error("add_ for CUDA not implemented yet");
     }
     return *this;
 }
 
-// --- ALL OTHER FUNCTIONS ARE NOW CPU-ONLY (will throw error if called on GPU tensor) ---
+// --- Math Functions (CPU-only implementations) ---
 #define REQUIRE_CPU(tensor, func_name) \
     if ((tensor).is_cuda()) throw std::runtime_error(std::string(func_name) + " is CPU-only for now.")
 
-float Tensor::sum_scalar() const { REQUIRE_CPU(*this, "sum_scalar"); float s=0.f; for(size_t i=0; i<numel(); ++i) s += data()[i]; return s; }
+float Tensor::sum_scalar() const { REQUIRE_CPU(*this, "sum_scalar"); return std::accumulate(data(), data() + numel(), 0.0f); }
 Tensor Tensor::sum_all(const Tensor& X) { REQUIRE_CPU(X, "sum_all"); Tensor y(1,1); y(0,0) = X.sum_scalar(); return y; }
-Tensor operator+(const Tensor& a, const Tensor& b) { REQUIRE_CPU(a, "operator+"); REQUIRE_CPU(b, "operator+"); auto [R,C] = bshape(a.rows(),a.cols(),b.rows(),b.cols()); Tensor y(R,C); for(int i=0;i<R;++i){ int ia=pick(i,a.rows()),ib=pick(i,b.rows()); for(int j=0;j<C;++j){ int ja=pick(j,a.cols()),jb=pick(j,b.cols()); y(i,j)=a(ia,ja)+b(ib,jb);}} return y;}
-Tensor operator-(const Tensor& a, const Tensor& b) { REQUIRE_CPU(a, "operator-"); REQUIRE_CPU(b, "operator-"); /* ... old code ... */ return Tensor();}
-Tensor operator*(const Tensor& a, const Tensor& b) { REQUIRE_CPU(a, "operator*"); REQUIRE_CPU(b, "operator*"); /* ... old code ... */ return Tensor();}
-Tensor operator-(const Tensor& x) { REQUIRE_CPU(x, "unary-"); /* ... old code ... */ return Tensor();}
-Tensor operator*(const Tensor& a, float s) { REQUIRE_CPU(a, "scalar*"); /* ... old code ... */ return Tensor();}
+
+Tensor operator+(const Tensor& a, const Tensor& b) {
+    REQUIRE_CPU(a, "operator+"); REQUIRE_CPU(b, "operator+");
+    auto [R,C] = bshape(a.rows(),a.cols(),b.rows(),b.cols());
+    Tensor y(R,C);
+    for(int i=0;i<R;++i){
+        int ia=pick(i,a.rows()), ib=pick(i,b.rows());
+        for(int j=0;j<C;++j){
+            int ja=pick(j,a.cols()), jb=pick(j,b.cols());
+            y(i,j)=a(ia,ja)+b(ib,jb);
+        }
+    }
+    return y;
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+    REQUIRE_CPU(a, "operator-"); REQUIRE_CPU(b, "operator-");
+    auto [R,C] = bshape(a.rows(),a.cols(),b.rows(),b.cols());
+    Tensor y(R,C);
+    for(int i=0;i<R;++i){
+        int ia=pick(i,a.rows()), ib=pick(i,b.rows());
+        for(int j=0;j<C;++j){
+            int ja=pick(j,a.cols()), jb=pick(j,b.cols());
+            y(i,j)=a(ia,ja)-b(ib,jb);
+        }
+    }
+    return y;
+}
+
+Tensor operator*(const Tensor& a, const Tensor& b) {
+    REQUIRE_CPU(a, "operator*"); REQUIRE_CPU(b, "operator*");
+    auto [R,C] = bshape(a.rows(),a.cols(),b.rows(),b.cols());
+    Tensor y(R,C);
+    for(int i=0;i<R;++i){
+        int ia=pick(i,a.rows()), ib=pick(i,b.rows());
+        for(int j=0;j<C;++j){
+            int ja=pick(j,a.cols()), jb=pick(j,b.cols());
+            y(i,j)=a(ia,ja)*b(ib,jb);
+        }
+    }
+    return y;
+}
+
+Tensor operator-(const Tensor& x) {
+    REQUIRE_CPU(x, "unary-");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = -x.data()[i];
+    return y;
+}
+
+Tensor operator*(const Tensor& a, float s) {
+    REQUIRE_CPU(a, "scalar*");
+    Tensor y(a.rows(), a.cols());
+    for(size_t i=0; i < a.numel(); ++i) y.data()[i] = a.data()[i] * s;
+    return y;
+}
+
 Tensor operator*(float s, const Tensor& a){ return a*s; }
-Tensor operator+(const Tensor& a, float s){ REQUIRE_CPU(a, "scalar+"); /* ... old code ... */ return Tensor();}
+
+Tensor operator+(const Tensor& a, float s){
+    REQUIRE_CPU(a, "scalar+");
+    Tensor y(a.rows(), a.cols());
+    for(size_t i=0; i < a.numel(); ++i) y.data()[i] = a.data()[i] + s;
+    return y;
+}
+
 Tensor operator+(float s, const Tensor& a){ return a+s; }
-Tensor Tensor::relu (const Tensor& x) { REQUIRE_CPU(x, "relu"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::relu_mask(const Tensor& x) { REQUIRE_CPU(x, "relu_mask"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::transpose(const Tensor& x) { REQUIRE_CPU(x, "transpose"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::reciprocal(const Tensor &x) { REQUIRE_CPU(x, "reciprocal"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::abs (const Tensor& x) { REQUIRE_CPU(x, "abs"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::sign (const Tensor& x) { REQUIRE_CPU(x, "sign"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::reduce_to(const Tensor& G, const Tensor& like) { REQUIRE_CPU(G, "reduce_to"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::sinh(const Tensor &x) { REQUIRE_CPU(x, "sinh"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::exp(const Tensor& x) { REQUIRE_CPU(x, "exp"); /* ... old code ... */ return Tensor();}
-Tensor Tensor::log(const Tensor& x) { REQUIRE_CPU(x, "log"); /* ... old code ... */ return Tensor();}
-// ... etc. for all other math functions ...
-Tensor Tensor::cos(const Tensor& x) { REQUIRE_CPU(x, "cos"); return Tensor(); }
-Tensor Tensor::sin(const Tensor& x) { REQUIRE_CPU(x, "sin"); return Tensor(); }
-Tensor Tensor::cosh(const Tensor& x) { REQUIRE_CPU(x, "cosh"); return Tensor(); }
-Tensor Tensor::sech(const Tensor& x) { REQUIRE_CPU(x, "sech"); return Tensor(); }
-Tensor Tensor::sqrt(const Tensor &x) { REQUIRE_CPU(x, "sqrt"); return Tensor(); }
-Tensor Tensor::tanh(const Tensor& x) { REQUIRE_CPU(x, "tanh"); return Tensor(); }
-Tensor Tensor::sigmoid(const Tensor& x) { REQUIRE_CPU(x, "sigmoid"); return Tensor(); }
-Tensor Tensor::softplus(const Tensor& x) { REQUIRE_CPU(x, "softplus"); return Tensor(); }
-Tensor Tensor::gelu_tanh(const Tensor& x) { REQUIRE_CPU(x, "gelu_tanh"); return Tensor(); }
-Tensor Tensor::leaky_relu(const Tensor& x, float alpha) { REQUIRE_CPU(x, "leaky_relu"); return Tensor(); }
-Tensor operator/(const Tensor& a, const Tensor& b) { REQUIRE_CPU(a, "operator/"); REQUIRE_CPU(b, "operator/"); return Tensor(); }
-Tensor Tensor::row_sum(const Tensor& X) { REQUIRE_CPU(X, "row_sum"); return Tensor(); }
-Tensor Tensor::row_max(const Tensor& X) { REQUIRE_CPU(X, "row_max"); return Tensor(); }
-Tensor Tensor::softmax_row(const Tensor& Z) { REQUIRE_CPU(Z, "softmax_row"); return Tensor(); }
-Tensor Tensor::logsumexp_row(const Tensor& Z) { REQUIRE_CPU(Z, "logsumexp_row"); return Tensor(); }
-Tensor Tensor::mean_all(const Tensor& X) { REQUIRE_CPU(X, "mean_all"); return Tensor(); }
+
+Tensor Tensor::relu(const Tensor& x) {
+    REQUIRE_CPU(x, "relu");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = x.data()[i] > 0.f ? x.data()[i] : 0.f;
+    return y;
+}
+
+Tensor Tensor::relu_mask(const Tensor& x) {
+    REQUIRE_CPU(x, "relu_mask");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = x.data()[i] > 0.f ? 1.f : 0.f;
+    return y;
+}
+
+Tensor Tensor::transpose(const Tensor& x) {
+    REQUIRE_CPU(x, "transpose");
+    Tensor y(x.cols(), x.rows(), x.device());
+    for(int i=0; i < x.rows(); ++i) {
+        for(int j=0; j < x.cols(); ++j) {
+            y(j, i) = x(i, j);
+        }
+    }
+    return y;
+}
+
+Tensor Tensor::reciprocal(const Tensor &x) {
+    REQUIRE_CPU(x, "reciprocal");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = 1.0f / x.data()[i];
+    return y;
+}
+
+Tensor Tensor::abs (const Tensor& x) {
+    REQUIRE_CPU(x, "abs");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::abs(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::sign (const Tensor& x) {
+    REQUIRE_CPU(x, "sign");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = (x.data()[i] > 0.f) ? 1.f : ((x.data()[i] < 0.f) ? -1.f : 0.f);
+    return y;
+}
+
+Tensor Tensor::reduce_to(const Tensor& G, const Tensor& like) {
+    REQUIRE_CPU(G, "reduce_to");
+    if (G.shape() == like.shape()) return G;
+    Tensor out = Tensor::zeros_like(like);
+    if (like.rows() == 1 && like.cols() == 1) { out(0,0) = G.sum_scalar(); return out; }
+    if (like.rows() == 1) { for(int j=0;j<G.cols();++j) for(int i=0;i<G.rows();++i) out(0,j) += G(i,j); return out; }
+    if (like.cols() == 1) { for(int i=0;i<G.rows();++i) for(int j=0;j<G.cols();++j) out(i,0) += G(i,j); return out; }
+    return G;
+}
+
+Tensor Tensor::sinh(const Tensor &x) {
+    REQUIRE_CPU(x, "sinh");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::sinh(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::exp(const Tensor& x) {
+    REQUIRE_CPU(x, "exp");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::exp(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::log(const Tensor& x) {
+    REQUIRE_CPU(x, "log");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::log(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::cos(const Tensor& x) {
+    REQUIRE_CPU(x, "cos");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::cos(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::sin(const Tensor& x) {
+    REQUIRE_CPU(x, "sin");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::sin(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::cosh(const Tensor& x) {
+    REQUIRE_CPU(x, "cosh");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::cosh(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::sech(const Tensor& x) {
+    REQUIRE_CPU(x, "sech");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = 1.0f / std::cosh(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::sqrt(const Tensor &x) {
+    REQUIRE_CPU(x, "sqrt");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::sqrt(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::tanh(const Tensor& x) {
+    REQUIRE_CPU(x, "tanh");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::tanh(x.data()[i]);
+    return y;
+}
+
+Tensor Tensor::sigmoid(const Tensor& x) {
+    REQUIRE_CPU(x, "sigmoid");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = 1.f / (1.f + std::exp(-x.data()[i]));
+    return y;
+}
+
+Tensor Tensor::softplus(const Tensor& x) {
+    REQUIRE_CPU(x, "softplus");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = std::log1p(std::exp(x.data()[i]));
+    return y;
+}
+
+Tensor Tensor::gelu_tanh(const Tensor& x) {
+    REQUIRE_CPU(x, "gelu_tanh");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) {
+        float v = x.data()[i];
+        y.data()[i] = 0.5f * v * (1.0f + std::tanh(sqrtf(2.0f / M_PI) * (v + 0.044715f * v * v * v)));
+    }
+    return y;
+}
+
+Tensor Tensor::leaky_relu(const Tensor& x, float alpha) {
+    REQUIRE_CPU(x, "leaky_relu");
+    Tensor y(x.rows(), x.cols());
+    for(size_t i=0; i < x.numel(); ++i) y.data()[i] = x.data()[i] > 0.f ? x.data()[i] : alpha * x.data()[i];
+    return y;
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+    REQUIRE_CPU(a, "operator/"); REQUIRE_CPU(b, "operator/");
+    auto [R,C] = bshape(a.rows(),a.cols(),b.rows(),b.cols());
+    Tensor y(R,C);
+    for(int i=0;i<R;++i){
+        int ia=pick(i,a.rows()), ib=pick(i,b.rows());
+        for(int j=0;j<C;++j){
+            int ja=pick(j,a.cols()), jb=pick(j,b.cols());
+            y(i,j)=a(ia,ja) / b(ib,jb);
+        }
+    }
+    return y;
+}
+
+Tensor Tensor::row_sum(const Tensor& X) {
+    REQUIRE_CPU(X, "row_sum");
+    Tensor y = Tensor::zeros(X.rows(), 1);
+    for(int i=0; i<X.rows(); ++i) {
+        for(int j=0; j<X.cols(); ++j) {
+            y(i,0) += X(i,j);
+        }
+    }
+    return y;
+}
+
+Tensor Tensor::row_max(const Tensor& X) {
+    REQUIRE_CPU(X, "row_max");
+    Tensor y = Tensor::zeros(X.rows(), 1);
+    for(int i=0; i<X.rows(); ++i) {
+        float max_val = -INFINITY;
+        for(int j=0; j<X.cols(); ++j) {
+            if (X(i,j) > max_val) max_val = X(i,j);
+        }
+        y(i,0) = max_val;
+    }
+    return y;
+}
+
+Tensor Tensor::softmax_row(const Tensor& Z) {
+    REQUIRE_CPU(Z, "softmax_row");
+    Tensor m = Tensor::row_max(Z);
+    Tensor Z_shifted = Z - m;
+    Tensor exp_Z = Tensor::exp(Z_shifted);
+    Tensor sum_exp = Tensor::row_sum(exp_Z);
+    return exp_Z / sum_exp;
+}
+
+Tensor Tensor::logsumexp_row(const Tensor& Z) {
+    REQUIRE_CPU(Z, "logsumexp_row");
+    Tensor m = Tensor::row_max(Z);
+    Tensor Z_shifted = Z - m;
+    Tensor exp_Z = Tensor::exp(Z_shifted);
+    Tensor sum_exp = Tensor::row_sum(exp_Z);
+    return Tensor::log(sum_exp) + m;
+}
+
+Tensor Tensor::mean_all(const Tensor& X) {
+    REQUIRE_CPU(X, "mean_all");
+    Tensor y(1,1);
+    y(0,0) = X.sum_scalar() / X.numel();
+    return y;
+}
 
 // Matmul is the one function we update fully
 Tensor Tensor::matmul(const Tensor &A, const Tensor &B){
     if(A.cols() != B.rows()) throw std::runtime_error("matmul: inner dim mismatch");
     if(A.device() != B.device()) throw std::runtime_error("matmul: device mismatch");
     
-    Tensor Y(A.rows(), B.cols(), A.device());
+    Tensor Y = Tensor::zeros(A.rows(), B.cols(), A.device());
 
     if (A.is_cpu()) {
         for(int i=0;i<A.rows();++i){
@@ -187,8 +432,6 @@ Tensor Tensor::matmul(const Tensor &A, const Tensor &B){
             }
         }
     } else {
-        // This is where we will wire up the kernel in the nodeops file.
-        // For now, this static function will throw.
         throw std::runtime_error("Tensor::matmul for CUDA should be called via nodeops dispatch, not directly.");
     }
     return Y;
@@ -199,7 +442,7 @@ std::ostream& operator<<(std::ostream& os, const Tensor& t) {
         os << "Tensor(" << t.rows() << "x" << t.cols() << ", device=CUDA)";
     } else {
         os << "Tensor (" << t.rows() << "x" << t.cols() << ", device=CPU):\n";
-        for (int i = 0; i < std::min(t.rows(), 10); ++i) { // Print max 10 rows
+        for (int i = 0; i < std::min(t.rows(), 10); ++i) {
             for (int j = 0; j < std::min(t.cols(), 10); ++j) {
                 os << std::setw(10) << std::setprecision(4) << t(i, j) << " ";
             }

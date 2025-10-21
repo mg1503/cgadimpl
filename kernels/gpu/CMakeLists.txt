@@ -49,9 +49,7 @@ target_compile_options(agkernels_cuda PRIVATE
 # target_compile_definitions(agkernels_cuda PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
 
 
-# # ====================================================================
-# # FILE: kernels/gpu/CMakeLists.txt (Updated for custom kernels)
-# # ====================================================================
+# //other approach
 # cmake_minimum_required(VERSION 3.20)
 # project(agkernels_cuda LANGUAGES CXX CUDA)
 

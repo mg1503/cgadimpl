@@ -86,25 +86,26 @@ namespace detail {
 //         ag::debug::on_node_created(n); 
 //         return n; 
 //     }
+std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
+    const Tensor& A = a->value;
+    const Tensor& B = b->value;
+    if (A.device() != B.device()) {
+        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    }
 
-std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a,
-                                  const std::shared_ptr<Node>& b)
-{
-  const Tensor& A = a->value;
-  const Tensor& B = b->value;
-  Tensor Y = Tensor::zeros_like(A); // shape match
+    Tensor Y = Tensor::zeros_like(A); // Create output tensor on the same device
 
-  if (A.is_cpu()) {
-    Y = A + B; // CPU fallback for now
-  } else {
-    ag::kernels::cuda().add(A.data(), B.data(), Y.data(),
-                            (int64_t)Y.numel(), ag::current_stream());
-  }
+    if (A.is_cpu()) {
+        Y = A + B; // Use the old CPU-based operator+
+    } else {
+        // Dispatch to the GPU kernel!
+        ag::kernels::cuda().add(A.data(), B.data(), Y.data(), Y.numel(), ag::current_stream());
+    }
 
-  auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Add, "add");
-  n->inputs = {a, b};
-  ag::debug::on_node_created(n);
-  return n;
+    auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Add, "+");
+    n->inputs = {a, b};
+    ag::debug::on_node_created(n);
+    return n;
 }
     // std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
  
@@ -202,46 +203,86 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a,
     }
 
 
-   std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
-        const Tensor& xin = x->value;
-        Tensor y = Tensor::zeros_like(xin);
+//    std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
+//         const Tensor& xin = x->value;
+//         Tensor y = Tensor::zeros_like(xin);
 
-        auto* fn = ag::kernels::cpu().relu;
-        if (!fn) throw std::runtime_error("No CPU ReLU kernel registered");
-        fn(xin.data(), y.data(), static_cast<int64_t>(xin.numel()));
+//         auto* fn = ag::kernels::cpu().relu;
+//         if (!fn) throw std::runtime_error("No CPU ReLU kernel registered");
+//         fn(xin.data(), y.data(), static_cast<int64_t>(xin.numel()));
 
-        auto n = std::make_shared<Node>(y, x->requires_grad, Op::Relu, "relu");
-        n->inputs = { x };
-        return n;
+//         auto n = std::make_shared<Node>(y, x->requires_grad, Op::Relu, "relu");
+//         n->inputs = { x };
+//         return n;
+//     }
+
+std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
+    const Tensor& X = x->value;
+    Tensor Y = Tensor::zeros_like(X);
+
+    if (X.is_cpu()) {
+        Y = Tensor::relu(X); // Use old CPU-based static method
+    } else {
+        // Dispatch to the GPU kernel!
+        ag::kernels::cuda().relu(X.data(), Y.data(), Y.numel(), ag::current_stream());
     }
 
+    auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Relu, "relu");
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+// std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
+//     const Tensor& A = a->value;        // (M, K)
+//     const Tensor& B = b->value;        // (K, N)
+//     const int M = A.rows();
+//     const int K = A.cols();
+//     const int N = B.cols();
+
+//     Tensor Y(M, N); // allocate output (CPU-only Tensor for now)
+
+//     if (A.is_cpu()) {
+//         ag::kernels::cpu().matmul(A.data(), B.data(), Y.data(), M, K, N);
+//         std::cout<<"Using CPU MatMul kernel"<<std::endl;
+//     } else {
+//         ag::kernels::cuda().matmul(A.data(), B.data(), Y.data(), M, K, N,
+//                                    ag::current_stream());
+//         std::cout<<"Using CUDA MatMul kernel"<<std::endl;
+//     }
+
+//     auto n = std::make_shared<Node>(Y,
+//                                     a->requires_grad || b->requires_grad,
+//                                     Op::MatMul, "matmul");
+//     n->inputs = {a, b};
+//     ag::debug::on_node_created(n);
+//     return n;
+// }
 
 
 std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
-    const Tensor& A = a->value;        // (M, K)
-    const Tensor& B = b->value;        // (K, N)
-    const int M = A.rows();
-    const int K = A.cols();
-    const int N = B.cols();
-
-    Tensor Y(M, N); // allocate output (CPU-only Tensor for now)
-
-    if (A.is_cpu()) {
-        ag::kernels::cpu().matmul(A.data(), B.data(), Y.data(), M, K, N);
-        std::cout<<"Using CPU MatMul kernel"<<std::endl;
-    } else {
-        ag::kernels::cuda().matmul(A.data(), B.data(), Y.data(), M, K, N,
-                                   ag::current_stream());
-        std::cout<<"Using CUDA MatMul kernel"<<std::endl;
+    const Tensor& A = a->value;
+    const Tensor& B = b->value;
+    if (A.device() != B.device()) {
+        throw std::runtime_error("matmul_nodeops: device mismatch between inputs.");
     }
 
-    auto n = std::make_shared<Node>(Y,
-                                    a->requires_grad || b->requires_grad,
-                                    Op::MatMul, "matmul");
+    Tensor C(A.rows(), B.cols(), A.device()); // Create output tensor on the same device
+
+    if (A.is_cpu()) {
+        C = Tensor::matmul(A, B); // Use old CPU-based static method
+    } else {
+        // Dispatch to the GPU kernel!  
+        ag::kernels::cuda().matmul(A.data(), B.data(), C.data(), A.rows(), A.cols(), B.cols(), ag::current_stream());
+    }
+
+    auto n = std::make_shared<Node>(C, a->requires_grad || b->requires_grad, Op::MatMul, "matmul");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);
     return n;
 }
+
+
     // std::shared_ptr<Node> fmab_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){ 
     //     const Tensor& A = a->value;
     //      const Tensor& B = b->value;

@@ -140,9 +140,6 @@ endif()
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
-# We link our library to its own dependencies.
-target_link_libraries(cgadimpl INTERFACE dl ${CUDAToolkit_LIBRARIES})
-
 target_include_directories(cgadimpl PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -153,12 +150,16 @@ if(AG_BUILD_TESTS)
   include(CTest)
   enable_testing()
 
-  # This function is the key.
+  # This function now contains the canonical and correct fix.
   function(add_ag_test name src)
     add_executable(${name} ${src})
-    # We tell EVERY executable to link against our library AND the CUDA libraries.
-    # This is direct, explicit, and cannot fail.
-    target_link_libraries(${name} PRIVATE cgadimpl ${CUDAToolkit_LIBRARIES})
+    
+    # ===================== THIS IS THE CORRECTED LINE =====================
+    # We link against the canonical "CUDA::cudart" target, which is guaranteed
+    # to exist when the CUDA language is enabled in the project() command.
+    target_link_libraries(${name} PRIVATE cgadimpl CUDA::cudart dl)
+    # ======================================================================
+
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
 
