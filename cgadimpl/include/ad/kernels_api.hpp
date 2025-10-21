@@ -1,6 +1,6 @@
-// =============================================
-// cgadimpl/include/ag/kernels_api.hpp
-// =============================================
+// =========================================================
+// FILE: cgadimpl/include/ad/kernels_api.hpp
+// =========================================================
 #pragma once
 #include <cstdint>
 
@@ -46,14 +46,26 @@ typedef void (*ag_exp_cuda_fn)(const float* x, float* y, int64_t n,
                                ag_cuda_stream_t s);
 typedef void (*ag_zero_cuda_fn)(float* x, int64_t n, ag_cuda_stream_t s);
 
+// NEW: VJP (backward) function types for CUDA
+typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
+                                   int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
+                                      const float* A, const float* B,
+                                      int M, int K, int N, ag_cuda_stream_t s);
+
+
 // CUDA function table
 struct ag_cuda_v1 {
   uint32_t abi_version;
+  // Forward ops
   ag_relu_cuda_fn   relu;
   ag_matmul_cuda_fn matmul;
   ag_add_cuda_fn    add;
   ag_exp_cuda_fn    exp;
   ag_zero_cuda_fn   zero;
+  // NEW: Backward ops
+  ag_vjp_add_cuda_fn    vjp_add;
+  ag_vjp_matmul_cuda_fn vjp_matmul;
 };
 
 // Every CUDA plugin must export this symbol.
@@ -78,11 +90,16 @@ void load_cpu_plugin(const char* path);
 
 // ---- NEW: CUDA registry ----
 struct Cuda {
+  // Forward
   ag_relu_cuda_fn   relu   = nullptr;
   ag_matmul_cuda_fn matmul = nullptr;
-  ag_add_cuda_fn    add    = nullptr;   // NEW
-  ag_exp_cuda_fn    exp    = nullptr;   // NEW
-  ag_zero_cuda_fn   zero   = nullptr;   // NEW
+  ag_add_cuda_fn    add    = nullptr;
+  ag_exp_cuda_fn    exp    = nullptr;
+  ag_zero_cuda_fn   zero   = nullptr;
+  
+  // NEW: Backward
+  ag_vjp_add_cuda_fn    vjp_add = nullptr;
+  ag_vjp_matmul_cuda_fn vjp_matmul = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

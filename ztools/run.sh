@@ -77,10 +77,6 @@ cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
 
 # Locate plugin
 PLUGIN_CANDIDATES=(
-  "$KERNELS_BUILD/gpu/libagkernels_cuda.${SO_SUFFIX}"
-  "$KERNELS_BUILD/gpu/${BUILD_TYPE}/libagkernels_cuda.${SO_SUFFIX}"
-  "$KERNELS_BUILD/libagkernels_cuda.${SO_SUFFIX}"
-  "$KERNELS_BUILD/agkernels_cuda.${SO_SUFFIX}"
 
   "$KERNELS_BUILD/cpu/libagkernels_cpu.${SO_SUFFIX}"
   "$KERNELS_BUILD/cpu/agkernels_cpu.${SO_SUFFIX}"
@@ -96,6 +92,14 @@ done
 
 STAGED_PLUGIN="$CORE_BUILD/$(basename "$PLUGIN_PATH")"
 cp -f "$PLUGIN_PATH" "$STAGED_PLUGIN"
+
+# Stage CUDA plugin if present
+CUDA_CANDIDATES=(
+  "$KERNELS_BUILD/gpu/libagkernels_cuda.${SO_SUFFIX}"
+  "$KERNELS_BUILD/gpu/${BUILD_TYPE}/libagkernels_cuda.${SO_SUFFIX}"
+  "$KERNELS_BUILD/gpu/agkernels_cuda.${SO_SUFFIX}"
+  "$KERNELS_BUILD/libagkernels_cuda.${SO_SUFFIX}"
+)
 
 
 CUDA_PLUGIN=""

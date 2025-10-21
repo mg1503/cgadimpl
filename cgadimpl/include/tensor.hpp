@@ -7,9 +7,7 @@
 #include <vector>
 #include <iosfwd> // for std::ostream forward decl
 
-
 namespace ag {
-
 
 class Tensor {
 public:
@@ -35,7 +33,6 @@ static Tensor zeros(int r, int c, bool on_cuda);
 static Tensor ones (int r, int c, bool on_cuda);
 static Tensor randn(int r, int c, unsigned seed, bool on_cuda);
 
-
 static Tensor zeros_like(const Tensor& x);
 static Tensor ones_like (const Tensor& x);
 
@@ -47,7 +44,7 @@ inline const float* data() const noexcept { return d.data(); }
 inline std::size_t numel() const noexcept { return d.size(); }
 // (If you ever change storage layout, a safe equivalent is:
 // inline std::size_t numel() const noexcept {
-//   return static_cast<std::size_t>(r) * static_cast<std::size_t>(c);
+//   return static_caststd::size_t(r) * static_caststd::size_t(c);
 // })
 
 // shape/info
@@ -56,20 +53,16 @@ int cols() const;
 std::pair<int,int> shape() const;
 std::size_t size() const;
 
-
 // element access
 float& operator()(int i, int j);
 const float& operator()(int i, int j) const;
 
-
 // grad accumulation utility
 Tensor& add_(const Tensor& g);
-
 
 // reductions
 float sum_scalar() const;
 static Tensor sum_all(const Tensor& X);
-
 
 // Broadcasting-aware elementwise ops (NumPy-style for 2D):
 // result shape: (max(r), max(c)); dimensions must match or be 1.
@@ -84,7 +77,6 @@ friend Tensor operator*(float s, const Tensor& a); // scalar scale
 friend Tensor operator+(const Tensor& a, float s); // scalar scale
 friend Tensor operator+(float s, const Tensor& a); // scalar scale
 
-
 static Tensor relu (const Tensor& x);
 static Tensor relu_mask(const Tensor& x); // 1 where x>0 else 0
 static Tensor transpose(const Tensor& x);
@@ -93,7 +85,7 @@ static Tensor matmul(const Tensor &A, const Tensor &B);
 static Tensor abs (const Tensor& x);
 static Tensor sign (const Tensor& x);
 
-// Reduce G to the shape of `like` by summing broadcasted axes.
+// Reduce G to the shape of like by summing broadcasted axes.
 static Tensor reduce_to(const Tensor& G, const Tensor& like);
 static Tensor floten(float q);
 static Tensor alibi(int rows, int cols, float m); // m = slope factor
@@ -116,20 +108,16 @@ static Tensor softplus(const Tensor& x);
 static Tensor gelu_tanh(const Tensor& x); // tanh approx
 static Tensor leaky_relu(const Tensor& x, float alpha);
 
-
 // binary elementwise division (broadcasting)
 friend Tensor operator/(const Tensor& a, const Tensor& b);
-
 
 // rowwise reductions (produce [R,1])
 static Tensor row_sum(const Tensor& X);
 static Tensor row_max(const Tensor& X);
 
-
 // softmax family (rowwise)
 static Tensor softmax_row(const Tensor& Z);
 static Tensor logsumexp_row(const Tensor& Z);
-
 
 // averages
 static Tensor mean_all(const Tensor& X);
@@ -137,12 +125,131 @@ static Tensor mean_all(const Tensor& X);
 // debug print
 friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
 
-
 private:
 int r{0}, c{0};
 std::vector<float> d; // private storage
- bool on_cuda_{false};
+bool on_cuda_{false};
 };
 
-
 } // namespace ag
+
+
+// // ====================================================================
+// // FILE: cgadimpl/include/ad/tensor.hpp (Your code, refactored 1-to-1)
+// // ====================================================================
+// #pragma once
+// #include <cstddef>
+// #include <utility>
+// #include <vector>
+// #include <iosfwd>
+// #include <memory> // Added for shared_ptr
+
+// namespace ag {
+
+// // The new Device enum, replacing the bool on_cuda_
+// enum class Device { CPU, CUDA };
+
+// class Tensor {
+// public:
+//     // --- Constructors ---
+//     Tensor();
+//     Tensor(int rows, int cols, Device dev = Device::CPU); // Changed bool to Device enum
+
+//     // --- Device Info ---
+//     Device device() const noexcept { return dev_; }
+//     bool is_cpu()   const noexcept { return dev_ == Device::CPU; }
+//     bool is_cuda()  const noexcept { return dev_ == Device::CUDA; }
+    
+//     // --- The `.to()` method ---
+//     Tensor to(Device target_dev) const;
+
+//     // --- Inline helper from your original file ---
+//     inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(g, like); }
+
+//     // --- Factories ---
+//     static Tensor zeros(int r, int c, Device dev = Device::CPU);
+//     static Tensor ones (int r, int c, Device dev = Device::CPU);
+//     static Tensor randn(int r, int c, unsigned seed=42, Device dev = Device::CPU);
+//     static Tensor zeros_like(const Tensor& x);
+//     static Tensor ones_like (const Tensor& x);
+
+//     // --- Data Access ---
+//     float* data() { return data_ptr_.get(); }
+//     const float* data() const { return data_ptr_.get(); }
+
+//     // --- Shape/Info ---
+//     int rows() const;
+//     int cols() const;
+//     std::pair<int,int> shape() const;
+//     std::size_t numel() const;
+//     std::size_t size() const; // Will now call numel()
+
+//     // --- CPU-only element access ---
+//     float& operator()(int i, int j);
+//     const float& operator()(int i, int j) const;
+
+//     // --- Grad accumulation ---
+//     Tensor& add_(const Tensor& g);
+
+//     // --- Reductions ---
+//     float sum_scalar() const;
+//     static Tensor sum_all(const Tensor& X);
+//     static Tensor mean_all(const Tensor& X);
+//     static Tensor row_sum(const Tensor& X);
+//     static Tensor row_max(const Tensor& X);
+
+//     // --- Broadcasting Ops ---
+//     friend Tensor operator+(const Tensor& a, const Tensor& b);
+//     friend Tensor operator-(const Tensor& a, const Tensor& b);
+//     friend Tensor operator*(const Tensor& a, const Tensor& b); // Hadamard
+//     friend Tensor operator/(const Tensor& a, const Tensor& b);
+
+//     // --- Unary / Scalar ops ---
+//     friend Tensor operator-(const Tensor& x);
+//     friend Tensor operator*(const Tensor& a, float s);
+//     friend Tensor operator*(float s, const Tensor& a);
+//     friend Tensor operator+(const Tensor& a, float s);
+//     friend Tensor operator+(float s, const Tensor& a);
+//     friend Tensor operator/(const Tensor& a, float s); // Added for completeness
+//     friend Tensor operator/(float s, const Tensor& a); // Added for completeness
+
+//     // --- ALL OF YOUR STATIC MATH FUNCTIONS ---
+//     static Tensor relu (const Tensor& x);
+//     static Tensor relu_mask(const Tensor& x);
+//     static Tensor transpose(const Tensor& x);
+//     static Tensor reciprocal(const Tensor &x);
+//     static Tensor matmul(const Tensor &A, const Tensor &B);
+//     static Tensor abs (const Tensor& x);
+//     static Tensor sign (const Tensor& x);
+//     static Tensor reduce_to(const Tensor& G, const Tensor& like);
+//     static Tensor floten(float q);
+//     static Tensor alibi(int rows, int cols, float m);
+//     static Tensor sinh(const Tensor &x);
+//     static Tensor exp(const Tensor& x);
+//     static Tensor log(const Tensor& x);
+//     static Tensor cos(const Tensor& x);
+//     static Tensor sin(const Tensor& x);
+//     static Tensor cosh(const Tensor& x);
+//     static Tensor sech(const Tensor& x);
+//     static Tensor sqrt(const Tensor &x);
+//     static Tensor tanh(const Tensor& x);
+//     static Tensor sigmoid(const Tensor& x);
+//     static Tensor softplus(const Tensor& x);
+//     static Tensor gelu_tanh(const Tensor& x);
+//     static Tensor leaky_relu(const Tensor& x, float alpha);
+    
+//     // --- Softmax family ---
+//     static Tensor softmax_row(const Tensor& Z);
+//     static Tensor logsumexp_row(const Tensor& Z);
+    
+//     // --- Debug print ---
+//     friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
+
+// private:
+//     int r_{0}, c_{0};
+//     // CRITICAL CHANGE: The storage mechanism.
+//     std::shared_ptr<float> data_ptr_; 
+//     Device dev_{Device::CPU};
+// };
+
+// } // namespace ag

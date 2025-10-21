@@ -63,6 +63,8 @@ void load_cuda_plugin(const char* path) {
   g_cuda.add    = table.add;
   g_cuda.exp    = table.exp;
   g_cuda.zero   = table.zero;
+  g_cuda.vjp_add    = table.vjp_add;
+  g_cuda.vjp_matmul = table.vjp_matmul;
 }
 
 #ifndef AG_NO_AUTOLOAD_KERNELS
