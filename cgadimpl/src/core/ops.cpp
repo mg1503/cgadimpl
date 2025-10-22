@@ -276,10 +276,65 @@ return Value(detail::realrms_nodeops(x.node, g));
     return Value(detail::mae_loss_nodeops(pred.node, target.node));
 }
 
+//  The implementation of **forward evaluation logic** for a single
+// computational graph node (`Node`) in the autodiff system.
+//
+// The purpose of `forward_eval_node()` is to *recompute* or *evaluate*
+// a node’s output tensor based solely on its input nodes’ values,
+// without using stored intermediate data.
+//
+// This is crucial for:
+//    - Checkpoint recomputation (freeing and restoring activations),
+//    - Lazy evaluation (on-demand computation),
+//    - Debug visualization or forward-only inference.
+//
+// Additionally, the `checkpoint()` function here provides a user-facing API
+// for marking specific nodes as checkpoints, integrating with the
+// `checkpoint_impl` subsystem.
+//
+// Together, these functions enable **memory-efficient recomputation**
+// during backward passes and safe graph traversal.
+//
+
+
+// -----------------------------------------------------------------------------
+// forward_eval_node (shared_ptr<Node> version)
+// -----------------------------------------------------------------------------
+
+/*
+ *  forward_eval_node():
+ *  ---------------------
+ *  Evaluates (or recomputes) the output tensor of a single computational node.
+ *
+ *  Parameters:
+ *      - node : shared_ptr<Node> representing a node in the computational graph.
+ *
+ *  Returns:
+ *      - A new Tensor that represents the computed output of this node,
+ *        based on its operation type (`node->op`) and its input tensors.
+ *
+ *  Purpose:
+ *      - This function allows recomputation of node outputs when they
+ *        have been deleted or released during checkpointing.
+ *      - It’s also used for lazy forward evaluation, debug visualization,
+ *        or runtime validation of the computational graph.
+ *
+ *  Core logic:
+ *      1️⃣  Validate that the node exists.
+ *      2️⃣  Switch over the node’s operation (`Op` enum).
+ *      3️⃣  Retrieve the node’s input tensors (`node->inputs[i]->value`).
+ *      4️⃣  Perform the appropriate mathematical operation.
+ *      5️⃣  Return the computed output tensor.
+ *      6️⃣  If unsupported, throw a runtime error.
+ */
 Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
     if (!node) throw std::runtime_error("forward_eval_node: null node");
 
     switch (node->op) {
+
+        // ============================================================
+        // Basic arithmetic operations
+        // ============================================================
         case Op::Add: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
@@ -295,11 +350,19 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             const Tensor &B = node->inputs[1]->value;
             return A * B;
         }
+
+        // ============================================================
+        // Matrix multiplication (dense layer or attention block)
+        // ============================================================
         case Op::MatMul: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
             return Tensor::matmul(A, B);
         }
+
+        // ============================================================
+        // Unary elementwise activations
+        // ============================================================
         case Op::Relu: {
             const Tensor &X = node->inputs[0]->value;
             return Tensor::relu(X);
@@ -320,25 +383,73 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             const Tensor &X = node->inputs[0]->value;
             return Tensor::log(X);
         }
+
+        // ============================================================
+        // Complex operation: AlibiAttention
+        // ============================================================
+        /*
+         * AlibiAttention:
+         * ---------------
+         * This is a specialized attention mechanism variant that adds
+         * a learned or deterministic bias (ALIBI) to the attention logits.
+         *
+         * Steps:
+         *    1. Compute queries (q), keys (k), and values (v) via matmul.
+         *    2. Compute scaled dot-product attention scores.
+         *    3. Apply ALIBI positional bias.
+         *    4. Compute softmax over the attention weights.
+         *    5. Multiply attention weights with the values to get the output.
+         */
         case Op::AlibiAttention: {
             const Tensor &a = node->inputs[0]->value;
             const Tensor &b = node->inputs[1]->value;
             const Tensor &c = node->inputs[2]->value;
             const Tensor &d = node->inputs[3]->value;
 
+            // Step 1: compute projections
             Tensor q = Tensor::matmul(a, b);
             Tensor k = Tensor::matmul(a, c);
             Tensor v = Tensor::matmul(a, d);
 
+            // Step 2: scaled dot-product attention
             Tensor logits = Tensor::matmul(q, Tensor::transpose(k) * (1.f / sqrt(float(k.cols()))));
-            Tensor bias   = Tensor::alibi(logits.rows(), logits.cols(), /*m*/128);
-            Tensor g      = logits + bias;
-            Tensor s      = Tensor::softmax_row(g);
-            Tensor y      = Tensor::matmul(s, v);
+
+            // Step 3: add ALIBI bias (creates a position-dependent attention slope)
+            Tensor bias = Tensor::alibi(logits.rows(), logits.cols(), /*m*/128);
+            Tensor g = logits + bias;
+
+            // Step 4: softmax normalization over rows
+            Tensor s = Tensor::softmax_row(g);
+
+            // Step 5: output = attention weights × values
+            Tensor y = Tensor::matmul(s, v);
             return y;
         }
+
+        // ============================================================
+        // Leaf node (constants or inputs)
+        // ============================================================
+        /*
+         * Op::Leaf:
+         * ----------
+         * Represents graph input nodes, constants, or parameters.
+         * These do not require recomputation since their values
+         * are provided externally or stored persistently.
+         */
         case Op::Leaf:
             return node->value;
+
+        // ============================================================
+        // Default / fallback case
+        // ============================================================
+        /*
+         * Handles cases where an operation type is not explicitly listed.
+         * In some composite operations (like attention or layernorm),
+         * intermediate tensors are temporarily stored in `node->tape`.
+         *
+         * If `tape` is not empty, it uses the last tensor in the tape
+         * as a fallback recomputation result.
+         */
         default:
             if (!node->tape.empty()) {
                 return *(node->tape.back());
@@ -347,17 +458,61 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
     }
 }
 
-// ------------------------------------------------------------
-// Small adapter so checkpoint.cpp (which uses Node*) can link.
-// ------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Adapter overload for raw pointer nodes
+// -----------------------------------------------------------------------------
+
+/*
+ * forward_eval_node(Node*):
+ * --------------------------
+ *  Provides a lightweight wrapper around the main version of
+ *  `forward_eval_node()` that takes a raw Node pointer instead of
+ *  a shared_ptr.
+ *
+ *  This is used for internal integration with systems like
+ *  checkpointing, which store and traverse raw Node* references.
+ *
+ *  Implementation detail:
+ *      - Wraps the raw Node* in a non-owning `shared_ptr<Node>`.
+ *      - Uses a custom deleter `[](Node*){}` to prevent freeing.
+ */
 Tensor forward_eval_node(Node* node) {
     // Non-owning shared_ptr wrapper (no deletion)
     return forward_eval_node(std::shared_ptr<Node>(node, [](Node*){}));
 }
 
-// ------------------------------------------------------------
-// checkpoint() — mark a node for checkpointing
-// ------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// checkpoint() — Mark a node for checkpointing
+// -----------------------------------------------------------------------------
+
+/*
+ * checkpoint():
+ * --------------
+ *  A user-facing function that marks a value (and its corresponding node)
+ *  for checkpointing.
+ *
+ *  When a node is checkpointed:
+ *      - Its intermediate activations may be freed to save memory.
+ *      - During backpropagation, if its output is required,
+ *        the system will recompute it using `forward_eval_node()`
+ *        and its input dependencies.
+ *
+ *  Parameters:
+ *      - v    : Value object wrapping the Node to be checkpointed.
+ *      - opts : CheckpointOptions structure (default-initialized).
+ *
+ *  Returns:
+ *      - The same Value `v` (allowing function chaining).
+ *
+ *  Internally, it calls:
+ *      `checkpoint_impl::mark_node_checkpoint()`
+ *  which performs the actual checkpoint marking and state saving.
+ *
+ *  Example usage:
+ *      Value y = checkpoint(forward_pass(x));
+ *      Tensor loss = mse(y, target);
+ *      backward(loss);
+ */
 Value checkpoint(const Value &v, const CheckpointOptions &opts) {
     if (!v.node) return v;
     ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);
