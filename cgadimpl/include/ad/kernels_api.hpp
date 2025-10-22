@@ -52,7 +52,7 @@ typedef void (*ag_vjp_add_cuda_fn)(float* gA, float* gB, const float* gy,
 typedef void (*ag_vjp_matmul_cuda_fn)(float* gA, float* gB, const float* gy,
                                       const float* A, const float* B,
                                       int M, int K, int N, ag_cuda_stream_t s);
-
+typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, int64_t n, ag_cuda_stream_t s); 
 
 // CUDA function table
 struct ag_cuda_v1 {
@@ -66,6 +66,7 @@ struct ag_cuda_v1 {
   // NEW: Backward ops
   ag_vjp_add_cuda_fn    vjp_add;
   ag_vjp_matmul_cuda_fn vjp_matmul;
+  ag_vjp_relu_cuda_fn   vjp_relu;  
 };
 
 // Every CUDA plugin must export this symbol.
@@ -100,6 +101,7 @@ struct Cuda {
   // NEW: Backward
   ag_vjp_add_cuda_fn    vjp_add = nullptr;
   ag_vjp_matmul_cuda_fn vjp_matmul = nullptr;
+  ag_vjp_relu_cuda_fn   vjp_relu   = nullptr;
 };
 Cuda& cuda();
 void load_cuda_plugin(const char* path);

@@ -16,7 +16,7 @@
 //
 // *******************************************************
 // std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x) {
-//   const Tensor& xin = x->value;
+//   const Tensor& xin = x->value;ctest
 //   Tensor y = Tensor::zeros_like(xin);
 //
 //   if (A.is_cpu()) ag::kernels::cpu().relu /*or add*/( /* your CPU args */ );

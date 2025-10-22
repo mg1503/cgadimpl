@@ -31,6 +31,11 @@ namespace ag {
         return node->value.shape(); 
     }
 
+    // --- NEW UNIFIED FACTORY IMPLEMENTATION ---
+    Value make_tensor(const Tensor& v, const char* name, bool requires_grad) {
+        // The boolean `requires_grad` directly controls the second argument of the Node constructor.
+        return Value(std::make_shared<Node>(v, requires_grad, Op::Leaf, name));
+}
 
     Value constant(const Tensor& v, const char* name){ 
         return Value(std::make_shared<Node>(v,false,Op::Leaf,name)); 
@@ -164,12 +169,12 @@ struct Compiled::Impl {
                 return A * B;
             }
             case Op::Transpose:  return Tensor::transpose(*a[0]);
-            case Op::Relu:       return nn::relu(*a[0]);
+            case Op::Relu:       return Tensor::relu(*a[0]);
             case Op::Exp:        return Tensor::exp (*a[0]);
             case Op::Log:        return Tensor::log (*a[0]);
-            case Op::Tanh:       return nn::tanh(*a[0]);
-            case Op::Sigmoid:    return nn::sigmoid(*a[0]);
-            case Op::Softplus:   return nn::softplus(*a[0]);
+            case Op::Tanh:       return Tensor::tanh(*a[0]);
+            case Op::Sigmoid:    return Tensor::sigmoid(*a[0]);
+            case Op::Softplus:   return Tensor::softplus(*a[0]);
             case Op::SiLU:       return nn::silu(*a[0]);
             case Op::GELU:       return nn::gelu(*a[0]);
             case Op::LeakyRelu: {
@@ -192,13 +197,13 @@ struct Compiled::Impl {
                 float inv = 1.f / float(a[0]->rows()*a[0]->cols());
                 return mul_scalar(s, inv);
             }
-            case Op::SoftmaxRow: return nn::softmax_row(*a[0]);
-            case Op::LogSumExpRow: return nn::logsumexp_row(*a[0]);
+            case Op::SoftmaxRow: return Tensor::softmax_row(*a[0]);
+            case Op::LogSumExpRow: return Tensor::logsumexp_row(*a[0]);
             case Op::CeWithLogits: {
                 // CE = -mean( sum( Y * (Z - lse(Z)), axis=1 ) )
                 const Tensor& Z = *a[0];
                 const Tensor& Y = *a[1];
-                Tensor lse = nn::logsumexp_row(Z);           // [B,1]
+                Tensor lse = Tensor::logsumexp_row(Z);           // [B,1]
                 // broadcast lse to [B,C]
                 Tensor L = broadcast_to(lse, Z.rows(), Z.cols());
                 Tensor term = Y * (Z - L);                        // [B,C]

@@ -87,8 +87,9 @@ int main(){
 using namespace std;
 using namespace ag;
 Tensor A = Tensor::randn(2,3);
+auto a = make_tensor(A, "A",true);
 Tensor B = Tensor::randn(3,2);
-auto a = param(A, "A");
+
 auto b = param(B, "B");
 
 Tensor Yt(2, 2);
