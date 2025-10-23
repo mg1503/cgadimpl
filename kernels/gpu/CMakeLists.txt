@@ -23,8 +23,9 @@ set_target_properties(agkernels_cuda PROPERTIES
   POSITION_INDEPENDENT_CODE ON
   OUTPUT_NAME agkernels_cuda
   # Optional but recommended – pick a reasonable default arch if none is set:
-  CUDA_ARCHITECTURES "60;70;75;80"
-)
+  # CUDA_ARCHITECTURES "60;70;75;80;86;89"
+    CUDA_ARCHITECTURES "86" # for testing on rtx 30 series
+  )
 
 find_package(CUDAToolkit REQUIRED)
 target_link_libraries(agkernels_cuda PUBLIC

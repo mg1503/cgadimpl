@@ -117,6 +117,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(cgadimpl LANGUAGES CXX CUDA)
 
+set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo")
+
 find_package(CUDAToolkit REQUIRED)
 
 # ---- Options ----

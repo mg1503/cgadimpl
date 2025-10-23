@@ -1196,103 +1196,238 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 
 // ----- Unary Activations -----
 
+// void vjp_Relu(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+
+//     if (X->value.is_cpu()) {
+//         Tensor dA = Tensor::relu_mask(X->value);
+//         X->grad.add_( rt( gy * dA, X->value) );
+//     } else {
+//         // ===================== THIS IS THE CHANGE =====================
+//         // REPLACE THIS:
+//         // throw std::runtime_error("VJP for Relu on CUDA not implemented yet!");
+        
+//         // WITH THIS:
+//         ag::kernels::cuda().vjp_relu(
+//             X->grad.data(),      // gX (output)
+//             gy.data(),           // gy (input)
+//             X->value.data(),     // X (original input)
+//             gy.numel(),          // n
+//             ag::current_stream() // s
+//         );
+//         // =============================================================
+//     }
+// }
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
 
     if (X->value.is_cpu()) {
-        Tensor dA = Tensor::relu_mask(X->value);
-        X->grad.add_( rt( gy * dA, X->value) );
+        auto fn = ag::kernels::cpu().relu_bwd;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel overwrites the output, so we compute into a temporary
+            // buffer and then add it to the gradient to ensure accumulation.
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(X->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+            X->grad.add_(dX_temp);
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Tensor dA = Tensor::relu_mask(X->value);
+            X->grad.add_( rt( gy * dA, X->value) );
+        }
     } else {
-        // ===================== THIS IS THE CHANGE =====================
-        // REPLACE THIS:
-        // throw std::runtime_error("VJP for Relu on CUDA not implemented yet!");
-        
-        // WITH THIS:
-        ag::kernels::cuda().vjp_relu(
-            X->grad.data(),      // gX (output)
-            gy.data(),           // gy (input)
-            X->value.data(),     // X (original input)
-            gy.numel(),          // n
-            ag::current_stream() // s
-        );
-        // =============================================================
+        // GPU path (when ready)
+        throw std::runtime_error("ReLU backward on CUDA not implemented yet!");
     }
 }
 
-void vjp_Exp(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        X->grad.add_( rt( gy * n->value, X->value) );
-    } else {
-        throw std::runtime_error("VJP for Exp on CUDA not implemented yet!");
+// void vjp_Exp(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+//     if (n->value.is_cpu()) {
+//         X->grad.add_( rt( gy * n->value, X->value) );
+//     } else {
+//         throw std::runtime_error("VJP for Exp on CUDA not implemented yet!");
+//     }
+// }
+
+
+    void vjp_Exp(Node* n, const Tensor& gy){
+        Node* X = n->inputs[0].get();
+        if (!X->requires_grad) return;
+
+        if (X->value.is_cpu()) {
+            auto fn = ag::kernels::cpu().exp_bwd_from_y;
+            if (fn) {
+                // --- NEW: Call the fast backward kernel ---
+                // The kernel is the efficient `_from_y` version, which takes the output
+                // of the forward pass (`y = exp(x)`). This is stored in `n->value`.
+                
+                Tensor dX_temp = Tensor::zeros_like(X->value);
+                fn(n->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+                X->grad.add_(dX_temp); // Accumulate gradient
+            } else {
+                // --- OLD: Fallback to generic C++ ---
+                // The derivative is just the output of the forward pass (n->value)
+                X->grad.add_( rt( gy * n->value, X->value) );
+            }
+        } else {
+            // GPU path (when ready)
+            throw std::runtime_error("Exp backward on CUDA not implemented yet!");
+        }
     }
-}
+
+    // void vjp_Log(Node* n, const Tensor& gy){
+    //     Node* X = n->inputs[0].get();
+    //     if (!X->requires_grad) return;
+    //     if (n->value.is_cpu()) {
+    //         if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
+    //     } else {
+    //         throw std::runtime_error("VJP for Log on CUDA not implemented yet!");
+    //     }
+    // }
+
 
 void vjp_Log(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().log_bwd;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x`.
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(X->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+            X->grad.add_(dX_temp); // Accumulate gradient
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            X->grad.add_( rt( gy / X->value, X->value) );
+        }
     } else {
-        throw std::runtime_error("VJP for Log on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("Log backward on CUDA not implemented yet!");
     }
 }
 
-void vjp_GCU(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
-    } else {
-        throw std::runtime_error("VJP for GCU on CUDA not implemented yet!");
-    }
-}
 
-void vjp_Mish(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        Tensor sp = Tensor::softplus(X->value);
-        Tensor th = Tensor::tanh(sp);
-        Tensor sig = Tensor::sigmoid(X->value);
-        X->grad.add_( rt( gy * (th + (X->value * sig * (Tensor::ones_like(th) - th*th))), X->value) );
-    } else {
-        throw std::runtime_error("VJP for Mish on CUDA not implemented yet!");
+    void vjp_GCU(Node* n, const Tensor& gy){
+        Node* X = n->inputs[0].get();
+        if (!X->requires_grad) return;
+        if (n->value.is_cpu()) {
+            X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
+        } else {
+            throw std::runtime_error("VJP for GCU on CUDA not implemented yet!");
+        }
     }
-}
+
+    void vjp_Mish(Node* n, const Tensor& gy){
+        Node* X = n->inputs[0].get();
+        if (!X->requires_grad) return;
+        if (n->value.is_cpu()) {
+            Tensor sp = Tensor::softplus(X->value);
+            Tensor th = Tensor::tanh(sp);
+            Tensor sig = Tensor::sigmoid(X->value);
+            X->grad.add_( rt( gy * (th + (X->value * sig * (Tensor::ones_like(th) - th*th))), X->value) );
+        } else {
+            throw std::runtime_error("VJP for Mish on CUDA not implemented yet!");
+        }
+    }
+
+// void vjp_Tanh(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+//     if (n->value.is_cpu()) {
+//         Tensor th = n->value;
+//         X->grad.add_( rt( gy * (Tensor::ones_like(th) - th*th), X->value) );
+//     } else {
+//         throw std::runtime_error("VJP for Tanh on CUDA not implemented yet!");
+//     }
+// }
 
 void vjp_Tanh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        Tensor th = n->value;
-        X->grad.add_( rt( gy * (Tensor::ones_like(th) - th*th), X->value) );
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().tanh_bwd_from_t;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel is the efficient `_from_t` version, which takes the output
+            // of the forward pass (`t = tanh(x)`) as input. This is stored in `n->value`.
+            
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(n->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+            X->grad.add_(dX_temp); // Accumulate gradient
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            Tensor th = n->value;
+            Tensor one = Tensor::ones_like(th);
+            X->grad.add_( rt( gy * (one - th*th), X->value) );
+        }
     } else {
-        throw std::runtime_error("VJP for Tanh on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("Tanh backward on CUDA not implemented yet!");
     }
 }
 
 void vjp_Sigmoid(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        const Tensor& Y = n->value;
-        Tensor dA = Y * (Tensor::ones_like(Y) - Y);
-        X->grad.add_( rt( gy * dA, X->value) );
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().sigmoid_bwd_from_s;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // We use the more efficient kernel that takes `s` (the output of the
+            // forward pass), which is stored in `n->value`.
+            
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(n->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+            X->grad.add_(dX_temp); // Accumulate gradient
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            const Tensor& Y = n->value; // This is 's'
+            Tensor dA = Y * (Tensor::ones_like(Y) - Y);
+            X->grad.add_( rt( gy * dA, X->value) );
+        }
     } else {
-        throw std::runtime_error("VJP for Sigmoid on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("Sigmoid backward on CUDA not implemented");
     }
 }
+
+// void vjp_Softplus(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+//     if (n->value.is_cpu()) {
+//         X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
+//     } else {
+//         throw std::runtime_error("VJP for Softplus on CUDA not implemented yet!");
+//     }
+// }
 
 void vjp_Softplus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().softplus_bwd;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // The kernel takes the original input `x` to compute the derivative (sigmoid(x)).
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(X->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+            X->grad.add_(dX_temp); // Accumulate gradient
+        } else {
+            // --- OLD: Fallback to generic C++ ---
+            X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
+        }
     } else {
-        throw std::runtime_error("VJP for Softplus on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("Softplus backward on CUDA not implemented yet!");
     }
 }
 
@@ -1348,35 +1483,77 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
     }
 }
 
+// void vjp_GELU(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+//     if (n->value.is_cpu()) {
+//         constexpr float c = 0.79788456080286535588f; // sqrt(2/pi)
+//         Tensor x=X->value;
+//         Tensor u = c * (x + 0.044715f * x*x*x);
+//         Tensor dudx = c * (1.f + 0.134145f * x*x);
+//         Tensor th=Tensor::tanh(u);
+//         Tensor one=Tensor::ones_like(th);
+//         Tensor dgelu=(one+th)*0.5f + (x * ((one - th*th) * dudx))*0.5f;
+//         X->grad.add_( rt( gy * dgelu, X->value) );
+//     } else {
+//         throw std::runtime_error("VJP for GELU on CUDA not implemented yet!");
+//     }
+// }
 void vjp_GELU(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        constexpr float c = 0.79788456080286535588f; // sqrt(2/pi)
-        Tensor x=X->value;
-        Tensor u = c * (x + 0.044715f * x*x*x);
-        Tensor dudx = c * (1.f + 0.134145f * x*x);
-        Tensor th=Tensor::tanh(u);
-        Tensor one=Tensor::ones_like(th);
-        Tensor dgelu=(one+th)*0.5f + (x * ((one - th*th) * dudx))*0.5f;
-        X->grad.add_( rt( gy * dgelu, X->value) );
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().gelu_bwd;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            fn(X->value.data(), gy.data(), X->grad.data(), X->value.numel());
+        } else {
+            constexpr float c = 0.79788456080286535588f; // sqrt(2/pi)
+            Tensor x=X->value;
+            Tensor u = c * (x + 0.044715f * x*x*x);
+            Tensor dudx = c * (1.f + 0.134145f * x*x);
+            Tensor th=Tensor::tanh(u);
+            Tensor one=Tensor::ones_like(th);
+            Tensor dgelu=(one+th)*0.5f + (x * ((one - th*th) * dudx))*0.5f;
+            X->grad.add_( rt( gy * dgelu, X->value) );
+        }
     } else {
-        throw std::runtime_error("VJP for GELU on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("GELU backward on CUDA not implemented");
     }
 }
+
 void vjp_LeakyRelu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        Node* A = n->inputs[1].get();
-        float a = A->value(0,0);
-        Tensor g = Tensor::zeros_like(X->value);
-        for(int i=0; i<X->value.rows(); ++i) for(int j=0; j<X->value.cols(); ++j){
-            g(i,j)= gy(i,j) * (X->value(i,j)>0.f ? 1.f : a);
+
+    // Get alpha from the second input node in the graph. This is correct.
+    Node* A_node = n->inputs[1].get();
+    float alpha = A_node->value(0,0);
+
+    if (X->value.is_cpu()) {
+        auto fn = ag::kernels::cpu().leakyrelu_bwd;
+        if (fn) {
+            // --- NEW: Call the fast backward kernel ---
+            // IMPORTANT: We compute into a temporary buffer first, then add.
+            // This correctly handles gradient accumulation.
+            Tensor dX_temp = Tensor::zeros_like(X->value);
+            fn(X->value.data(), gy.data(), dX_temp.data(), X->value.numel(), alpha);
+            X->grad.add_(dX_temp);
+        } else {
+            // --- OLD: Fallback to the slow loop ---
+            int R=X->value.rows(), C=X->value.cols();
+            Tensor g(R,C);
+            for(int i=0;i<R;++i) for(int j=0;j<C;++j){
+                float z=X->value(i,j);
+                g(i,j) = gy(i,j) * (z>0.f ? 1.f : alpha);
+            }
+            X->grad.add_( g );
         }
-        X->grad.add_( g );
     } else {
-        throw std::runtime_error("VJP for LeakyRelu on CUDA not implemented yet!");
+        // GPU path (when ready)
+        throw std::runtime_error("LeakyReLU backward on CUDA not implemented");
     }
 }
 
@@ -1405,6 +1582,58 @@ void vjp_MatMul(Node* n, const Tensor& gy){
         );
     }
 }
+
+// void vjp_MatMul(Node* n, const Tensor& gy){
+//     Node* A_node = n->inputs[0].get();
+//     Node* B_node = n->inputs[1].get();
+//     const Tensor& A = A_node->value;
+//     const Tensor& B = B_node->value;
+    
+//     auto [M, K] = A.shape();
+//     auto [K2, N] = B.shape();
+
+//     if (A.is_cpu()) {
+//         // --- NEW: Dispatch to optimized CPU backward kernels ---
+//         auto fn_dA = ag::kernels::cpu().matmul_bwd_dA;
+//         auto fn_dB = ag::kernels::cpu().matmul_bwd_dB;
+
+//         if (A_node->requires_grad) {
+//             Tensor dA_temp = Tensor::zeros_like(A);
+//             if (fn_dA) {
+//                 // gA(M,K) = gy(M,N) @ B^T(N,K)
+//                 fn_dA(gy.data(), B.data(), dA_temp.data(), M, K, N);
+//             } else {
+//                 // Fallback
+//                 dA_temp = Tensor::matmul(gy, Tensor::transpose(B));
+//             }
+//             A_node->grad.add_(dA_temp);
+//         }
+
+//         if (B_node->requires_grad) {
+//             Tensor dB_temp = Tensor::zeros_like(B);
+//             if (fn_dB) {
+//                 // gB(K,N) = A^T(K,M) @ gy(M,N)
+//                 fn_dB(A.data(), gy.data(), dB_temp.data(), M, K, N);
+//             } else {
+//                 // Fallback
+//                 dB_temp = Tensor::matmul(Tensor::transpose(A), gy);
+//             }
+//             B_node->grad.add_(dB_temp);
+//         }
+
+//     } else { // GPU Path
+//         // This part is already correct and uses your working CUDA VJP kernel.
+//         auto fn = ag::kernels::cuda().vjp_matmul;
+//         if (fn) {
+//             fn(A_node->grad.data(), B_node->grad.data(), gy.data(),
+//                A.data(), B.data(),
+//                M, K, N, ag::current_stream());
+//         } else {
+//             throw std::runtime_error("MatMul backward on CUDA not implemented or loaded.");
+//         }
+//     }
+// }
+
 
 void vjp_Dyntanh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get(); 
@@ -1603,15 +1832,38 @@ void vjp_Sin(Node* n, const Tensor& gy){
     }
 }
 
-void vjp_Sqrt(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
-    if (n->value.is_cpu()) {
-        X->grad.add_( rt(0.5f * gy * Tensor::reciprocal(n->value), X->value) );
-    } else {
-        throw std::runtime_error("VJP for Sqrt on CUDA not implemented yet!");
+// void vjp_Sqrt(Node* n, const Tensor& gy){
+//     Node* X = n->inputs[0].get();
+//     if (!X->requires_grad) return;
+//     if (n->value.is_cpu()) {
+//         X->grad.add_( rt(0.5f * gy * Tensor::reciprocal(n->value), X->value) );
+//     } else {
+//         throw std::runtime_error("VJP for Sqrt on CUDA not implemented yet!");
+//     }
+// }
+
+    void vjp_Sqrt(Node* n, const Tensor& gy){
+        Node* X = n->inputs[0].get();
+        if (!X->requires_grad) return;
+
+        if (X->value.is_cpu()) {
+            auto fn = ag::kernels::cpu().sqrt_bwd_from_y;
+            if (fn) {
+                // --- NEW: Call the fast backward kernel ---
+                // The kernel uses the forward pass output `y = sqrt(x)`, which is `n->value`.
+                Tensor dX_temp = Tensor::zeros_like(X->value);
+                fn(n->value.data(), gy.data(), dX_temp.data(), X->value.numel());
+                X->grad.add_(dX_temp); // Accumulate gradient
+            } else {
+                // --- OLD: Fallback to generic C++ ---
+                // Derivative is 0.5 / sqrt(x) = 0.5 / y
+                X->grad.add_( rt(0.5f * gy / n->value, X->value) );
+            }
+        } else {
+            // GPU path (when ready)
+            throw std::runtime_error("Sqrt backward on CUDA not implemented yet!");
+        }
     }
-}
 
 void vjp_Relumask(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();

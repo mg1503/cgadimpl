@@ -43,6 +43,33 @@ void load_cpu_plugin(const char* path) {
 
   g_cpu.relu   = table.relu;
   g_cpu.matmul = table.matmul;
+  g_cpu.gelu   = table.gelu;  
+  g_cpu.leakyrelu = table.leakyrelu;
+  g_cpu.sigmoid   = table.sigmoid;
+  g_cpu.tanh      = table.tanh;
+  g_cpu.softplus   = table.softplus;
+  g_cpu.exp       = table.exp;
+  g_cpu.log       = table.log;
+  g_cpu.sqrt      = table.sqrt;
+  g_cpu.pow       = table.pow;
+  g_cpu.linear    = table.linear;
+
+  g_cpu.relu_bwd          = table.relu_bwd;
+  g_cpu.leakyrelu_bwd    = table.leakyrelu_bwd;
+  g_cpu.sigmoid_bwd_from_s = table.sigmoid_bwd_from_s;
+  g_cpu.tanh_bwd_from_t    = table.tanh_bwd_from_t;
+  g_cpu.gelu_bwd          = table.gelu_bwd;
+  g_cpu.softplus_bwd      = table.softplus_bwd;
+  g_cpu.exp_bwd_from_y    = table.exp_bwd_from_y;
+  g_cpu.log_bwd          = table.log_bwd;
+  g_cpu.sqrt_bwd_from_y   = table.sqrt_bwd_from_y;
+
+  // g_cpu.matmul_bwd_dA = table.matmul_bwd_dA;
+  // g_cpu.matmul_bwd_dB = table.matmul_bwd_dB;
+  g_cpu.linear_dW     = table.linear_dW;
+  g_cpu.linear_dX     = table.linear_dX;
+  g_cpu.linear_db     = table.linear_db;
+
 }
 
 void load_cuda_plugin(const char* path) {

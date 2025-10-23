@@ -29,29 +29,29 @@ include(GNUInstallDirs)
 install(TARGETS agkernels_cpu LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 
-# ------------------------------------------------------------------
-# --- Benchmark Targets (One for each test file) ---
-# ------------------------------------------------------------------
+# # ------------------------------------------------------------------
+# # --- Benchmark Targets (One for each test file) ---
+# # ------------------------------------------------------------------
 
-# A helper function to reduce boilerplate code
-function(add_matmul_benchmark target_name source_file)
-    # MODIFICATION: We now add the kernel source file directly to each benchmark
-    add_executable(${target_name}
-      benchmark/${source_file}
-      src/agkernels_cpu.cpp
-    )
+# # A helper function to reduce boilerplate code
+# function(add_matmul_benchmark target_name source_file)
+#     # MODIFICATION: We now add the kernel source file directly to each benchmark
+#     add_executable(${target_name}
+#       benchmark/${source_file}
+#       src/agkernels_cpu.cpp
+#     )
 
-    # MODIFICATION: Link against Eigen and OpenMP, but NOT agkernels_cpu anymore
-    target_link_libraries(${target_name} PRIVATE Eigen3::Eigen OpenMP::OpenMP_CXX)
+#     # MODIFICATION: Link against Eigen and OpenMP, but NOT agkernels_cpu anymore
+#     target_link_libraries(${target_name} PRIVATE Eigen3::Eigen OpenMP::OpenMP_CXX)
 
-    # Enable full optimizations for the benchmark executable itself
-    target_compile_options(${target_name} PRIVATE -O3 -mavx2 -mfma -fopenmp)
+#     # Enable full optimizations for the benchmark executable itself
+#     target_compile_options(${target_name} PRIVATE -O3 -mavx2 -mfma -fopenmp)
 
-    message(STATUS "Added benchmark target: ${target_name}")
-endfunction()
+#     message(STATUS "Added benchmark target: ${target_name}")
+# endfunction()
 
-add_matmul_benchmark(test_throughput   test_matmul_throughput.cpp)
-add_matmul_benchmark(test_latency      test_matmul_latency.cpp)
-add_matmul_benchmark(test_aspect       test_matmul_aspect.cpp)
-add_matmul_benchmark(test_scalability  test_matmul_scalability.cpp)
-add_matmul_benchmark(test_cache        test_matmul_cache.cpp)
+# add_matmul_benchmark(test_throughput   test_matmul_throughput.cpp)
+# add_matmul_benchmark(test_latency      test_matmul_latency.cpp)
+# add_matmul_benchmark(test_aspect       test_matmul_aspect.cpp)
+# add_matmul_benchmark(test_scalability  test_matmul_scalability.cpp)
+# add_matmul_benchmark(test_cache        test_matmul_cache.cpp)

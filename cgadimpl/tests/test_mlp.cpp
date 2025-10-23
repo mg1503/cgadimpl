@@ -144,7 +144,7 @@ int main() {
     auto b4 = param(ag::Tensor::zeros(1, Out),  "b4");
 
     // ----- Forward (4 layers): X -> L1 -> L2 -> L3 -> logits -----
-    ag::Value L1 = relu(linear(X,  W1, b1));              // [B,H1]
+    ag::Value L1 = ag::relu(matmul(X,  W1)+ b1);              // [B,H1]
     print_value("L1", L1);
     ag::Value L2 = relu(linear(L1, W2, b2));              // [B,H2]
     print_value("L2", L2);
