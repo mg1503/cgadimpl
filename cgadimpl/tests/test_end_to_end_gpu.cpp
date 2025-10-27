@@ -42,6 +42,10 @@ public:
         params_.insert(params_.end(), fc2.parameters().begin(), fc2.parameters().end());
     }
 
+    ag::Value operator()(const ag::Value& x) override {
+        auto h = relu(fc1(x));
+        return fc2(h);
+    }
     ag::Value forward(const ag::Value& x) {
         ag::Value h = ag::relu(fc1(x));
         return fc2(h);

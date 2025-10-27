@@ -81,7 +81,15 @@ namespace ag::nn {
 class Module {
 public:
     virtual ~Module() = default;
-    const std::vector<Value>& parameters() const { return params_; }
+    // Addition a "pure virtual" operator() to the base class.
+    // This tells the compiler that all derived classes (like Linear, ReLU)
+    // are guaranteed to have a callable forward pass.
+    virtual Value operator()(const Value& input) = 0;
+
+    const std::vector<Value>& parameters() const { 
+        return params_; 
+    }
+
     void to(Device dev);
     void zero_grad();
 
@@ -99,8 +107,29 @@ private:
     Value W, b;
 };
 
-// --- OLD: Tensor-based helpers needed by the JIT compiler in graph.cpp ---
+class Sequential : public Module {
+public:
+    // Takes a list of modules you've created with 'new'
+    Sequential(const std::vector<Module*>& modules);
+    Value operator()(Value x);
 
-Tensor silu(const Tensor& x);
-Tensor gelu(const Tensor& x);
+private:
+    std::vector<Module*> layers_;
+};
+
+class ReLU : public Module {
+public:
+    Value operator()(const Value& input);
+};
+
+
 } // namespace ag::nn
+
+
+
+
+
+// // --- OLD: Tensor-based helpers needed by the JIT compiler in graph.cpp ---
+
+// Tensor silu(const Tensor& x);
+// Tensor gelu(const Tensor& x);

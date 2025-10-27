@@ -16,6 +16,7 @@ add_library(agkernels_cuda SHARED
   mm_cublas.cu
   zero.cu
   vjp.cu 
+  # matker.cu # <-- TO BE ADDED LATER
 )
 
 set_target_properties(agkernels_cuda PROPERTIES

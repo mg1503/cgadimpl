@@ -182,6 +182,7 @@ if(AG_BUILD_TESTS)
   add_ag_test(test_nodeops           tests/test_nodeops.cpp)
   add_ag_test(test_kernels_cpu       tests/test_kernels_cpu.cpp)
   add_ag_test(test_vjp_kernels       tests/test_end_to_end_gpu.cpp)
+  add_ag_test(test_nn_mlp            tests/test_mlp_training.cpp)
 # --- Define the GPU test MANUALLY to force the CUDA compiler ---
 add_executable(test_kernels_gpu tests/test_kernels_gpu.cpp)
 

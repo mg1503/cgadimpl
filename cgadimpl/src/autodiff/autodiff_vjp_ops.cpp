@@ -1558,81 +1558,81 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
 }
 
 // ----- MatMul -----
-void vjp_MatMul(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
-    const Tensor& At = A->value;
-    const Tensor& Bt = B->value;
-
-    if (At.is_cpu()) {
-        if (A->requires_grad){
-            A->grad.add_(Tensor::matmul(gy, Tensor::transpose(Bt)));
-        }
-        if (B->requires_grad){
-            B->grad.add_(Tensor::matmul(Tensor::transpose(At), gy));
-        }
-    } else {
-        auto [M, K]  = At.shape();
-        auto [K2, N] = Bt.shape();
-        (void)K2;
-        ag::kernels::cuda().vjp_matmul(
-            A->grad.data(), B->grad.data(), gy.data(),
-            At.data(), Bt.data(),
-            M, K, N, ag::current_stream()
-        );
-    }
-}
-
 // void vjp_MatMul(Node* n, const Tensor& gy){
-//     Node* A_node = n->inputs[0].get();
-//     Node* B_node = n->inputs[1].get();
-//     const Tensor& A = A_node->value;
-//     const Tensor& B = B_node->value;
-    
-//     auto [M, K] = A.shape();
-//     auto [K2, N] = B.shape();
+//     Node* A = n->inputs[0].get();
+//     Node* B = n->inputs[1].get();
+//     const Tensor& At = A->value;
+//     const Tensor& Bt = B->value;
 
-//     if (A.is_cpu()) {
-//         // --- NEW: Dispatch to optimized CPU backward kernels ---
-//         auto fn_dA = ag::kernels::cpu().matmul_bwd_dA;
-//         auto fn_dB = ag::kernels::cpu().matmul_bwd_dB;
-
-//         if (A_node->requires_grad) {
-//             Tensor dA_temp = Tensor::zeros_like(A);
-//             if (fn_dA) {
-//                 // gA(M,K) = gy(M,N) @ B^T(N,K)
-//                 fn_dA(gy.data(), B.data(), dA_temp.data(), M, K, N);
-//             } else {
-//                 // Fallback
-//                 dA_temp = Tensor::matmul(gy, Tensor::transpose(B));
-//             }
-//             A_node->grad.add_(dA_temp);
+//     if (At.is_cpu()) {
+//         if (A->requires_grad){
+//             A->grad.add_(Tensor::matmul(gy, Tensor::transpose(Bt)));
 //         }
-
-//         if (B_node->requires_grad) {
-//             Tensor dB_temp = Tensor::zeros_like(B);
-//             if (fn_dB) {
-//                 // gB(K,N) = A^T(K,M) @ gy(M,N)
-//                 fn_dB(A.data(), gy.data(), dB_temp.data(), M, K, N);
-//             } else {
-//                 // Fallback
-//                 dB_temp = Tensor::matmul(Tensor::transpose(A), gy);
-//             }
-//             B_node->grad.add_(dB_temp);
+//         if (B->requires_grad){
+//             B->grad.add_(Tensor::matmul(Tensor::transpose(At), gy));
 //         }
-
-//     } else { // GPU Path
-//         // This part is already correct and uses your working CUDA VJP kernel.
-//         auto fn = ag::kernels::cuda().vjp_matmul;
-//         if (fn) {
-//             fn(A_node->grad.data(), B_node->grad.data(), gy.data(),
-//                A.data(), B.data(),
-//                M, K, N, ag::current_stream());
-//         } else {
-//             throw std::runtime_error("MatMul backward on CUDA not implemented or loaded.");
-//         }
+//     } else {
+//         auto [M, K]  = At.shape();
+//         auto [K2, N] = Bt.shape();
+//         (void)K2;
+//         ag::kernels::cuda().vjp_matmul(
+//             A->grad.data(), B->grad.data(), gy.data(),
+//             At.data(), Bt.data(),
+//             M, K, N, ag::current_stream()
+//         );
 //     }
 // }
+
+void vjp_MatMul(Node* n, const Tensor& gy){
+    Node* A_node = n->inputs[0].get();
+    Node* B_node = n->inputs[1].get();
+    const Tensor& A = A_node->value;
+    const Tensor& B = B_node->value;
+    
+    auto [M, K] = A.shape();
+    auto [K2, N] = B.shape();
+
+    if (A.is_cpu()) {
+        // --- NEW: Dispatch to optimized CPU backward kernels ---
+        auto fn_dA = ag::kernels::cpu().matmul_bwd_dA;
+        auto fn_dB = ag::kernels::cpu().matmul_bwd_dB;
+
+        if (A_node->requires_grad) {
+            Tensor dA_temp = Tensor::zeros_like(A);
+            if (fn_dA) {
+                // gA(M,K) = gy(M,N) @ B^T(N,K)
+                fn_dA(gy.data(), B.data(), dA_temp.data(), M, K, N);
+            } else {
+                // Fallback
+                dA_temp = Tensor::matmul(gy, Tensor::transpose(B));
+            }
+            A_node->grad.add_(dA_temp);
+        }
+
+        if (B_node->requires_grad) {
+            Tensor dB_temp = Tensor::zeros_like(B);
+            if (fn_dB) {
+                // gB(K,N) = A^T(K,M) @ gy(M,N)
+                fn_dB(A.data(), gy.data(), dB_temp.data(), M, K, N);
+            } else {
+                // Fallback
+                dB_temp = Tensor::matmul(Tensor::transpose(A), gy);
+            }
+            B_node->grad.add_(dB_temp);
+        }
+
+    } else { // GPU Path
+        // This part is already correct and uses your working CUDA VJP kernel.
+        auto fn = ag::kernels::cuda().vjp_matmul;
+        if (fn) {
+            fn(A_node->grad.data(), B_node->grad.data(), gy.data(),
+               A.data(), B.data(),
+               M, K, N, ag::current_stream());
+        } else {
+            throw std::runtime_error("MatMul backward on CUDA not implemented or loaded.");
+        }
+    }
+}
 
 
 void vjp_Dyntanh(Node* n, const Tensor& gy){
@@ -1776,10 +1776,59 @@ void vjp_Reciprocal(Node* n, const Tensor& gy){
     }
 }
 
+// void vjp_Linear(Node* n, const Tensor& gy){
+//     // Assuming vjp_Linear is a composite and can be handled by its constituents (MatMul, Add)
+//     // For a truly fused kernel, this would need a device-aware implementation.
+//     vjp_FMA(n, gy);
+// }
+
+// In file: cgadimpl/src/autodiff/autodiff_vjp_ops.cpp
+
 void vjp_Linear(Node* n, const Tensor& gy){
-    // Assuming vjp_Linear is a composite and can be handled by its constituents (MatMul, Add)
-    // For a truly fused kernel, this would need a device-aware implementation.
-    vjp_FMA(n, gy);
+    // `a` is input X, `b` is weight W, `c` is bias b
+    Node* A_node = n->inputs[0].get(); // Input X
+    Node* B_node = n->inputs[1].get(); // Weight W
+    Node* C_node = n->inputs[2].get(); // Bias b
+    
+    const Tensor& A = A_node->value; // Shape (Batch, in_features)
+    const Tensor& B = B_node->value; // Shape (out_features, in_features)
+    const Tensor& C = C_node->value; // Shape (1, out_features)
+
+    if (A.is_cpu()) {
+        // --- CPU PATH ---
+
+        // Gradient for input A (dX = dY @ W)
+        if (A_node->requires_grad) {
+            // gy is dY, shape (Batch, out_features)
+            // B is W, shape (out_features, in_features)
+            // The result dX has shape  (Batch, in_features), which matches A.
+            Tensor dA = Tensor::matmul(gy, B);
+            A_node->grad.add_(rt(dA, A)); // rt() is for safety, though not strictly needed here
+        }
+
+        // Gradient for weight B (dW = dY^T @ X)
+        if (B_node->requires_grad) {
+            // Transpose of gy is dY^T, shape (out_features, Batch)
+            // A is X, shape (Batch, in_features)
+            // The result dW has shape (out_features, in_features), which matches B.
+            Tensor dB = Tensor::matmul(Tensor::transpose(gy), A);
+            B_node->grad.add_(rt(dB, B)); // rt() is for safety
+        }
+
+        // Gradient for bias C (db = sum of dY along batch dimension)
+        if (C_node->requires_grad) {
+            // gy has shape (Batch, out_features). We need to sum it along dimension 0.
+            // Our rt() helper function handles this reduction perfectly.
+            C_node->grad.add_(rt(gy, C));
+        }
+
+    } else {
+        // --- GPU PATH ---
+        // When the kernels are ready, you will dispatch to them here.
+        // For example:
+        // ag::kernels::cuda().vjp_linear(A_node->grad.data(), B_node->grad.data(), ...);
+        throw std::runtime_error("VJP for Linear on CUDA not implemented yet!");
+    }
 }
 
 void vjp_Cosh(Node* n, const Tensor& gy){

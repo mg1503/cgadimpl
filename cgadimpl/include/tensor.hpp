@@ -100,6 +100,9 @@ public:
     static Tensor logsumexp_row(const Tensor& Z);
     static Tensor mean_all(const Tensor& X);
     friend std::ostream& operator<<(std::ostream& os, const Tensor& t);
+
+    static Tensor silu(const Tensor& x);
+    static Tensor gelu(const Tensor& x);
 };
 
 } // namespace ag

@@ -437,6 +437,24 @@ Tensor Tensor::matmul(const Tensor &A, const Tensor &B){
     return Y;
 }
 
+Tensor Tensor::silu(const Tensor& x){
+    Tensor y(x.rows(), x.cols());
+    for(int i=0;i<x.rows();++i) for(int j=0;j<x.cols();++j){
+        float v=x(i,j); float s=1.f/(1.f+std::exp(-v)); y(i,j)=v*s;
+    }
+    return y;
+}
+Tensor Tensor::gelu(const Tensor& x){
+    Tensor y(x.rows(), x.cols());
+    constexpr float c = 0.7978845608028654f; // sqrt(2/pi)
+    for(int i=0;i<x.rows();++i) for(int j=0;j<x.cols();++j){
+        float v=x(i,j);
+        float u=c*(v+0.044715f*v*v*v);
+        y(i,j)=0.5f*v*(1.f+std::tanh(u));
+    }
+    return y;
+}
+
 std::ostream& operator<<(std::ostream& os, const Tensor& t) {
     if (t.is_cuda()) {
         os << "Tensor(" << t.rows() << "x" << t.cols() << ", device=CUDA)";

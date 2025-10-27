@@ -628,35 +628,98 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
 //     }
 
 
+// std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){
+//     const Tensor& A = a->value;
+//     const Tensor B = Tensor::transpose(b->value);
+//     const Tensor& C = c->value;
+    
+//     auto [M,K]  = A.shape();
+//     auto [K2,N] = B.shape();
+//     if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
+
+    
+
+//     Tensor E({M,N});
+
+//     // Direct implementation of fused multiply-add (A * B + C)
+//     const float* a_data = A.data();
+//     const float* b_data = B.data();
+//     const float* c_data = C.data();
+//     float* e_data = E.data();
+
+//     for (int64_t i = 0; i < M; ++i) {
+//         for (int64_t j = 0; j < N; ++j) {
+//             float sum = 0.0f;
+//             for (int64_t k = 0; k < K; ++k) {
+//                 // A is row-major, B (transposed) is row-major
+//                 sum += a_data[i * K + k] * b_data[k * N + j];
+//             }
+//             // Add bias, assuming C can be broadcasted if it's a vector
+//             e_data[i * N + j] = sum + (C.numel() == N ? c_data[j] : c_data[i * N + j]);
+//         }
+//     }
+
+//     auto n = std::make_shared<Node>(E,
+//         (a->requires_grad || b->requires_grad || c->requires_grad),
+//         Op::Linear, "linear");
+//     n->inputs = { a, b , c};
+//     return n;
+// }
+
+// This is the corrected version for your cgadimpl/src/core/nodeops.cpp
+
+// In file: cgadimpl/src/core/nodeops.cpp
+
 std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c){
+    // `a` is input X, shape (Batch, in_features)
+    // `b` is weight W, shape (out_features, in_features)
+    // `c` is bias b, shape (1, out_features)
     const Tensor& A = a->value;
-    const Tensor B = Tensor::transpose(b->value);
-
-    auto [M,K]  = A.shape();
-    auto [K2,N] = B.shape();
-    if (K != K2) throw std::runtime_error("gemm: inner dims mismatch");
-
+    const Tensor& B = b->value; // This is W, shape (out, in)
     const Tensor& C = c->value;
 
-    Tensor E({M,N});
-
-    // Direct implementation of fused multiply-add (A * B + C)
-    const float* a_data = A.data();
-    const float* b_data = B.data();
-    const float* c_data = C.data();
-    float* e_data = E.data();
-
-    for (int64_t i = 0; i < M; ++i) {
-        for (int64_t j = 0; j < N; ++j) {
-            float sum = 0.0f;
-            for (int64_t k = 0; k < K; ++k) {
-                // A is row-major, B (transposed) is row-major
-                sum += a_data[i * K + k] * b_data[k * N + j];
-            }
-            // Add bias, assuming C can be broadcasted if it's a vector
-            e_data[i * N + j] = sum + (C.numel() == N ? c_data[j] : c_data[i * N + j]);
-        }
+    if (A.device() != B.device() || A.device() != C.device()) {
+        throw std::runtime_error("linear_nodeops: device mismatch between inputs.");
     }
+
+    auto [M, K]  = A.shape();      // M=Batch, K=in_features
+    auto [K2, N] = B.shape();      // K2=out_features, N=in_features
+    
+    // Check for X @ W^T: columns of X (K) must equal columns of W (N).
+    if (K != N) throw std::runtime_error("linear_nodeops: input features dimension does not match weight features dimension");
+
+    // The output shape will be (Batch, out_features)
+    Tensor E = Tensor::zeros(M, K2, A.device());
+
+    // ================== DEVICE DISPATCH LOGIC ==================
+    if (A.is_cpu()) {
+        const float* a_data = A.data();
+        const float* b_data = B.data();
+        const float* c_data = C.data();
+        float* e_data = E.data();
+
+        // This loop correctly calculates E = A @ B^T + C without creating a temporary transpose.
+        // It is parallelized with OpenMP for high performance.
+        #pragma omp parallel for
+        for (int64_t i = 0; i < M; ++i) {      // For each item in the batch
+            for (int64_t j = 0; j < K2; ++j) { // For each output feature
+                float sum = 0.0f;
+                for (int64_t k = 0; k < K; ++k) { // Dot product over the input features
+                    // A[i,k] * W_transposed[k,j]  (which is W[j,k])
+                    sum += a_data[i * K + k] * b_data[j * N + k];
+                }
+                e_data[i * K2 + j] = sum + c_data[j]; // Assumes bias is (1, out_features)
+            }
+        }
+    } else {
+        // GPU Path
+        // We do not have a single fused kernel for X @ W^T + C.
+        // The correct way to implement this on the GPU would be to call
+        // cuBLAS for the matmul, followed by a custom kernel for the bias add.
+        // For now, we will leave it as a placeholder.
+        throw std::runtime_error("Linear forward on CUDA not implemented yet!");
+    }
+    // ==========================================================
 
     auto n = std::make_shared<Node>(E,
         (a->requires_grad || b->requires_grad || c->requires_grad),

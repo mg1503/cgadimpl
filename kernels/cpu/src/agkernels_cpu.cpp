@@ -1,4 +1,3 @@
-
 // =============================================
 // kernels/cpu/src/agkernels_cpu.cpp
 // =============================================
@@ -76,29 +75,6 @@ void leakyrelu_impl_optimized(const float* x, float* y, int64_t n, float alpha) 
     }
 }
 
-// void gemm_impl_optimized(const float* A, const float* B,  float* C, int M, int K, int N) {
-//     int q = N;
-//     int p = K;
-//     int s = p+q;
-//     if(s)
-//     {
-//     run_cuda_gemm(A, B, C, M);
-//     }
-// }
-
-
-// void matmul_impl_naive(const float* A, const float* B, float* C, int M, int K, int N) {
-//     for (int i = 0; i < M; ++i) {
-//         for (int j = 0; j < N; ++j) {
-//             float acc = 0.0f;
-//             for (int k = 0; k < K; ++k) {
-//                 acc += A[i * K + k] * B[k * N + j];
-//             }
-//             C[i * N + j] = acc;
-//         }
-//     }
-// }
-// Optimized GELU using AVX2 + OpenMP
 void gelu_impl_optimized(const float* x, float* y, int64_t n) {
     const __m256 k0_5      = _mm256_set1_ps(0.5f);
     const __m256 k0_044715 = _mm256_set1_ps(0.044715f);
@@ -198,18 +174,7 @@ void matmul_impl_optimized(const float* A, const float* B, float* C, int M, int 
 }
 
 
-// void matmul_impl_cudatile(const float* A, const float* B, float* C, int M, int K, int N) {
-//     // This is a placeholder for a CUDA-tiled implementation.
-//     // In a real scenario, this function would offload computation to a GPU.
-//     // For now, we will just call the naive implementation as a stub.
-//     int q = N;
-//     int p = K;
-//     int s = p+q;
-//     if(s)
-//     {
-//     run_cuda_matrix(A, B, C, M);
-//     }
-// }
+
 static inline __m256 log256_approx(__m256 x) {
     const __m256 one = _mm256_set1_ps(1.0f);
     const __m256 ln2 = _mm256_set1_ps(0.6931471805599453f);
@@ -1155,8 +1120,8 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out){
     out->exp_bwd_from_y = &exp_bwd_impl_optimized_from_y;
     out->log_bwd = &log_bwd_impl_optimized;
     out->sqrt_bwd_from_y = &sqrt_bwd_impl_optimized_from_y;
-    // out->matmul_bwd_dA = &matmul_bwd_dA_impl_optimized;
-    // out->matmul_bwd_dB = &matmul_bwd_dB_impl_optimized;
+    out->matmul_bwd_dA = &matmul_bwd_dA_impl_optimized;
+    out->matmul_bwd_dB = &matmul_bwd_dB_impl_optimized;
     out->linear_dW = &linear_dW_impl_optimized;
     out->linear_dX = &linear_dX_impl_optimized;
     out->linear_db = &linear_db_impl_optimized;

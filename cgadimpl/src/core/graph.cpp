@@ -5,7 +5,6 @@
 #include <functional>
 #include <cassert>
 #include "ad/graph.hpp"
-#include "nn/nn.hpp" // for silu
 
 
 namespace ag {
@@ -27,6 +26,10 @@ namespace ag {
         return node->grad; 
     }
     
+    const Tensor& Value::grad() const {
+        return node->grad;
+    }
+       
     std::pair<int,int> Value::shape() const { 
         return node->value.shape(); 
     }
@@ -175,8 +178,8 @@ struct Compiled::Impl {
             case Op::Tanh:       return Tensor::tanh(*a[0]);
             case Op::Sigmoid:    return Tensor::sigmoid(*a[0]);
             case Op::Softplus:   return Tensor::softplus(*a[0]);
-            case Op::SiLU:       return nn::silu(*a[0]);
-            case Op::GELU:       return nn::gelu(*a[0]);
+            case Op::SiLU:       return Tensor::silu(*a[0]);
+            case Op::GELU:       return Tensor::gelu(*a[0]);
             case Op::LeakyRelu: {
                 // args: X, alpha (alpha can be literal 1x1 or input/param 1x1)
                 int R=a[0]->rows(), C=a[0]->cols();

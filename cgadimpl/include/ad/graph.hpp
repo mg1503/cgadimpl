@@ -41,6 +41,7 @@ explicit Value(std::shared_ptr<Node> n);
 
 const Tensor& val() const;
 Tensor& grad();
+const Tensor& grad() const;
 std::pair<int,int> shape() const;
 };
 
