@@ -1,5 +1,5 @@
 // =========================================================
-// FILE: cgadimpl/tests/test_mlp_training.cpp
+// FILE: cgadimpl/tests/test_graph_gpu.cpp
 // A simple, standalone test for the full framework on the CPU.
 // =========================================================
 #include "ad/ag_all.hpp"
