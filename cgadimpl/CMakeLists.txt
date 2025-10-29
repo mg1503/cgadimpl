@@ -115,6 +115,10 @@
 # FILE: cgadimpl/CMakeLists.txt (The Final, Unbreakable Fix)
 # ====================================================================
 cmake_minimum_required(VERSION 3.20)
+# CUDA 13 no longer supports sm_52; pick modern arches explicitly.
+# Use the one(s) you actually run on. Example: 86=RTX 30, 89=RTX 4090, 80=A100, 90=H100, 100=B200
+set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
+
 project(cgadimpl LANGUAGES CXX CUDA)
 
 set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo")
