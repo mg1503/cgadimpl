@@ -1,4 +1,6 @@
-// include/ops/helpers/ReductionKernels.cuh - FIXED SHUFFLE OPERATIONS
+// ==================================================
+// in file: tensor/include/ops/helpers/ReductionKernels.cuh - FIXED SHUFFLE OPERATIONS
+// ==================================================
 #pragma once
 
 #ifndef REDUCTION_KERNELS_CUH

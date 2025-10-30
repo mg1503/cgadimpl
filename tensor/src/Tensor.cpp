@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/Tensor.cpp
+// ===================================================================
 #include "core/Tensor.h"
 #include "dtype/Types.h"
 #include "device/AllocatorRegistry.h"

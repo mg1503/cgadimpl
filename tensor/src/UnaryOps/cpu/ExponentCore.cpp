@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cpu/ExponentCore.cpp
+// ===================================================================
 #include <cmath>
 #include "core/Tensor.h"
 #include "dtype/Types.h"

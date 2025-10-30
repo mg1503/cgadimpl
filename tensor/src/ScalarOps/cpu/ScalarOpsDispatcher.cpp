@@ -1,4 +1,7 @@
-// ScalarOpsDispatch.cpp
+// ===================================================================
+// file: tensor/src/ScalarOps/cpu/ScalarOpsDispatch.cpp
+// ===================================================================
+
 #include <cstdint>
 #include <stdexcept>
 #include "ops/ScalarOps.h"

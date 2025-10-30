@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cpu/Exponents.cpp
+// ===================================================================
 #include "core/Tensor.h"
 #include "device/Device.h"
 #include "ops/UnaryOps/Exponents.h"

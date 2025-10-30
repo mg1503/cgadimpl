@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/device/AllocatorRegistry.cpp
+// ===================================================================
 #include "device/AllocatorRegistry.h"
 #include "device/CPUAllocator.h"
 #include "device/CUDAAllocator.h"

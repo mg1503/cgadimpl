@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cuda/Exponents.cu
+// ===================================================================
 #include <iostream>
 #include <stdexcept>
 #include <cmath>

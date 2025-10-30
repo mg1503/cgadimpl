@@ -1,3 +1,6 @@
+// ===================================================
+// In file: tensor/include/core/Views/contiguous_kernel.h
+// ===================================================
 #pragma once
 #include <cstdint>
 #ifdef WITH_CUDA

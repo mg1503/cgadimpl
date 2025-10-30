@@ -1,3 +1,6 @@
+//====================================================
+// In file: tensor/include/device/DeviceCore.h
+//====================================================
 #pragma once
 #include "device/Device.h"
 

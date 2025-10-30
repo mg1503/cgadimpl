@@ -1,4 +1,6 @@
-// include/ops/helpers/ReductionOps.h - REVERTED TO CUSTOM STRUCTS
+// ==================================================
+// tensor/include/ops/helpers/ReductionOps.h - REVERTED TO CUSTOM STRUCTS
+// ==================================================
 #pragma once
 
 #ifndef OWNTENSOR_REDUCTION_OPS_H

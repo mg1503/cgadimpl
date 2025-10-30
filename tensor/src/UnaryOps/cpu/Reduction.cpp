@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cpu/Reduction.cpp
+// ===================================================================
 // src/UnaryOps/Reduction.cpp - FIXED: Use is_float() from DtypeTraits.h
 #include "ops/UnaryOps/Reduction.h"
 #include "core/TensorDispatch.h"

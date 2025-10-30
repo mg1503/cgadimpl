@@ -1,4 +1,6 @@
-// ScalarOps.cpp (CPU backend)
+// ===================================================================
+// file: tensor/src/ScalarOps/cpu/ScalarOps.cpp
+// ===================================================================
 #include <cstdint>
 #include <stdexcept>
 #include "core/Tensor.h"

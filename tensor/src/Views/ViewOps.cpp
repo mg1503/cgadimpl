@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/Views/ViewOps.cu
+// ===================================================================
 #include "core/Views/ViewUtils.h"
 #include "core/Tensor.h"
 #include <stdexcept>

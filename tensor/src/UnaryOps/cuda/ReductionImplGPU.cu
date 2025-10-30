@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cuda/ReductionImplGPU.cu
+// ===================================================================
 // src/UnaryOps/ReductionImplGPU.cu - FIXED: Added missing includes
 #include "ops/helpers/ReductionKernels.cuh"
 #include "ops/helpers/ReductionImplGPU.h"

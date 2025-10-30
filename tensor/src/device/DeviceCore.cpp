@@ -1,4 +1,8 @@
-//DeviceCore.cpp
+// ===================================================================
+// file: tensor/src/device/DeviceCore.cpp
+// ===================================================================
+
+
 #include "device/Device.h"
 #include "device/DeviceCore.h"
 

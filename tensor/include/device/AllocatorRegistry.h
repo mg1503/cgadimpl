@@ -1,3 +1,6 @@
+// ===================================================
+// In file: tensor/include/device/AllocatorRegistry.h
+// ===================================================
 #pragma once
 #include "device/Allocator.h"
 #include "device/Device.h"

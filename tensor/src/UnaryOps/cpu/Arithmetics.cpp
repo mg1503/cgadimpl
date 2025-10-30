@@ -1,3 +1,6 @@
+// ===================================================================
+// file: tensor/src/UnaryOps/cpu/Arithmetics.cpp
+// ===================================================================
 #include "ops/UnaryOps/Arithmetics.h"
 #include "core/Tensor.h"
 #include "device/Device.h"

@@ -1,4 +1,6 @@
-// include/dtype/DtypeTraits.h - MERGED VERSION (Compatible with both versions)
+// ===================================================
+// In file:tensor/include/dtype/DtypeTraits.h - MERGED VERSION (Compatible with both versions)
+// ===================================================
 #pragma once
 
 #ifndef DTYPE_TRAIT_H

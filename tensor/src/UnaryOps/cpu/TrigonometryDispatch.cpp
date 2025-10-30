@@ -1,4 +1,6 @@
-// src/UnaryOps/cpu/Trig_dispatch.cpp
+// ===================================================================
+// file: tensor/src/UnaryOps/cpu/TrigonometryDispatch.cpp
+// ===================================================================
 #include <stdexcept>
 #include "ops/UnaryOps/Trigonometry.h"
 #include "core/Tensor.h"

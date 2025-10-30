@@ -1,3 +1,6 @@
+//===================================================
+// In file: tensor/include/device/Device.h
+//===================================================
 #pragma once
 
 namespace OwnTensor

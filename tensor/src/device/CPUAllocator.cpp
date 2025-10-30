@@ -1,4 +1,6 @@
-
+// ===================================================================
+// file: tensor/src/device/CPUAllocator.cpp
+// ===================================================================
 
 #include "device/CPUAllocator.h"
 #include <cstdlib>

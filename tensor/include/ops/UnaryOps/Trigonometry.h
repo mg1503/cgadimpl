@@ -1,3 +1,6 @@
+// ============================================================
+// In file: tensor/include/ops/UnaryOps/Trigonometry.h
+// ============================================================
 #pragma once
 #include "core/Tensor.h"
 

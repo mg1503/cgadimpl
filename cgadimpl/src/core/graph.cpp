@@ -11,21 +11,6 @@
 namespace ag {
 
 // --- Node Implementation ---
-// This constructor now correctly initializes the gradient.
-// Node::Node(const Tensor& v, Op op_, const char* nm) 
-//     : op(op_), value(v), grad(), debug_name(nm) // Explicitly default-initialize grad for now
-// {
-//     if (v.requires_grad()) {
-//         // CORRECT WAY:
-//         // 1. Create a TensorOptions object.
-//         TensorOptions opts;
-//         opts.dtype = v.dtype();
-//         opts.device = v.device();
-        
-//         // 2. Call the 'zeros' factory with the correct signature.
-//         grad = Tensor::zeros(v.shape(), opts);
-//     }
-// }
 Node::Node(const Tensor& v, Op op_, const char* nm) 
     : op(op_), 
       value(v), 

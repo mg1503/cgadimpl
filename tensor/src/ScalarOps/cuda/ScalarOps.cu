@@ -1,4 +1,6 @@
-// ScalarOps.cu (CUDA backend)
+// ===================================================================
+// file: tensor/src/ScalarOps/cuda/ScalarOps.cu
+// ===================================================================
 #if defined(WITH_CUDA)
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>

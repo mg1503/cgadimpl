@@ -1,3 +1,6 @@
+//==================================================
+// In file: tensor/include/device/CUDAAllocator.h
+//==================================================
 #pragma once
 #include "device/Allocator.h"
 
