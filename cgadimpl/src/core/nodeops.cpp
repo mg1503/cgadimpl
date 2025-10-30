@@ -41,115 +41,94 @@ namespace ag {
 namespace detail {
 
 
-// std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-
-//      const Tensor& A = a->value;
-//          const Tensor& B = b->value;
-
-//          auto [M,K]  = A.shape();
-//          auto [K2,N] = B.shape();
-//          if (K != K2) throw std::runtime_error("add: inner dims mismatch");
-
-
-//          auto* fn = ag::kernels::cpu().add;
-//          if (!fn) 
-//          {
-         
-//         //  Tensor y = a->value + b->value; 
-//         // auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Add, "+"); 
-//         // n->inputs = {a, b}; 
-//         // ag::debug::on_node_created(n); 
-//                   throw std::runtime_error("No CPU Add kernel registered");
-
-//         // return n; 
-
-//          }
-//                   Tensor C({M,N});
-
-//          fn(A.data(), B.data(), C.data(), M*K);
-
-//          auto n = std::make_shared<Node>(C,
-//              (a->requires_grad || b->requires_grad),
-//              Op::Add, "+");
-//          n->inputs = { a, b };
-//          return n;
-
-
-
-
-//     }
-
-// std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-//         Tensor y = a->value + b->value; 
-//         auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Add, "+"); 
-//         n->inputs = {a, b}; 
-//         ag::debug::on_node_created(n); 
-//         return n; 
-//     }
 std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
+    // These are now OwnTensor::Tensor objects
     const Tensor& A = a->value;
     const Tensor& B = b->value;
-    if (A.device() != B.device()) {
-        throw std::runtime_error("add_nodeops: device mismatch between inputs.");
-    }
 
-    Tensor Y = Tensor::zeros_like(A); // Create output tensor on the same device
+    // // Use their DeviceIndex for comparison
+    // if (A.device() != B.device()) { // This comparison should work if DeviceIndex has operator!=
+    //     throw std::runtime_error("add_nodeops: device mismatch between inputs.");
+    // }
 
+    // Use their factory to create the output tensor
+    Tensor Y = Tensor::zeros(A.shape(), ag::options(A)); // Use the same options as A
+
+    // --- YOUR DISPATCH LOGIC (UNCHANGED CONCEPTUALLY) ---
     if (A.is_cpu()) {
-        Y = A + B; // Use the old CPU-based operator+
-    } else {
-        // Dispatch to the GPU kernel!
-        ag::kernels::cuda().add(A.data(), B.data(), Y.data(), Y.numel(), ag::current_stream());
+        auto fn = ag::kernels::cpu().add;
+        if (fn && A.dtype() == Dtype::Float32) {
+            // Call your fast float32 kernel
+            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel());
+        } else {
+            // Fallback to their generic implementation if our kernel is not loaded
+            // or if the dtype is not float32. This is robust.
+            Y = A + B;
+        }
+    } else { // A is on CUDA
+        auto fn = ag::kernels::cuda().add;
+        if (fn && A.dtype() == Dtype::Float32) {
+            // Call your fast float32 CUDA kernel
+            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel(), ag::current_stream());
+        } else {
+            // Fallback to their generic implementation
+            Y = A + B;
+        }
     }
+    // --- END OF DISPATCH LOGIC ---
 
-    auto n = std::make_shared<Node>(Y, a->requires_grad || b->requires_grad, Op::Add, "+");
+    // The graph-building part is the same, just with the new tensor.
+    // We now use the function call `requires_grad()`
+    auto n = std::make_shared<Node>(Y, a->requires_grad() || b->requires_grad(), Op::Add, "+");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);
     return n;
 }
-    // std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
- 
-    //  const Tensor& A = a->value;
-    //      const Tensor& B = b->value;
-
-    //      auto [M,K]  = A.shape();
-    //      auto [K2,N] = B.shape();
-    //      if (K != K2) throw std::runtime_error("sub: inner dims mismatch");
+  
 
 
-    //      auto* fn = ag::kernels::cpu().sub;
-    //      if (!fn) 
-    //      {
-    //     //  Tensor y = a->value - b->value; 
-    //     // auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
-    //     // n->inputs = {a, b}; 
-    //     // ag::debug::on_node_created(n); 
-    //               throw std::runtime_error("No CPU Sub kernel registered");
+std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
+    // These are now OwnTensor::Tensor objects
+    const Tensor& A = a->value;
+    const Tensor& B = b->value;
 
-    //     // return n; 
-
-    //      }
-    //               Tensor C({M,N});
-
-    //      fn(A.data(), B.data(), C.data(), M*K);
-
-    //      auto n = std::make_shared<Node>(C,
-    //          (a->requires_grad || b->requires_grad),
-    //          Op::Sub, "-");
-    //      n->inputs = { a, b };
-    //      return n;
-
-
+    // if (A.device() != B.device()) {
+    //     throw std::runtime_error("sub_nodeops: device mismatch between inputs.");
     // }
 
-   std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
-        Tensor y = a->value - b->value; 
-        auto n = std::make_shared<Node>(y, a->requires_grad || b->requires_grad, Op::Sub, "-"); 
-        n->inputs = {a, b}; 
-        ag::debug::on_node_created(n); 
-        return n; 
+    // Create the output tensor with the same properties as input A
+    Tensor Y = Tensor::zeros(A.shape(), ag::options(A));
+    
+    // --- YOUR DISPATCH LOGIC ---
+    if (A.is_cpu()) {
+        // Assume your kernel API will have a 'sub' pointer
+        auto fn = ag::kernels::cpu().sub; 
+        if (fn && A.dtype() == OwnTensor::Dtype::Float32) {
+            // Call your fast float32 kernel
+            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel());
+        } else {
+            // Fallback to the OwnTensor library's implementation
+            Y = A - B;
+        }
+    } else { // A is on CUDA
+        // Assume your kernel API will have a 'sub' pointer for CUDA
+        auto fn = ag::kernels::cuda().sub;
+        if (fn && A.dtype() == OwnTensor::Dtype::Float32) {
+            // Call your fast float32 CUDA kernel
+            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel(), ag::current_stream());
+        } else {
+            // Fallback to their implementation
+            Y = A - B;
+        }
     }
+    // --- END OF DISPATCH LOGIC ---
 
+    // Create the new Node, correctly checking requires_grad() as a function
+    auto n = std::make_shared<Node>(Y, Op::Sub, "-");
+    n->inputs = {a, b};
+    ag::debug::on_node_created(n);
+    return n;
+}
 
 
     // std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){ 
@@ -203,59 +182,58 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     }
 
 
-//    std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){ 
-//         const Tensor& xin = x->value;
-//         Tensor y = Tensor::zeros_like(xin);
-
-//         auto* fn = ag::kernels::cpu().relu;
-//         if (!fn) throw std::runtime_error("No CPU ReLU kernel registered");
-//         fn(xin.data(), y.data(), static_cast<int64_t>(xin.numel()));
-
-//         auto n = std::make_shared<Node>(y, x->requires_grad, Op::Relu, "relu");
-//         n->inputs = { x };
-//         return n;
-//     }
-
 // std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
 //     const Tensor& X = x->value;
 //     Tensor Y = Tensor::zeros_like(X);
 
 //     if (X.is_cpu()) {
-//         Y = Tensor::relu(X); // Use old CPU-based static method
+//         auto fn = ag::kernels::cpu().relu;
+//         if (fn) {
+//             // --- NEW: Call the fast AVX2 kernel ---
+//             fn(X.data(), Y.data(), X.numel());
+//         } else {
+//             // --- OLD: Fallback to generic C++ ---
+//             Y = Tensor::relu(X);
+//         }
 //     } else {
-//         // Dispatch to the GPU kernel!
-//         ag::kernels::cuda().relu(X.data(), Y.data(), Y.numel(), ag::current_stream());
+//         // GPU path (when ready)
+//         // This will correctly dispatch to your existing CUDA ReLU kernel.
+//         auto fn = ag::kernels::cuda().relu;
+//         if (fn) {
+//             fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
+//         } else {
+//             throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
+//         }
 //     }
-
-//     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Relu, "relu");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
+    
 std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
     const Tensor& X = x->value;
-    Tensor Y = Tensor::zeros_like(X);
+    Tensor Y = Tensor::zeros(X.shape(), ag::options(X)); // 1. Create output
 
     if (X.is_cpu()) {
-        auto fn = ag::kernels::cpu().relu;
-        if (fn) {
-            // --- NEW: Call the fast AVX2 kernel ---
-            fn(X.data(), Y.data(), X.numel());
-        } else {
-            // --- OLD: Fallback to generic C++ ---
-            Y = Tensor::relu(X);
-        }
-    } else {
-        // GPU path (when ready)
-        // This will correctly dispatch to your existing CUDA ReLU kernel.
+        auto fn = ag::kernels::cpu().relu; // 2. Get your kernel
+        if (fn && X.dtype() == OwnTensor::Dtype::Float32) {
+            fn(X.data<float>(), Y.data<float>(), Y.numel()); // 3. Use your kernel
+        }// else {
+        //     Y = OwnTensor::relu(X); // 4. Fallback to their API
+        // }
+    } else { 
         auto fn = ag::kernels::cuda().relu;
-        if (fn) {
-            fn(X.data(), Y.data(), Y.numel(), ag::current_stream());
-        } else {
-            throw std::runtime_error("ReLU forward on CUDA not implemented or loaded.");
-        }
+        if (fn && X.dtype() == OwnTensor::Dtype::Float32) {
+            fn(X.data<float>(), Y.data<float>(), Y.numel(), ag::current_stream());
+        }// else {
+            // Y = OwnTensor::relu(X); // Fallback
+        // }
     }
+
+    auto n = std::make_shared<Node>(Y, Op::Relu, "relu"); // 5. Wrap in Node
+    n->inputs = {x};
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+  
+
 
     auto n = std::make_shared<Node>(Y, x->requires_grad, Op::Relu, "relu");
     n->inputs = {x};

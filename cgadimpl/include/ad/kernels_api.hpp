@@ -19,6 +19,11 @@ extern "C" {
 static const uint32_t AG_KERNELS_ABI_V1 = 1;
 
 // Plain C function-pointer types (no Tensor types here)
+typedef void (*ag_add_fn)(const float* A, const float* B, float* C, int64_t n);
+typedef void (*ag_sub_fn)(const float* A, const float* B, float* C, int64_t n);
+typedef void (*ag_mul_fn)(const float* A, const float* B, float* C, int64_t n);
+typedef void (*ag_div_fn)(const float* A, const float* B, float* C, int64_t n);
+
 typedef void (*ag_relu_fn)(const float* x, float* y, int64_t n);
 typedef void (*ag_matmul_fn)(const float* A, const float* B, float* C,
                              int M, int K, int N);                             
@@ -59,34 +64,39 @@ void relu_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t
 // CPU function table (can be partially filled; nulls mean "not provided")
 struct ag_cpu_v1 {
   uint32_t abi_version;   // must be AG_KERNELS_ABI_V1
-  ag_relu_fn   relu; //done
-  ag_matmul_fn matmul; //done
-  ag_gelu_fn gelu;   //done
-  ag_leakyrelu_fn leakyrelu;   //done
-  ag_sigmoid_fn sigmoid; //done
-  ag_tanh_fn tanh; //done
-  ag_softplus_fn softplus; //done
-  ag_exp_fn exp;  //done
-  ag_log_fn log; //done
-  ag_sqrt_fn sqrt; //done
+  ag_add_fn    add; // to be added
+  ag_sub_fn    sub; // to be added
+  ag_mul_fn    mul; // to be added
+  ag_div_fn    div; // to be added
+
+  ag_relu_fn   relu; 
+  ag_matmul_fn matmul; 
+  ag_gelu_fn gelu;   
+  ag_leakyrelu_fn leakyrelu;   
+  ag_sigmoid_fn sigmoid; 
+  ag_tanh_fn tanh; 
+  ag_softplus_fn softplus; 
+  ag_exp_fn exp;  
+  ag_log_fn log; 
+  ag_sqrt_fn sqrt;
   ag_pow_fn pow;
   ag_linear_fn linear;
   //backwards
-  elem_bwd_fn relu_bwd;  //done
-  elem_bwd_alpha_fn leakyrelu_bwd; // takes alpha  //done
-  elem_bwd_fn sigmoid_bwd_from_s;  // if forward stored s //done
-  elem_bwd_fn tanh_bwd_from_t; //done
-  elem_bwd_fn gelu_bwd; //done
-  elem_bwd_fn softplus_bwd; //done
-  elem_bwd_fn exp_bwd_from_y; //done
-  elem_bwd_fn log_bwd;         //done
-  elem_bwd_fn sqrt_bwd_from_y;  //done
+  elem_bwd_fn relu_bwd; 
+  elem_bwd_alpha_fn leakyrelu_bwd; // takes alpha 
+  elem_bwd_fn sigmoid_bwd_from_s;  // if forward stored s 
+  elem_bwd_fn tanh_bwd_from_t; 
+  elem_bwd_fn gelu_bwd;
+  elem_bwd_fn softplus_bwd;
+  elem_bwd_fn exp_bwd_from_y; 
+  elem_bwd_fn log_bwd;         
+  elem_bwd_fn sqrt_bwd_from_y;  
   // matmul backward wrappers
-  void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);  
-  void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);   
-  ag_linear_dW_fn linear_dW;
-  ag_linear_dX_fn linear_dX;  
-  ag_linear_db_fn linear_db;
+  void (*matmul_bwd_dA)(const float*, const float*, float*, int M, int K, int N);  // to be done
+  void (*matmul_bwd_dB)(const float*, const float*, float*, int M, int K, int N);  // to be done
+  ag_linear_dW_fn linear_dW;   // to be done
+  ag_linear_dX_fn linear_dX;   // to be done
+  ag_linear_db_fn linear_db;   // to be done
 
 };
 
@@ -96,6 +106,10 @@ AG_EXPORT int ag_get_cpu_kernels_v1(struct ag_cpu_v1* out);
 // ---- NEW: CUDA function pointer types (accept a stream) ----
 // Avoid pulling in CUDA headers here: just forward-declare the opaque type.
 typedef struct CUstream_st* ag_cuda_stream_t;
+
+typedef void (*ag_sub_cuda_fn)(const float* A, const float* B, float* C, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_mul_cuda_fn)(const float* A, const float* B, float* C, int64_t n, ag_cuda_stream_t s);
+typedef void (*ag_div_cuda_fn)(const float* A, const float* B, float* C, int64_t n, ag_cuda_stream_t s);
 
 typedef void (*ag_relu_cuda_fn)(const float* x, float* y, int64_t n, ag_cuda_stream_t s);
 typedef void (*ag_matmul_cuda_fn)(const float* A, const float* B, float* C,
@@ -118,9 +132,15 @@ typedef void (*ag_vjp_relu_cuda_fn)(float* gX, const float* gy, const float* X, 
 struct ag_cuda_v1 {
   uint32_t abi_version;
   // Forward ops
+  ag_add_cuda_fn    add;
+
+  ag_sub_cuda_fn    sub; // to be added
+  ag_mul_cuda_fn    mul; // to be added
+  ag_div_cuda_fn    div; // to be added
+
   ag_relu_cuda_fn   relu;
   ag_matmul_cuda_fn matmul;
-  ag_add_cuda_fn    add;
+
   ag_exp_cuda_fn    exp;
   ag_zero_cuda_fn   zero;
   // NEW: Backward ops
@@ -139,20 +159,26 @@ namespace ag::kernels {
 
 // CPU registry (yours – unchanged)
 struct Cpu {
+  // Forward
+  ag_add_fn    add    = nullptr; // to be added
+  ag_sub_fn    sub    = nullptr; // to be added
+  ag_mul_fn    mul    = nullptr; // to be added
+  ag_div_fn    div    = nullptr; // to be added
+
   ag_relu_fn   relu   = nullptr;
   ag_matmul_fn matmul = nullptr;
 
   
-  ag_gelu_fn gelu = nullptr;
-  ag_leakyrelu_fn leakyrelu = nullptr;
-  ag_sigmoid_fn sigmoid = nullptr;
-  ag_tanh_fn tanh = nullptr;
-  ag_softplus_fn softplus = nullptr;
-  ag_exp_fn exp = nullptr;
-  ag_log_fn log = nullptr;
-  ag_sqrt_fn sqrt = nullptr;
-  ag_pow_fn pow = nullptr;
-  ag_linear_fn linear = nullptr;
+  ag_gelu_fn        gelu       = nullptr;
+  ag_leakyrelu_fn   leakyrelu  = nullptr;
+  ag_sigmoid_fn     sigmoid    = nullptr;
+  ag_tanh_fn        tanh       = nullptr;
+  ag_softplus_fn    softplus   = nullptr;
+  ag_exp_fn         exp        = nullptr;
+  ag_log_fn         log        = nullptr;
+  ag_sqrt_fn        sqrt       = nullptr;
+  ag_pow_fn         pow        = nullptr;
+  ag_linear_fn      linear     = nullptr;
   //backwards
   elem_bwd_fn relu_bwd = nullptr;
   elem_bwd_alpha_fn leakyrelu_bwd = nullptr;
@@ -180,9 +206,14 @@ void load_cpu_plugin(const char* path);
 // ---- NEW: CUDA registry ----
 struct Cuda {
   // Forward
+  ag_add_cuda_fn    add    = nullptr;
+  ag_sub_cuda_fn    sub    = nullptr; // to be added
+  ag_mul_cuda_fn    mul    = nullptr; // to be added  
+  ag_div_cuda_fn    div    = nullptr; // to be added
+
   ag_relu_cuda_fn   relu   = nullptr;
   ag_matmul_cuda_fn matmul = nullptr;
-  ag_add_cuda_fn    add    = nullptr;
+
   ag_exp_cuda_fn    exp    = nullptr;
   ag_zero_cuda_fn   zero   = nullptr;
   

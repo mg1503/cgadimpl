@@ -41,6 +41,11 @@ void load_cpu_plugin(const char* path) {
     throw std::runtime_error("CPU kernels ABI mismatch or plugin init failed");
   }
 
+  g_cpu.add    = table.add;
+  g_cpu.sub    = table.sub;
+  g_cpu.mul    = table.mul;
+  g_cpu.div    = table.div;
+  
   g_cpu.relu   = table.relu;
   g_cpu.matmul = table.matmul;
   g_cpu.gelu   = table.gelu;  

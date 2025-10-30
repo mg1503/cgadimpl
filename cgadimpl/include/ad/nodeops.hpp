@@ -7,6 +7,14 @@
 #include "ad/checkpoint.hpp"
 #include "ad/kernels_api.hpp"
 #include "ad/debug.hpp"
+
+#include "ops/TensorOps.h"
+#include "ops/UnaryOps/Arithmetics.h"
+#include "ops/UnaryOps/Exponents.h"
+#include "ops/UnaryOps/Reduction.h"
+#include "ops/UnaryOps/Trigonometry.h"
+#include "ops/Kernels.h"
+
 #include <iostream>
 #include <math.h>
 #include <iterator>
