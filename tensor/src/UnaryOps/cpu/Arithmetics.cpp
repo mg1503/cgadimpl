@@ -13,13 +13,13 @@ namespace OwnTensor {
 // OUT-OF-PLACE OPERATIONS
 // ============================================================================
 
-Tensor square(const Tensor& input) {
+Tensor square(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return square_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return square_out_gpu_wrap(input);
+        return square_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -27,13 +27,13 @@ Tensor square(const Tensor& input) {
     }
 }
 
-Tensor sqrt(const Tensor& input) {
+Tensor sqrt(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return square_root_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return square_root_out_gpu_wrap(input);
+        return square_root_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -41,13 +41,13 @@ Tensor sqrt(const Tensor& input) {
     }
 }
 
-Tensor negator(const Tensor& input) {
+Tensor negator(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return negator_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return negator_out_gpu_wrap(input);
+        return negator_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -55,13 +55,13 @@ Tensor negator(const Tensor& input) {
     }
 }
 
-Tensor abs(const Tensor& input) {
+Tensor abs(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return absolute_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return absolute_out_gpu_wrap(input);
+        return absolute_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -69,13 +69,13 @@ Tensor abs(const Tensor& input) {
     }
 }
 
-Tensor sign(const Tensor& input) {
+Tensor sign(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return sign_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return sign_out_gpu_wrap(input);
+        return sign_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -83,13 +83,13 @@ Tensor sign(const Tensor& input) {
     }
 }
 
-Tensor reciprocal(const Tensor& input) {
+Tensor reciprocal(const Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return reciprocal_out_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return reciprocal_out_gpu_wrap(input);
+        return reciprocal_out_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -98,13 +98,13 @@ Tensor reciprocal(const Tensor& input) {
 }
 
 
-Tensor pow(const Tensor& input, int exponent) {
+Tensor pow(const Tensor& input, int exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return power_out_gpu_wrap(input, exponent);
+        return power_out_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {
@@ -112,13 +112,13 @@ Tensor pow(const Tensor& input, int exponent) {
     }
 }
 
-Tensor pow(const Tensor& input, float exponent) {
+Tensor pow(const Tensor& input, float exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return power_out_gpu_wrap(input, exponent);
+        return power_out_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {
@@ -126,13 +126,13 @@ Tensor pow(const Tensor& input, float exponent) {
     }
 }
 
-Tensor pow(const Tensor& input, double exponent) {
+Tensor pow(const Tensor& input, double exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         return power_out_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        return power_out_gpu_wrap(input, exponent);
+        return power_out_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {
@@ -143,13 +143,13 @@ Tensor pow(const Tensor& input, double exponent) {
 // IN-PLACE OPERATIONS
 // ============================================================================
 
-void square_(Tensor& input) {
+void square_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         square_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        square_in_gpu_wrap(input);
+        square_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -157,13 +157,13 @@ void square_(Tensor& input) {
     }
 }
 
-void sqrt_(Tensor& input) {
+void sqrt_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         square_root_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        square_root_in_gpu_wrap(input);
+        square_root_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -171,13 +171,13 @@ void sqrt_(Tensor& input) {
     }
 }
 
-void negator_(Tensor& input) {
+void negator_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         negator_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        negator_in_gpu_wrap(input);
+        negator_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -185,13 +185,13 @@ void negator_(Tensor& input) {
     }
 }
 
-void abs_(Tensor& input) {
+void abs_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         absolute_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        absolute_in_gpu_wrap(input);
+        absolute_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -199,13 +199,13 @@ void abs_(Tensor& input) {
     }
 }
 
-void sign_(Tensor& input) {
+void sign_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         sign_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        sign_in_gpu_wrap(input);
+        sign_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -213,13 +213,13 @@ void sign_(Tensor& input) {
     }
 }
 
-void reciprocal_(Tensor& input) {
+void reciprocal_(Tensor& input, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         reciprocal_in_cpu_wrap(input);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        reciprocal_in_gpu_wrap(input);
+        reciprocal_in_gpu_wrap(input, stream);
     }
 #endif
     else {
@@ -227,13 +227,13 @@ void reciprocal_(Tensor& input) {
     }
 }
 
-void pow_(Tensor& input, int exponent) {
+void pow_(Tensor& input, int exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        power_in_gpu_wrap(input, exponent);
+        power_in_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {
@@ -241,13 +241,13 @@ void pow_(Tensor& input, int exponent) {
     }
 }
 
-void pow_(Tensor& input, float exponent) {
+void pow_(Tensor& input, float exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        power_in_gpu_wrap(input, exponent);
+        power_in_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {
@@ -255,13 +255,13 @@ void pow_(Tensor& input, float exponent) {
     }
 }
 
-void pow_(Tensor& input, double exponent) {
+void pow_(Tensor& input, double exponent, cudaStream_t stream = 0) {
     if (input.is_cpu()) {
         power_in_cpu_wrap(input, exponent);
     }
 #ifdef WITH_CUDA
     else if (input.is_cuda()) {
-        power_in_gpu_wrap(input, exponent);
+        power_in_gpu_wrap(input, exponent, stream);
     }
 #endif
     else {

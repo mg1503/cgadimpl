@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include "ops/UnaryOps/Trigonometry.h"
 #include "core/Tensor.h"
+#include <driver_types.h>
 
 namespace OwnTensor {
 
@@ -23,18 +24,18 @@ Tensor atanh_cpu(const Tensor&); void atanh__cpu(Tensor&);
 
 // CUDA backends: real symbols in GPU builds, stubs otherwise
 #ifdef WITH_CUDA
-Tensor sin_cuda  (const Tensor&); void sin__cuda  (Tensor&);
-Tensor cos_cuda  (const Tensor&); void cos__cuda  (Tensor&);
-Tensor tan_cuda  (const Tensor&); void tan__cuda  (Tensor&);
-Tensor asin_cuda (const Tensor&); void asin__cuda (Tensor&);
-Tensor acos_cuda (const Tensor&); void acos__cuda (Tensor&);
-Tensor atan_cuda (const Tensor&); void atan__cuda (Tensor&);
-Tensor sinh_cuda (const Tensor&); void sinh__cuda (Tensor&);
-Tensor cosh_cuda (const Tensor&); void cosh__cuda (Tensor&);
-Tensor tanh_cuda (const Tensor&); void tanh__cuda (Tensor&);
-Tensor asinh_cuda(const Tensor&); void asinh__cuda(Tensor&);
-Tensor acosh_cuda(const Tensor&); void acosh__cuda(Tensor&);
-Tensor atanh_cuda(const Tensor&); void atanh__cuda(Tensor&);
+Tensor sin_cuda  (const Tensor&, cudaStream_t stream = 0); void sin__cuda  (Tensor&, cudaStream_t stream = 0);
+Tensor cos_cuda  (const Tensor&, cudaStream_t stream = 0); void cos__cuda  (Tensor&, cudaStream_t stream = 0);
+Tensor tan_cuda  (const Tensor&, cudaStream_t stream = 0); void tan__cuda  (Tensor&, cudaStream_t stream = 0);
+Tensor asin_cuda (const Tensor&, cudaStream_t stream = 0); void asin__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor acos_cuda (const Tensor&, cudaStream_t stream = 0); void acos__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor atan_cuda (const Tensor&, cudaStream_t stream = 0); void atan__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor sinh_cuda (const Tensor&, cudaStream_t stream = 0); void sinh__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor cosh_cuda (const Tensor&, cudaStream_t stream = 0); void cosh__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor tanh_cuda (const Tensor&, cudaStream_t stream = 0); void tanh__cuda (Tensor&, cudaStream_t stream = 0);
+Tensor asinh_cuda(const Tensor&, cudaStream_t stream = 0); void asinh__cuda(Tensor&, cudaStream_t stream = 0);
+Tensor acosh_cuda(const Tensor&, cudaStream_t stream = 0); void acosh__cuda(Tensor&, cudaStream_t stream = 0);
+Tensor atanh_cuda(const Tensor&, cudaStream_t stream = 0); void atanh__cuda(Tensor&, cudaStream_t stream = 0);
 #else
 static inline Tensor __stub_out() { throw std::runtime_error("This binary was built without CUDA support."); }
 static inline void   __stub_in()  { throw std::runtime_error("This binary was built without CUDA support."); }
@@ -65,31 +66,31 @@ static inline void dispatch_inplace(Tensor& x, Args&&... args) {
 }
 
 // Out-of-place
-Tensor sin   (const Tensor& x){ return dispatch_out<&sin_cpu,   &sin_cuda  >(x); }
-Tensor cos   (const Tensor& x){ return dispatch_out<&cos_cpu,   &cos_cuda  >(x); }
-Tensor tan   (const Tensor& x){ return dispatch_out<&tan_cpu,   &tan_cuda  >(x); }
-Tensor asin  (const Tensor& x){ return dispatch_out<&asin_cpu,  &asin_cuda >(x); }
-Tensor acos  (const Tensor& x){ return dispatch_out<&acos_cpu,  &acos_cuda >(x); }
-Tensor atan  (const Tensor& x){ return dispatch_out<&atan_cpu,  &atan_cuda >(x); }
-Tensor sinh  (const Tensor& x){ return dispatch_out<&sinh_cpu,  &sinh_cuda >(x); }
-Tensor cosh  (const Tensor& x){ return dispatch_out<&cosh_cpu,  &cosh_cuda >(x); }
-Tensor tanh  (const Tensor& x){ return dispatch_out<&tanh_cpu,  &tanh_cuda >(x); }
-Tensor asinh (const Tensor& x){ return dispatch_out<&asinh_cpu, &asinh_cuda>(x); }
-Tensor acosh (const Tensor& x){ return dispatch_out<&acosh_cpu, &acosh_cuda>(x); }
-Tensor atanh (const Tensor& x){ return dispatch_out<&atanh_cpu, &atanh_cuda>(x); }
+Tensor sin   (const Tensor& x, cudaStream_t stream){ return dispatch_out<&sin_cpu,   &sin_cuda  >(x, stream); }
+Tensor cos   (const Tensor& x, cudaStream_t stream){ return dispatch_out<&cos_cpu,   &cos_cuda  >(x, stream); }
+Tensor tan   (const Tensor& x, cudaStream_t stream){ return dispatch_out<&tan_cpu,   &tan_cuda  >(x, stream); }
+Tensor asin  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&asin_cpu,  &asin_cuda >(x, stream); }
+Tensor acos  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&acos_cpu,  &acos_cuda >(x, stream); }
+Tensor atan  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&atan_cpu,  &atan_cuda >(x, stream); }
+Tensor sinh  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&sinh_cpu,  &sinh_cuda >(x, stream); }
+Tensor cosh  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&cosh_cpu,  &cosh_cuda >(x, stream); }
+Tensor tanh  (const Tensor& x, cudaStream_t stream){ return dispatch_out<&tanh_cpu,  &tanh_cuda >(x, stream); }
+Tensor asinh (const Tensor& x, cudaStream_t stream){ return dispatch_out<&asinh_cpu, &asinh_cuda>(x, stream); }
+Tensor acosh (const Tensor& x, cudaStream_t stream){ return dispatch_out<&acosh_cpu, &acosh_cuda>(x, stream); }
+Tensor atanh (const Tensor& x, cudaStream_t stream){ return dispatch_out<&atanh_cpu, &atanh_cuda>(x, stream); }
 
 // In-place
-void sin_   (Tensor& x){ dispatch_inplace<&sin__cpu,   &sin__cuda  >(x); }
-void cos_   (Tensor& x){ dispatch_inplace<&cos__cpu,   &cos__cuda  >(x); }
-void tan_   (Tensor& x){ dispatch_inplace<&tan__cpu,   &tan__cuda  >(x); }
-void asin_  (Tensor& x){ dispatch_inplace<&asin__cpu,  &asin__cuda >(x); }
-void acos_  (Tensor& x){ dispatch_inplace<&acos__cpu,  &acos__cuda >(x); }
-void atan_  (Tensor& x){ dispatch_inplace<&atan__cpu,  &atan__cuda >(x); }
-void sinh_  (Tensor& x){ dispatch_inplace<&sinh__cpu,  &sinh__cuda >(x); }
-void cosh_  (Tensor& x){ dispatch_inplace<&cosh__cpu,  &cosh__cuda >(x); }
-void tanh_  (Tensor& x){ dispatch_inplace<&tanh__cpu,  &tanh__cuda >(x); }
-void asinh_ (Tensor& x){ dispatch_inplace<&asinh__cpu, &asinh__cuda>(x); }
-void acosh_ (Tensor& x){ dispatch_inplace<&acosh__cpu, &acosh__cuda>(x); }
-void atanh_ (Tensor& x){ dispatch_inplace<&atanh__cpu, &atanh__cuda>(x); }
+void sin_   (Tensor& x, cudaStream_t stream){ dispatch_inplace<&sin__cpu,   &sin__cuda  >(x, stream); }
+void cos_   (Tensor& x, cudaStream_t stream){ dispatch_inplace<&cos__cpu,   &cos__cuda  >(x, stream); }
+void tan_   (Tensor& x, cudaStream_t stream){ dispatch_inplace<&tan__cpu,   &tan__cuda  >(x, stream); }
+void asin_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&asin__cpu,  &asin__cuda >(x, stream); }
+void acos_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&acos__cpu,  &acos__cuda >(x, stream); }
+void atan_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&atan__cpu,  &atan__cuda >(x, stream); }
+void sinh_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&sinh__cpu,  &sinh__cuda >(x, stream); }
+void cosh_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&cosh__cpu,  &cosh__cuda >(x, stream); }
+void tanh_  (Tensor& x, cudaStream_t stream){ dispatch_inplace<&tanh__cpu,  &tanh__cuda >(x, stream); }
+void asinh_ (Tensor& x, cudaStream_t stream){ dispatch_inplace<&asinh__cpu, &asinh__cuda>(x, stream); }
+void acosh_ (Tensor& x, cudaStream_t stream){ dispatch_inplace<&acosh__cpu, &acosh__cuda>(x, stream); }
+void atanh_ (Tensor& x, cudaStream_t stream){ dispatch_inplace<&atanh__cpu, &atanh__cuda>(x, stream); }
 
 } // namespace OwnTensor

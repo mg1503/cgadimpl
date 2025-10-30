@@ -29,9 +29,9 @@ option(AG_GLOB_SOURCES "Glob all .cpp under src/ (simplifies dev)" ON)
 option(AG_BUILD_TESTS  "Build tests in tests/" ON)
 
 # ---- Toolchain / common ----
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
