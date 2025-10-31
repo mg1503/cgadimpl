@@ -27,7 +27,7 @@ public:
     DeviceArray(const std::vector<int64_t>& host_data, cudaStream_t stream) {
         size_t bytes = host_data.size() * sizeof(int64_t);
         cudaMalloc(&ptr, bytes);
-        cudaMemcpy(ptr, host_data.data(), bytes, cudaMemcpyHostToDevicem, stream);
+        cudaMemcpyAsync(ptr, host_data.data(), bytes, cudaMemcpyHostToDevice, stream);
     }
     
     ~DeviceArray() {

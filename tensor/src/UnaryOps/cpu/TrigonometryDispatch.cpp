@@ -54,16 +54,38 @@ inline Tensor atanh_cuda(const Tensor&, cudaStream_t stream = 0) { return __stub
 #endif
 
 // templated helpers
+// template <auto CpuFn, auto CudaFn, typename... Args>
+// static inline decltype(auto) dispatch_out(const Tensor& x, Args&&... args) {
+//     if (x.device().is_cuda()) return CudaFn(x, std::forward<Args>(args)...);
+//     return CpuFn(x);
+// }
+// template <auto CpuFn, auto CudaFn, typename... Args>
+// static inline void dispatch_inplace(Tensor& x, Args&&... args) {
+//     if (x.device().is_cuda()) { CudaFn(x, std::forward<Args>(args)...); }
+//     else                      { CpuFn (x); }
+// }
+
+
 template <auto CpuFn, auto CudaFn, typename... Args>
 static inline decltype(auto) dispatch_out(const Tensor& x, Args&&... args) {
-    if (x.device().is_cuda()) return CudaFn(x, std::forward<Args>(args)...);
-    return CpuFn(x, std::forward<Args>(args)...);
+    if (x.device().is_cuda()) {
+        // Only pass the extra arguments (the stream) to the CUDA function
+        return CudaFn(x, std::forward<Args>(args)...);
+    }
+    // Call the CPU function with NO extra arguments
+    return CpuFn(x);
 }
 template <auto CpuFn, auto CudaFn, typename... Args>
 static inline void dispatch_inplace(Tensor& x, Args&&... args) {
-    if (x.device().is_cuda()) { CudaFn(x, std::forward<Args>(args)...); }
-    else                      { CpuFn (x, std::forward<Args>(args)...); }
+    if (x.device().is_cuda()) {
+        // Only pass the extra arguments (the stream) to the CUDA function
+        CudaFn(x, std::forward<Args>(args)...);
+    } else {
+        // Call the CPU function with NO extra arguments
+        CpuFn(x);
+    }
 }
+
 
 // Out-of-place
 Tensor sin   (const Tensor& x, cudaStream_t stream){ return dispatch_out<&sin_cpu,   &sin_cuda  >(x, stream); }

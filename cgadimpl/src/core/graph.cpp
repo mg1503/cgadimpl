@@ -21,12 +21,12 @@ Node::Node(const Tensor& v, Op op_, const char* nm)
     if (v.requires_grad()) {
         // CORRECT WAY:
         // 1. Create a TensorOptions object with the correct properties.
-        TensorOptions opts = TensorOptions()
-                                .with_dtype(v.dtype())
-                                .with_device(v.device());
+        // TensorOptions opts = TensorOptions()
+        //                         .with_dtype(v.dtype())
+        //                         .with_device(v.device());
         
         // 2. Call the 'zeros' factory with the correct signature (shape, opts).
-        grad = OwnTensor::Tensor::zeros(v.shape(), opts);
+        grad = OwnTensor::Tensor::zeros(v.shape(), ag::options(v));
     }
 }
 

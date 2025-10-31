@@ -245,7 +245,7 @@ namespace OwnTensor
         if (is_contiguous() && storage_offset_ == 0) {
             Tensor out(shape_, dtype_, device_, requires_grad_);
             Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
-            alloc->memcpy(out.data(), data(), nbytes());
+            alloc->memcpy(out.data(), data(), nbytes(),cudaMemcpyHostToHost);
             return out;
         }
 
@@ -284,7 +284,7 @@ namespace OwnTensor
                     reinterpret_cast<const uint8_t*>(data())
                     + elem_off * bytes_per_elem;
 
-                alloc->memcpy(dst + write_pos, src_elem_ptr, bytes_per_elem);
+                alloc->memcpy(dst + write_pos, src_elem_ptr, bytes_per_elem, cudaMemcpyHostToHost);
                 write_pos += bytes_per_elem;
 
             } while (bump(idx));
@@ -350,7 +350,7 @@ namespace OwnTensor
                 Tensor result(src_contig.shape_, dtype_, device_, requires_grad_);
                 
                 Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
-                alloc->memcpy(result.data(), src_contig.data(), src_contig.nbytes());
+                alloc->memcpy(result.data(), src_contig.data(), src_contig.nbytes(),cudaMemcpyHostToHost);
                 
                 return result;
             } catch (const std::exception& e) {
@@ -363,7 +363,7 @@ namespace OwnTensor
             Tensor result(shape_, dtype_, device_, requires_grad_);
             
             Allocator* alloc = AllocatorRegistry::get_allocator(device_.device);
-            alloc->memcpy(result.data(), data(), nbytes());
+            alloc->memcpy(result.data(), data(), nbytes(), cudaMemcpyHostToHost);
             
             return result;
         } catch (const std::exception& e) {

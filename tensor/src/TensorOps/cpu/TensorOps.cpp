@@ -5,6 +5,8 @@
 #include "ops/helpers/TensorOpUtils.h"
 #include "ops/TensorOps.h"
 #include "ops/TensorOps.cuh"
+#include "device/DeviceCore.h"
+#include <driver_types.h>
 #include <stdexcept>
 #include <functional>
 
@@ -25,7 +27,8 @@ namespace OwnTensor {
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
             #ifdef WITH_CUDA
-                cuda_add_tensor(lhs, rhs, output);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+                cuda_add_tensor(lhs, rhs, output, stream);
             #else
                 throw std::runtime_error("Tensor Ops: CUDA support not compiled");
             #endif
@@ -46,7 +49,8 @@ namespace OwnTensor {
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
             #ifdef WITH_CUDA
-                cuda_sub_tensor(lhs, rhs, output);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+                cuda_sub_tensor(lhs, rhs, output, stream);
             #else
                 throw std::runtime_error("Tensor Ops: CUDA support not compiled");
             #endif
@@ -67,7 +71,8 @@ namespace OwnTensor {
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
             #ifdef WITH_CUDA
-                cuda_mul_tensor(lhs, rhs, output);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+                cuda_mul_tensor(lhs, rhs, output, stream);
             #else
                 throw std::runtime_error("Tensor Ops: CUDA support not compiled");
             #endif
@@ -88,7 +93,8 @@ namespace OwnTensor {
         if (lhs.device().is_cuda() && rhs.device().is_cuda())
         {
             #ifdef WITH_CUDA
-                cuda_div_tensor(lhs, rhs, output);
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+                cuda_div_tensor(lhs, rhs, output, stream);
             #else
                 throw std::runtime_error("Tensor Ops: CUDA support not compiled");
             #endif

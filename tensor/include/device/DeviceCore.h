@@ -3,6 +3,7 @@
 //====================================================
 #pragma once
 #include "device/Device.h"
+#include <driver_types.h>
 
 namespace OwnTensor
 {
@@ -12,4 +13,8 @@ namespace OwnTensor
         // void set_cuda_device(int device_index);
         int get_current_cuda_device();
     }
+}
+namespace OwnTensor::cuda {
+    void setCurrentStream(cudaStream_t stream);
+    cudaStream_t getCurrentStream();
 }

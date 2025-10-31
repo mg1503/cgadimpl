@@ -121,7 +121,7 @@ namespace OwnTensor
         }
     }
 
-    void cuda_mul_tensor(const Tensor& A, const Tensor& B, Tensor& output)
+    void cuda_mul_tensor(const Tensor& A, const Tensor& B, Tensor& output, cudaStream_t stream)
     {
         bool needs_broadcasting = (A.shape().dims != B.shape().dims);
         size_t total_elems = output.numel();
@@ -139,7 +139,7 @@ namespace OwnTensor
             
             if (!needs_broadcasting) {
                 // Original same-shape kernel
-                mul_kernel<<<grid_size, block_size>>>(a_ptr, b_ptr, output_ptr, total_elems);
+                mul_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, output_ptr, total_elems);
             } else {
                 // New broadcast kernel with shape information
                 size_t a_rows = A.shape().dims[0];
@@ -155,15 +155,15 @@ namespace OwnTensor
                 );
             }
             
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess) {
-                throw std::runtime_error("Multiplication CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
-            }
+            // cudaError_t err = cudaGetLastError();
+            // if (err != cudaSuccess) {
+            //     throw std::runtime_error("Multiplication CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
+            // }
             
-            err = cudaDeviceSynchronize();
-            if (err != cudaSuccess) {
-                throw std::runtime_error("Multiplication CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
-            }
+            // err = cudaDeviceSynchronize();
+            // if (err != cudaSuccess) {
+            //     throw std::runtime_error("Multiplication CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
+            // }
         });
     }
 
@@ -276,7 +276,7 @@ namespace OwnTensor
         }
     }
 
-    void cuda_mul_tensor_inplace(Tensor& A, const Tensor& B)
+    void cuda_mul_tensor_inplace(Tensor& A, const Tensor& B, cudaStream_t stream)
     {
         bool needs_broadcasting = (A.shape().dims != B.shape().dims);
         size_t total_elems = A.numel();
@@ -293,7 +293,7 @@ namespace OwnTensor
             const T* b_ptr = B.data<T>();
             
             if (!needs_broadcasting) {
-                mul_inplace_kernel<<<grid_size, block_size>>>(a_ptr, b_ptr, total_elems);
+                mul_inplace_kernel<<<grid_size, block_size, 0, stream>>>(a_ptr, b_ptr, total_elems);
             } else {
                 size_t a_rows = A.shape().dims[0];
                 size_t a_cols = A.shape().dims[1];
@@ -307,15 +307,15 @@ namespace OwnTensor
                 );
             }
             
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess) {
-                throw std::runtime_error("Multiplication CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
-            }
+            // cudaError_t err = cudaGetLastError();
+            // if (err != cudaSuccess) {
+            //     throw std::runtime_error("Multiplication CUDA kernel failed: " + std::string(cudaGetErrorString(err)));
+            // }
             
-            err = cudaDeviceSynchronize();
-            if (err != cudaSuccess) {
-                throw std::runtime_error("Multiplication CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
-            }
+            // err = cudaDeviceSynchronize();
+            // if (err != cudaSuccess) {
+            //     throw std::runtime_error("Multiplication CUDA kernel execution failed: " + std::string(cudaGetErrorString(err)));
+            // }
         });
     }
 

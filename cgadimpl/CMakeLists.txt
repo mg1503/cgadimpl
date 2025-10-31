@@ -2,37 +2,42 @@
 # FILE: cgadimpl/CMakeLists.txt (Integrated with Pre-built Tensor Library)
 # ====================================================================
 cmake_minimum_required(VERSION 3.20)
-set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
-
 project(cgadimpl LANGUAGES CXX CUDA)
 
-set(CMAKE_CUDA_FLAGS_DEBUG "-G -lineinfo")
+set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
 find_package(CUDAToolkit REQUIRED)
 
-# ==================== NEW TENSOR LIBRARY INTEGRATION (START) ====================
-# 1. Define the path to the 'tensor' library directory.
-#    This assumes 'tensor' and 'cgadimpl' folders are side-by-side.
+# --- Tensor Library Integration ---
 set(OWNTENSOR_DIR ${CMAKE_SOURCE_DIR}/../tensor)
 message(STATUS "Looking for OwnTensor library in: ${OWNTENSOR_DIR}")
-
-# 2. Tell the compiler where to find the headers (e.g., "core/Tensor.h").
 include_directories(${OWNTENSOR_DIR}/include)
-
-# 3. Tell the linker where to find the compiled library file (libtensor.so).
 link_directories(${OWNTENSOR_DIR}/lib)
-# ===================== NEW TENSOR LIBRARY INTEGRATION (END) =====================
 
-# ---- Options ----
+# --- Options ---
 option(AG_PACKAGING    "Enable install + find_package exports" OFF)
 option(AG_GLOB_SOURCES "Glob all .cpp under src/ (simplifies dev)" ON)
 option(AG_BUILD_TESTS  "Build tests in tests/" ON)
 
-# ---- Toolchain / common ----
+# ===================== THIS IS THE DEFINITIVE FIX =====================
+# We will "lie" to CMake's high-level feature detection and then force the
+# correct flag at the low level.
+
+# Command 1: Force all C++ files (.cpp) to compile with the C++20 standard.
+# g++ is working correctly, so this is fine.
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 20)
+
+# Command 2 (The Bait): Tell CMake's high-level system we want C++17 for CUDA.
+# This will prevent the "does not know the compile flags" error.
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+# Command 3 (The Switch): Manually force the C++20 flag for the CUDA compiler.
+# The compiler will see -std=c++17 followed by -std=c++20, and the last one wins.
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -std=c++20")
+# ====================================================================
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ---- Sources ----
@@ -46,15 +51,8 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
 target_include_directories(cgadimpl PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
 )
-
-# ==================== NEW LINKING STEP ====================
-# Link your cgadimpl library against the 'tensor' library (libtensor.so)
-# and dl (for your kernel loader). This makes the dependency public,
-# so any executable that links to cgadimpl will also link to libtensor.
 target_link_libraries(cgadimpl PUBLIC tensor dl)
-# ==========================================================
 
 # ---- Tests (optional) ----
 if(AG_BUILD_TESTS)

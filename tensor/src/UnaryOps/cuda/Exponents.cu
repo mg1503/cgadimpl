@@ -223,10 +223,10 @@ void generic_unary_in_gpu(Tensor& input_tensor, cudaStream_t stream) {
     });
     
     // Wait for GPU to finish
-    cudaError_t err = //cudaDeviceSynchronize
-    if (err != cudaSuccess) {
-        throw std::runtime_error(std::string("CUDA Error: ") + cudaGetErrorString(err));
-    }
+    // cudaError_t err = cudaDeviceSynchronize();
+    // if (err != cudaSuccess) {
+    //     throw std::runtime_error(std::string("CUDA Error: ") + cudaGetErrorString(err));
+    // }
 }
 
 // ============================================================================

@@ -45,40 +45,8 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // These are now OwnTensor::Tensor objects
     const Tensor& A = a->value;
     const Tensor& B = b->value;
-
-    // // Use their DeviceIndex for comparison
-    // if (A.device() != B.device()) { // This comparison should work if DeviceIndex has operator!=
-    //     throw std::runtime_error("add_nodeops: device mismatch between inputs.");
-    // }
-
-    // Use their factory to create the output tensor
-    Tensor Y = Tensor::zeros(A.shape(), ag::options(A)); // Use the same options as A
-
-    // --- YOUR DISPATCH LOGIC (UNCHANGED CONCEPTUALLY) ---
-    if (A.is_cpu()) {
-        auto fn = ag::kernels::cpu().add;
-        if (fn && A.dtype() == Dtype::Float32) {
-            // Call your fast float32 kernel
-            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel());
-        } else {
-            // Fallback to their generic implementation if our kernel is not loaded
-            // or if the dtype is not float32. This is robust.
-            Y = A + B;
-        }
-    } else { // A is on CUDA
-        auto fn = ag::kernels::cuda().add;
-        if (fn && A.dtype() == Dtype::Float32) {
-            // Call your fast float32 CUDA kernel
-            fn(A.data<float>(), B.data<float>(), Y.data<float>(), Y.numel(), ag::current_stream());
-        } else {
-            // Fallback to their generic implementation
-            Y = A + B;
-        }
-    }
-    // --- END OF DISPATCH LOGIC ---
-
-    // The graph-building part is the same, just with the new tensor.
-    // We now use the function call `requires_grad()`
+    Tensor Y =Tensor::zeros(A.shape(), ag::options(A)); // Use the same options as A
+    Y = A + B;
     auto n = std::make_shared<Node>(Y, a->requires_grad() || b->requires_grad(), Op::Add, "+");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);

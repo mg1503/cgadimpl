@@ -28,7 +28,7 @@ done
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORE_SRC="$ROOT/cgadimpl"
 CORE_BUILD="$CORE_SRC/build"
-CORE_INCLUDE="$CORE_SRC/include"   # contains include/ad/kernels_api.hpp
+CORE_INCLUDE="$CORE_SRC/include"
 KERNELS_SRC="$ROOT/kernels"
 KERNELS_BUILD="$KERNELS_SRC/build"
 
@@ -57,7 +57,14 @@ if [[ $CLEAN -eq 1 ]]; then
 fi
 
 echo "== Configuring core"
-cmake -S "$CORE_SRC" -B "$CORE_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+
+# ===================== THIS IS THE DEFINITIVE FIX =====================
+# Pass the compiler path directly to CMake using -D. This is more robust than export.
+# This forces CMake to use your correct CUDA 13.0 compiler.
+cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
+  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+# ====================================================================
 
 echo "== Building core"
 cmake --build "$CORE_BUILD" -j
@@ -70,10 +77,13 @@ cmake -S "$KERNELS_SRC" -B "$KERNELS_BUILD" \
 echo "== Building kernels/cpu"
 cmake --build "$KERNELS_BUILD" -j
 
+# This re-configure is likely redundant, but we will leave it for now.
+# The CMAKE_CUDA_COMPILER setting will be cached in the build directory.
 cmake -S "$CORE_SRC" -B "$CORE_BUILD" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DAG_BUILD_TESTS=ON     # or OFF if you prefer
+  -DAG_BUILD_TESTS=ON
 
+# ... (rest of script is unchanged) ...
 
 # Locate plugin
 PLUGIN_CANDIDATES=(
