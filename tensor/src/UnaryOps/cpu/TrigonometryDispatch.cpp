@@ -39,18 +39,18 @@ Tensor atanh_cuda(const Tensor&, cudaStream_t stream = 0); void atanh__cuda(Tens
 #else
 static inline Tensor __stub_out() { throw std::runtime_error("This binary was built without CUDA support."); }
 static inline void   __stub_in()  { throw std::runtime_error("This binary was built without CUDA support."); }
-inline Tensor sin_cuda  (const Tensor&) { return __stub_out(); } inline void sin__cuda  (Tensor&) { __stub_in(); }
-inline Tensor cos_cuda  (const Tensor&) { return __stub_out(); } inline void cos__cuda  (Tensor&) { __stub_in(); }
-inline Tensor tan_cuda  (const Tensor&) { return __stub_out(); } inline void tan__cuda  (Tensor&) { __stub_in(); }
-inline Tensor asin_cuda (const Tensor&) { return __stub_out(); } inline void asin__cuda (Tensor&) { __stub_in(); }
-inline Tensor acos_cuda (const Tensor&) { return __stub_out(); } inline void acos__cuda (Tensor&) { __stub_in(); }
-inline Tensor atan_cuda (const Tensor&) { return __stub_out(); } inline void atan__cuda (Tensor&) { __stub_in(); }
-inline Tensor sinh_cuda (const Tensor&) { return __stub_out(); } inline void sinh__cuda (Tensor&) { __stub_in(); }
-inline Tensor cosh_cuda (const Tensor&) { return __stub_out(); } inline void cosh__cuda (Tensor&) { __stub_in(); }
-inline Tensor tanh_cuda (const Tensor&) { return __stub_out(); } inline void tanh__cuda (Tensor&) { __stub_in(); }
-inline Tensor asinh_cuda(const Tensor&) { return __stub_out(); } inline void asinh__cuda(Tensor&) { __stub_in(); }
-inline Tensor acosh_cuda(const Tensor&) { return __stub_out(); } inline void acosh__cuda(Tensor&) { __stub_in(); }
-inline Tensor atanh_cuda(const Tensor&) { return __stub_out(); } inline void atanh__cuda(Tensor&) { __stub_in(); }
+inline Tensor sin_cuda  (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void sin__cuda  (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor cos_cuda  (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void cos__cuda  (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor tan_cuda  (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void tan__cuda  (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor asin_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void asin__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor acos_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void acos__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor atan_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void atan__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor sinh_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void sinh__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor cosh_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void cosh__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor tanh_cuda (const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void tanh__cuda (Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor asinh_cuda(const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void asinh__cuda(Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor acosh_cuda(const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void acosh__cuda(Tensor&, cudaStream_t stream = 0) { __stub_in(); }
+inline Tensor atanh_cuda(const Tensor&, cudaStream_t stream = 0) { return __stub_out(); } inline void atanh__cuda(Tensor&, cudaStream_t stream = 0) { __stub_in(); }
 #endif
 
 // templated helpers
