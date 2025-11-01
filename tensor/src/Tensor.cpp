@@ -293,7 +293,7 @@ namespace OwnTensor
         }
         #ifdef WITH_CUDA
             else if (is_cuda()) {
-                cudaStream_t stream = 0;
+                cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
                 
                 // *** CRITICAL FIX: Copy dims and strides to GPU memory first! ***
                 int64_t* d_dims = nullptr;
@@ -302,8 +302,8 @@ namespace OwnTensor
                 cudaMalloc(&d_dims, D * sizeof(int64_t));
                 cudaMalloc(&d_strides, D * sizeof(int64_t));
                 
-                cudaMemcpy(d_dims, shape_.dims.data(), D * sizeof(int64_t), cudaMemcpyHostToDevice);
-                cudaMemcpy(d_strides, stride_.strides.data(), D * sizeof(int64_t), cudaMemcpyHostToDevice);
+                cudaMemcpyAsync(d_dims, shape_.dims.data(), D * sizeof(int64_t), cudaMemcpyHostToDevice, stream);
+                cudaMemcpyAsync(d_strides, stride_.strides.data(), D * sizeof(int64_t), cudaMemcpyHostToDevice, stream);
                 
                 contiguous_strided_copy_cuda(
                     data(), out.data(), total_elems,
@@ -324,7 +324,7 @@ namespace OwnTensor
                 }
                 
                 // Synchronize and clean up
-                cudaDeviceSynchronize();
+                // cudaDeviceSynchronize();
                 cudaFree(d_dims);
                 cudaFree(d_strides);
                 

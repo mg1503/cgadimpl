@@ -10,36 +10,41 @@ using namespace OwnTensor;
 #ifdef WITH_CUDA
 #include <cuda_runtime.h>
 #include <curand.h>
+#include "device/DeviceCore.h"
 
 // Helper for CUDA RNG
-void cuda_rand_uniform(float* data, size_t count, unsigned long seed) {
+void cuda_rand_uniform(float* data, size_t count, unsigned long seed, cudaStream_t stream) {
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandSetStream(gen, stream);
     curandGenerateUniform(gen, data, count);
     curandDestroyGenerator(gen);
 }
 
-void cuda_rand_uniform(double* data, size_t count, unsigned long seed) {
+void cuda_rand_uniform(double* data, size_t count, unsigned long seed, cudaStream_t stream) {
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandSetStream(gen, stream);
     curandGenerateUniformDouble(gen, data, count);
     curandDestroyGenerator(gen);
 }
 
-void cuda_rand_normal(float* data, size_t count, unsigned long seed) {
+void cuda_rand_normal(float* data, size_t count, unsigned long seed, cudaStream_t stream) {
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandSetStream(gen, stream);
     curandGenerateNormal(gen, data, count, 0.0f, 1.0f);
     curandDestroyGenerator(gen);
 }
 
-void cuda_rand_normal(double* data, size_t count, unsigned long seed) {
+void cuda_rand_normal(double* data, size_t count, unsigned long seed, cudaStream_t stream) {
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, seed);
+    curandSetStream(gen, stream);
     curandGenerateNormalDouble(gen, data, count, 0.0, 1.0);
     curandDestroyGenerator(gen);
 }
@@ -57,7 +62,8 @@ Tensor Tensor::zeros(Shape shape, TensorOptions opts) {
     } else {
         // GPU implementation - optimized with cudaMemset
 #ifdef WITH_CUDA
-        cudaMemset(tensor.data(), 0, tensor.nbytes());
+         cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
+        cudaMemsetAsync(tensor.data(), 0, tensor.nbytes(), stream);
 #else
         throw std::runtime_error("CUDA not available");
 #endif
@@ -77,11 +83,12 @@ Tensor Tensor::ones(Shape shape, TensorOptions opts) {
     } else {
         // GPU implementation - handles all 7 types automatically
 #ifdef WITH_CUDA
+        cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             std::vector<T> ones_data(tensor.numel(), T(1));
-            cudaMemcpy(tensor.data(), ones_data.data(), 
-                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+            cudaMemcpyAsync(tensor.data(), ones_data.data(), 
+                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice, stream);
         });
 #else
         throw std::runtime_error("CUDA not available");
@@ -102,11 +109,12 @@ Tensor Tensor::full(Shape shape, TensorOptions opts, float value) {
     } else {
         // GPU implementation - handles all 7 types automatically
 #ifdef WITH_CUDA
+         cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             std::vector<T> fill_data(tensor.numel(), static_cast<T>(value));
-            cudaMemcpy(tensor.data(), fill_data.data(),
-                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice);
+            cudaMemcpyAsync(tensor.data(), fill_data.data(),
+                      tensor.numel() * sizeof(T), cudaMemcpyHostToDevice, stream);
         });
 #else
         throw std::runtime_error("CUDA not available");
@@ -140,13 +148,14 @@ Tensor Tensor::rand(Shape shape, TensorOptions opts) {
 #ifdef WITH_CUDA
         std::random_device rd;
         unsigned long seed = rd();
+        cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
         
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             if constexpr (std::is_same_v<T, float>) {
-                cuda_rand_uniform(static_cast<float*>(tensor.data()), tensor.numel(), seed);
+                cuda_rand_uniform(static_cast<float*>(tensor.data()), tensor.numel(), seed, stream);
             } else if constexpr (std::is_same_v<T, double>) {
-                cuda_rand_uniform(static_cast<double*>(tensor.data()), tensor.numel(), seed);
+                cuda_rand_uniform(static_cast<double*>(tensor.data()), tensor.numel(), seed, stream);
             } else {
                 throw std::runtime_error("GPU rand only supports float/double");
             }
@@ -182,15 +191,16 @@ Tensor Tensor::randn(Shape shape, TensorOptions opts) {
     } else {
         // GPU random
 #ifdef WITH_CUDA
+        cudaStream_t stream = OwnTensor::cuda::getCurrentStream();
         std::random_device rd;
         unsigned long seed = rd();
         
         dispatch_by_dtype(opts.dtype, [&](auto dummy) {
             using T = decltype(dummy);
             if constexpr (std::is_same_v<T, float>) {
-                cuda_rand_normal(static_cast<float*>(tensor.data()), tensor.numel(), seed);
+                cuda_rand_normal(static_cast<float*>(tensor.data()), tensor.numel(), seed, stream);
             } else if constexpr (std::is_same_v<T, double>) {
-                cuda_rand_normal(static_cast<double*>(tensor.data()), tensor.numel(), seed);
+                cuda_rand_normal(static_cast<double*>(tensor.data()), tensor.numel(), seed, stream);
             } else {
                 throw std::runtime_error("GPU randn only supports float/double");
             }
