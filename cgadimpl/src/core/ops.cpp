@@ -327,6 +327,7 @@ return Value(detail::realrms_nodeops(x.node, g));
  *      5️⃣  Return the computed output tensor.
  *      6️⃣  If unsupported, throw a runtime error.
  */
+#include <ad/checkpoint.hpp>
 Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
     if (!node) throw std::runtime_error("forward_eval_node: null node");
 
@@ -335,21 +336,9 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         // ============================================================
         // Basic arithmetic operations
         // ============================================================
-        case Op::Add: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A + B;
-        }
-        case Op::Sub: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A - B;
-        }
-        case Op::Mul: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A * B;
-        }
+        case Op::Add: return node->inputs[0]->value + node->inputs[1]->value;
+        case Op::Sub: return node->inputs[0]->value - node->inputs[1]->value;
+        case Op::Mul: return node->inputs[0]->value * node->inputs[1]->value;
 
         // ============================================================
         // Matrix multiplication (dense layer or attention block)
@@ -357,31 +346,32 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         case Op::MatMul: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
-            return Tensor::matmul(A, B);
+            // Use the named async function for clarity
+            return matmul(A, B);
         }
 
         // ============================================================
         // Unary elementwise activations
         // ============================================================
-        case Op::Relu: {
-            const Tensor &X = node->inputs[0]->value;
-            return Tensor::relu(X);
-        }
-        case Op::Sigmoid: {
-            const Tensor &X = node->inputs[0]->value;
-            return Tensor::sigmoid(X);
-        }
+        // case Op::Relu: {
+        //     const Tensor &X = node->inputs[0]->value;
+        //     return Tensor::relu(X);
+        // }
+        // case Op::Sigmoid: {
+        //     const Tensor &X = node->inputs[0]->value;
+        //     return Tensor::sigmoid(X);
+        // }
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::tanh(X);
+            return tanh(X);
         }
         case Op::Exp: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::exp(X);
+            return exp(X);
         }
         case Op::Log: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::log(X);
+            return log(X);
         }
 
         // ============================================================
@@ -401,28 +391,73 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
          *    5. Multiply attention weights with the values to get the output.
          */
         case Op::AlibiAttention: {
+            // NOTE: This re-computation will automatically use the correct CUDA stream
+            // because all the OwnTensor functions called below (matmul, exp, sum, etc.)
+            // are designed to get the stream from the thread-local context.
+
             const Tensor &a = node->inputs[0]->value;
             const Tensor &b = node->inputs[1]->value;
             const Tensor &c = node->inputs[2]->value;
             const Tensor &d = node->inputs[3]->value;
 
-            // Step 1: compute projections
-            Tensor q = Tensor::matmul(a, b);
-            Tensor k = Tensor::matmul(a, c);
-            Tensor v = Tensor::matmul(a, d);
+            // Step 1: compute projections using the new matmul function
+            Tensor q = matmul(a, b);
+            Tensor k = matmul(a, c);
+            Tensor v = matmul(a, d);
 
             // Step 2: scaled dot-product attention
-            Tensor logits = Tensor::matmul(q, Tensor::transpose(k) * (1.f / sqrt(float(k.cols()))));
+            // FIX: Use .shape().dims.back() instead of .cols()
+            float scale = 1.0f / sqrtf(static_cast<float>(k.shape().dims.back()));
+            Tensor k_transposed = k.t(); // .t() is still correct
+            Tensor logits = (matmul(q, k_transposed)) * scale;
 
-            // Step 3: add ALIBI bias (creates a position-dependent attention slope)
-            Tensor bias = Tensor::alibi(logits.rows(), logits.cols(), /*m*/128);
-            Tensor g = logits + bias;
+            // Step 3: add ALIBI bias
+            // FIX: Re-implement the missing 'alibi' function.
+            // Alibi creates a positional bias matrix.
+            {
+                int n_heads = logits.shape().dims[0]; // Assuming shape is [heads, seq, seq]
+                int seq_len = logits.shape().dims[1];
+                
+                // For simplicity, create bias on CPU and move to GPU.
+                // For max performance, this would be a custom CUDA kernel.
+                auto cpu_opts = TensorOptions().with_dtype(logits.dtype());
+                Tensor bias_cpu(Shape{{n_heads, seq_len, seq_len}}, cpu_opts);
+
+                // This is a simplified ALIBI implementation.
+                float slope_start = 1.0f / powf(2.0f, 8.0f / n_heads);
+                
+                dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy){
+                    using T = decltype(dummy);
+                    T* data = bias_cpu.data<T>();
+                    for(int h = 0; h < n_heads; ++h) {
+                        float slope = powf(slope_start, h + 1);
+                        for (int i = 0; i < seq_len; ++i) {
+                            for (int j = 0; j < seq_len; ++j) {
+                                // Causal mask part of alibi
+                                data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<T>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
+                            }
+                        }
+                    }
+                });
+                
+                // Move the created bias to the same device as the logits and add it.
+                logits += bias_cpu.to(logits.device());
+            }
 
             // Step 4: softmax normalization over rows
-            Tensor s = Tensor::softmax_row(g);
+            // FIX: Re-implement the missing 'softmax_row' function using basic ops.
+            Tensor s{Shape{}, Dtype::Float32};  ///************************************************************************************************************************************************************************* */
+            {
+                // Numerically stable softmax: subtract max before exponentiating
+                Tensor max_val = reduce_max(logits, {-1}, true);
+                Tensor z = logits - max_val;
+                Tensor exp_z = exp(z);
+                Tensor sum_exp_z = reduce_sum(exp_z, {-1}, true);
+                s = exp_z / sum_exp_z; // Broadcasting is handled by the '/' operator
+            }
 
             // Step 5: output = attention weights × values
-            Tensor y = Tensor::matmul(s, v);
+            Tensor y = matmul(s, v);
             return y;
         }
 

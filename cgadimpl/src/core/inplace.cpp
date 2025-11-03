@@ -25,6 +25,7 @@
 #include "ad/debug.hpp"
 #include <iostream>
 #include <mutex>
+#include <sstream>
 
 namespace ag {
 namespace inplace {
@@ -146,17 +147,27 @@ void mark_inplace_checkpoint(const NodePtr& node, const InplaceOptions& opts) {
         node->saved_inputs.emplace_back(p ? Value(p) : Value());
 
     // Create snapshot entry
-    SnapshotEntry entry;
-    entry.snapshot = node->value;                    // store tensor copy
-    entry.version_at_save = get_tensor_version(node.get());
+    // Create and initialize the snapshot entry in one step
+    SnapshotEntry entry {
+        .snapshot = node->value.clone(),
+        .version_at_save = get_tensor_version(node.get())
+    };
     g_snapshots[node.get()] = entry;
 
     // Link alias tracking
     register_tensor_alias((void*)node->value.data(), node.get());
 
     if (opts.verbose) {
+        std::stringstream shape_ss;
+        const auto& dims = node->value.shape().dims;
+        shape_ss << "[";
+        for(size_t i = 0; i < dims.size(); ++i) {
+            shape_ss << dims[i] << (i == dims.size() - 1 ? "" : ", ");
+        }
+        shape_ss << "]";
+
         std::cout << "[inplace] checkpoint @" << node.get()
-                  << " shape=" << node->value.rows() << "x" << node->value.cols()
+                  << " shape=" << shape_ss.str() // Use the new shape string
                   << " version=" << entry.version_at_save << "\n";
     }
 }
@@ -251,42 +262,47 @@ bool ensure_inplace_value(const NodePtr& node) {
     std::cerr << "[inplace] ensure enter node@" << raw << "\n";
 
     // Fast path: tensor already present
-    if (node->value.size() != 0) {
+    if (node->value.numel() != 0) {
         std::cerr << "[inplace] node@" << raw << " already has value\n";
         return true;
     }
 
     // Retrieve snapshot safely (without holding lock during recompute)
-    SnapshotEntry snap;
+ // 1. Declare a POINTER to a SnapshotEntry. Initialize to null.
+    const SnapshotEntry* snap_ptr = nullptr;
     {
         std::lock_guard<std::mutex> guard(g_lock);
         auto sit = g_snapshots.find(raw);
-        if (sit != g_snapshots.end()) snap = sit->second;
+        if (sit != g_snapshots.end()) {
+            // If we find it, make our pointer point to the entry in the map.
+            snap_ptr = &sit->second;
+        }
     }
-    bool has_snapshot = (snap.snapshot.size() != 0);
+    // The lock is now released. 'snap_ptr' is either null or points to a valid entry.
 
     size_t meta_ver = get_tensor_version(raw);
 
-    if (has_snapshot) {
+    // 2. Check if the pointer is not null (i.e., we found a snapshot).
+    if (snap_ptr) {
         std::cerr << "[inplace] found snapshot for node@" << raw
-                  << " snap_ver=" << snap.version_at_save
+                  << " snap_ver=" << snap_ptr->version_at_save // Use '->' for pointers
                   << " meta_ver=" << meta_ver << "\n";
 
         // Case 1: snapshot is valid
-        if (meta_ver == 0 || snap.version_at_save == meta_ver) {
-            node->value = snap.snapshot;
+        if (meta_ver == 0 || snap_ptr->version_at_save == meta_ver) {
+            node->value = snap_ptr->snapshot; // Use '->' for pointers
             propagate_to_aliases(raw, node->value);
             std::cerr << "[inplace] restored snapshot for node@" << raw << "\n";
             {
                 std::lock_guard<std::mutex> guard(g_lock);
                 if (g_meta.find(raw) == g_meta.end())
-                    g_meta[raw].version = snap.version_at_save;
+                    g_meta[raw].version = snap_ptr->version_at_save;
             }
             return true;
         }
 
         // Case 2: snapshot is outdated → prefer recomputation
-        std::cerr << "[inplace] snapshot stale (snap=" << snap.version_at_save
+        std::cerr << "[inplace] snapshot stale (snap=" << snap_ptr->version_at_save
                   << " meta=" << meta_ver << ") -> recompute\n";
         bool recomputed = recompute_inplace(node);
         if (recomputed) {
@@ -296,10 +312,12 @@ bool ensure_inplace_value(const NodePtr& node) {
 
         // Case 3: recompute failed → fallback to snapshot anyway
         std::cerr << "[inplace] recompute failed; fallback to snapshot\n";
-        node->value = snap.snapshot;
+        node->value = snap_ptr->snapshot; // Use '->'
         propagate_to_aliases(raw, node->value);
         return true;
     }
+
+    // --- END OF THE FIX ---
 
     // Case 4: no snapshot but checkpointed → recompute
     if (node->is_checkpoint) {

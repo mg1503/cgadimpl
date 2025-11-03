@@ -4,6 +4,7 @@
 #include "ad/cuda_graphs.hpp"
 #include "tensor.hpp"
 #include <iostream>
+#include <device/DeviceCore.h>
 
 // Helper macro for CUDA calls
 #define CUDA_CHECK(call) \

@@ -19,6 +19,16 @@ public:
     // are guaranteed to have a callable forward pass.
     virtual Value operator()(const Value& input) = 0;
 
+    // --- NEW "Convenience" Overload ---
+    // This is the user-facing method that accepts a raw Tensor.
+    Value operator()(const Tensor& input) {
+        // 1. Automatically wrap the raw Tensor into a graph node.
+        Value graph_input = ag::make_tensor(input);
+
+        // 2. Call the original, core forward pass with the new graph node.
+        return this->operator()(graph_input);
+    }
+
     const std::vector<Value>& parameters() const { 
         return params_; 
     }

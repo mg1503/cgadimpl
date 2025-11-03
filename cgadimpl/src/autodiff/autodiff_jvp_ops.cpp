@@ -7,32 +7,31 @@
 namespace ag {
 namespace detail{
 
-// shorthand
+// The 'T' shorthand is still useful, so we keep it.
 inline const Tensor& T(const std::function<const Tensor&(Node*)>& f, Node* p){ return f(p); }
 
 // ---- elementwise ----
-Tensor jvp_Add(Node* n, const std::function<const Tensor&(Node*)>& t){ 
-    if (n->value.is_cpu()) {
-        return T(t,n->inputs[0].get()) + T(t,n->inputs[1].get());
-    } else {
-        throw std::runtime_error("JVP for Add on CUDA not implemented yet!");
-    }
+
+Tensor jvp_Add(Node* n, const std::function<const Tensor&(Node*)>& t){
+    // The '+' operator now handles both CPU and GPU, and is stream-aware.
+    return T(t, n->inputs[0].get()) + T(t, n->inputs[1].get());
 }
-Tensor jvp_Sub(Node* n, const std::function<const Tensor&(Node*)>& t){ 
-    if (n->value.is_cpu()) {
-        return T(t,n->inputs[0].get()) - T(t,n->inputs[1].get());
-    } else {
-        throw std::runtime_error("JVP for Sub on CUDA not implemented yet!");
-    }
+
+Tensor jvp_Sub(Node* n, const std::function<const Tensor&(Node*)>& t){
+    // The '-' operator now handles both CPU and GPU.
+    return T(t, n->inputs[0].get()) - T(t, n->inputs[1].get());
 }
+
 Tensor jvp_Mul(Node* n, const std::function<const Tensor&(Node*)>& t){ 
-    if (n->value.is_cpu()) {
-        Node* A=n->inputs[0].get(); Node* B=n->inputs[1].get();
-        return (T(t,A) * B->value) + (A->value * T(t,B));
-    } else {
-        throw std::runtime_error("JVP for Mul on CUDA not implemented yet!");
-    }
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+
+    // The '*' and '+' operators now handle both CPU and GPU.
+    // The entire expression works on either device and is fully asynchronous on CUDA.
+    return (T(t, A) * B->value) + (A->value * T(t, B));
 }
+
+
 Tensor jvp_Relu(Node* n, const std::function<const Tensor&(Node*)>& t){
     if (n->value.is_cpu()) {
         Node* X=n->inputs[0].get();

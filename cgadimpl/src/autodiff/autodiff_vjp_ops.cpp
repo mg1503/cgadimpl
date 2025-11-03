@@ -10,38 +10,49 @@
 namespace ag {
 namespace detail{
 
-// helper: reduce a gradient to a parent's shape (broadcast-aware)
-inline Tensor rt(const Tensor& g, const Tensor& like){ return Tensor::reduce_to(g, like); }
+
 
 // ----- elementwise binary -----
 void vjp_Add(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
 
-    if (A->value.is_cpu()) {
-        if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-        if (B->requires_grad) B->grad.add_( rt(gy, B->value) );
-    } else {
-        ag::kernels::cuda().vjp_add(A->grad.data(), B->grad.data(), gy.data(),
-                                    gy.numel(), ag::current_stream());
+    // The += operator works for both CPU and GPU. It will get the stream
+    // from the context automatically for GPU tensors.
+    if (A->requires_grad()) {
+        A->grad += gy;
+    }
+    if (B->requires_grad()) {
+        B->grad += gy;
     }
 }
+
 void vjp_Sub(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (n->value.is_cpu()) {
-        if (A->requires_grad) A->grad.add_( rt(gy, A->value) );
-        if (B->requires_grad) B->grad.add_( rt(-gy, B->value) );
-    } else {
-        throw std::runtime_error("VJP for Sub on CUDA not implemented yet!");
+    Node* A = n->inputs[0].get(); 
+    Node* B = n->inputs[1].get();
+
+    if (A->requires_grad()) {
+        A->grad += gy;
+    }
+    if (B->requires_grad()) {
+        // Use the scalar multiplication operator for negation.
+        // This is now a single, clean line for both CPU and GPU.
+        A->grad += gy * -1.0f;
     }
 }
+
 void vjp_Mul(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
-    if (n->value.is_cpu()) {
-        if (A->requires_grad) A->grad.add_( rt( gy * B->value, A->value) );
-        if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
-    } else {
-        throw std::runtime_error("VJP for Mul on CUDA not implemented yet!");
+    Node* A = n->inputs[0].get(); 
+    Node* B = n->inputs[1].get();
+
+    // The gradient for A is gy * B's value.
+    if (A->requires_grad()) {
+        A->grad += gy * B->value;
+    }
+    
+    // The gradient for B is gy * A's value.
+    if (B->requires_grad()) {
+        B->grad += gy * A->value;
     }
 }
 
@@ -55,13 +66,13 @@ void vjp_FMA(Node* n, const Tensor& gy){
         const Tensor& At = A->value;
         const Tensor& Bt = B->value;
 
-        if (A->requires_grad){
+        if (A->requires_grad()){
             A->grad.add_(Tensor::matmul(gy, Tensor::transpose(Bt)));
         }
-        if (B->requires_grad){
+        if (B->requires_grad()){
             B->grad.add_(Tensor::matmul(Tensor::transpose(At), gy));
         }
-        if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+        if (C->requires_grad()) C->grad.add_( rt(gy, C->value) );
     } else {
         throw std::runtime_error("VJP for FMA on CUDA not implemented yet!");
     }
@@ -80,7 +91,7 @@ void vjp_LayerNorm(Node* n, const Tensor& gy){
         Tensor term2 = term1 - grad_sum;
         Tensor term3 = term2 - (xmu * (grad_dot_xmu / (*(n->tape[0]) + 0.01)));
         Tensor dx = term3 / (std_dev * float(N));
-        if (x->requires_grad) x->grad.add_(dx);
+        if (x->requires_grad()) x->grad.add_(dx);
     } else {
         throw std::runtime_error("VJP for LayerNorm on CUDA not implemented yet!");
     }
@@ -100,9 +111,9 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
         Tensor term2 = term1 - grad_sum;
         Tensor term3 = term2 - (xmu * (grad_dot_xmu / (*(n->tape[0]) + 0.01)));
         Tensor dx = term3 / (std_dev * float(N));
-        if (x->requires_grad) x->grad.add_(dx);
-        if (b->requires_grad) b->grad.add_(Tensor::row_sum(gy));
-        if (g->requires_grad) g->grad.add_(Tensor::row_sum(gy * (*(n->tape[2]))));
+        if (x->requires_grad()) x->grad.add_(dx);
+        if (b->requires_grad()) b->grad.add_(Tensor::row_sum(gy));
+        if (g->requires_grad()) g->grad.add_(Tensor::row_sum(gy * (*(n->tape[2]))));
     } else {
         throw std::runtime_error("VJP for RealLayerNorm on CUDA not implemented yet!");
     }
@@ -115,7 +126,7 @@ void vjp_RMSNorm(Node* n, const Tensor& gy){
         Tensor y   = *n->tape[1];
         Tensor dot = Tensor::row_sum(gy * y);
         Tensor grad_x = (gy / rms) - (y * dot / (rms*x->value.cols()));
-        if (x->requires_grad) x->grad.add_(grad_x);
+        if (x->requires_grad()) x->grad.add_(grad_x);
     } else {
         throw std::runtime_error("VJP for RMSNorm on CUDA not implemented yet!");
     }
@@ -129,8 +140,8 @@ void vjp_RealRMSNorm(Node* n, const Tensor& gy){
         Tensor y   = *n->tape[1];
         Tensor dot = Tensor::row_sum(gy * y);
         Tensor grad_x = g->value * ((gy / rms) - (y * dot / (rms*x->value.cols())));
-        if (x->requires_grad) x->grad.add_(grad_x);
-        if (g->requires_grad) g->grad.add_(gy * (x->value / rms));
+        if (x->requires_grad()) x->grad.add_(grad_x);
+        if (g->requires_grad()) g->grad.add_(gy * (x->value / rms));
     } else {
         throw std::runtime_error("VJP for RealRMSNorm on CUDA not implemented yet!");
     }
@@ -157,10 +168,10 @@ void vjp_Attention(Node* n, const Tensor& gy){
         Tensor dL_dC   = Tensor::matmul(Tensor::transpose(A->value), dL_dk) * scale;
         Tensor dL_dA_v = Tensor::matmul(dL_dv, Tensor::transpose(D->value));
         Tensor dL_dD   = Tensor::matmul(Tensor::transpose(A->value), dL_dv);
-        if (A->requires_grad) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
-        if (B->requires_grad) B->grad.add_(dL_dB);
-        if (C->requires_grad) C->grad.add_(dL_dC);
-        if (D->requires_grad) D->grad.add_(dL_dD);
+        if (A->requires_grad()) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
+        if (B->requires_grad()) B->grad.add_(dL_dB);
+        if (C->requires_grad()) C->grad.add_(dL_dC);
+        if (D->requires_grad()) D->grad.add_(dL_dD);
     } else {
         throw std::runtime_error("VJP for Attention on CUDA not implemented yet!");
     }
@@ -187,11 +198,11 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
         Tensor dL_dD = q * gy;
         Tensor dL_dC = Tensor::matmul(Tensor::transpose(dL_dD), X->value);
         Tensor dL_dX = Tensor::matmul(dL_dB, A->value) + Tensor::matmul(dL_dD, C->value);
-        if (X->requires_grad) X->grad.add_(dL_dX);
-        if (A->requires_grad) A->grad.add_(dL_dA);
-        if (B->requires_grad) B->grad.add_(dL_dB);
-        if (C->requires_grad) C->grad.add_(dL_dC);
-        if (D->requires_grad) D->grad.add_(dL_dD);
+        if (X->requires_grad()) X->grad.add_(dL_dX);
+        if (A->requires_grad()) A->grad.add_(dL_dA);
+        if (B->requires_grad()) B->grad.add_(dL_dB);
+        if (C->requires_grad()) C->grad.add_(dL_dC);
+        if (D->requires_grad()) D->grad.add_(dL_dD);
     } else {
         throw std::runtime_error("VJP for SWIGLU on CUDA not implemented yet!");
     }
@@ -201,7 +212,7 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 
 // void vjp_Relu(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 
 //     if (X->value.is_cpu()) {
 //         Tensor dA = Tensor::relu_mask(X->value);
@@ -224,7 +235,7 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 // }
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().relu_bwd;
@@ -248,7 +259,7 @@ void vjp_Relu(Node* n, const Tensor& gy){
 
 // void vjp_Exp(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 //     if (n->value.is_cpu()) {
 //         X->grad.add_( rt( gy * n->value, X->value) );
 //     } else {
@@ -259,7 +270,7 @@ void vjp_Relu(Node* n, const Tensor& gy){
 
     void vjp_Exp(Node* n, const Tensor& gy){
         Node* X = n->inputs[0].get();
-        if (!X->requires_grad) return;
+        if (!X->requires_grad()) return;
 
         if (X->value.is_cpu()) {
             auto fn = ag::kernels::cpu().exp_bwd_from_y;
@@ -284,9 +295,9 @@ void vjp_Relu(Node* n, const Tensor& gy){
 
     // void vjp_Log(Node* n, const Tensor& gy){
     //     Node* X = n->inputs[0].get();
-    //     if (!X->requires_grad) return;
+    //     if (!X->requires_grad()) return;
     //     if (n->value.is_cpu()) {
-    //         if (X->requires_grad) X->grad.add_( rt( gy / X->value, X->value) );
+    //         if (X->requires_grad()) X->grad.add_( rt( gy / X->value, X->value) );
     //     } else {
     //         throw std::runtime_error("VJP for Log on CUDA not implemented yet!");
     //     }
@@ -295,7 +306,7 @@ void vjp_Relu(Node* n, const Tensor& gy){
 
 void vjp_Log(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().log_bwd;
@@ -318,7 +329,7 @@ void vjp_Log(Node* n, const Tensor& gy){
 
     void vjp_GCU(Node* n, const Tensor& gy){
         Node* X = n->inputs[0].get();
-        if (!X->requires_grad) return;
+        if (!X->requires_grad()) return;
         if (n->value.is_cpu()) {
             X->grad.add_( rt( gy * (Tensor::cos(X->value)-(X->value*Tensor::sin(X->value))), X->value) );
         } else {
@@ -328,7 +339,7 @@ void vjp_Log(Node* n, const Tensor& gy){
 
     void vjp_Mish(Node* n, const Tensor& gy){
         Node* X = n->inputs[0].get();
-        if (!X->requires_grad) return;
+        if (!X->requires_grad()) return;
         if (n->value.is_cpu()) {
             Tensor sp = Tensor::softplus(X->value);
             Tensor th = Tensor::tanh(sp);
@@ -341,7 +352,7 @@ void vjp_Log(Node* n, const Tensor& gy){
 
 // void vjp_Tanh(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 //     if (n->value.is_cpu()) {
 //         Tensor th = n->value;
 //         X->grad.add_( rt( gy * (Tensor::ones_like(th) - th*th), X->value) );
@@ -352,7 +363,7 @@ void vjp_Log(Node* n, const Tensor& gy){
 
 void vjp_Tanh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().tanh_bwd_from_t;
@@ -378,7 +389,7 @@ void vjp_Tanh(Node* n, const Tensor& gy){
 
 void vjp_Sigmoid(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().sigmoid_bwd_from_s;
@@ -404,7 +415,7 @@ void vjp_Sigmoid(Node* n, const Tensor& gy){
 
 // void vjp_Softplus(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 //     if (n->value.is_cpu()) {
 //         X->grad.add_( rt( gy * Tensor::sigmoid(X->value), X->value) );
 //     } else {
@@ -414,7 +425,7 @@ void vjp_Sigmoid(Node* n, const Tensor& gy){
 
 void vjp_Softplus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().softplus_bwd;
@@ -436,7 +447,7 @@ void vjp_Softplus(Node* n, const Tensor& gy){
 
 void vjp_Gaus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * -2.0f * X->value * Tensor::exp(-1.0f * X->value * X->value), X->value) );
     } else {
@@ -446,7 +457,7 @@ void vjp_Gaus(Node* n, const Tensor& gy){
 
 void vjp_Transpose(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( Tensor::transpose(gy) , X->value) );
     } else {
@@ -456,7 +467,7 @@ void vjp_Transpose(Node* n, const Tensor& gy){
 
 void vjp_SiLU(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor s = Tensor::sigmoid(X->value);
         X->grad.add_( rt( gy * ( s + X->value * ( s * (Tensor::ones_like(s)-s) ) ), X->value) );
@@ -467,7 +478,7 @@ void vjp_SiLU(Node* n, const Tensor& gy){
 
 void vjp_Parcon(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * ( 2.0f * Tensor::ones_like(X->value) - 2.0f * X->value  ), X->value) );
     } else {
@@ -477,7 +488,7 @@ void vjp_Parcon(Node* n, const Tensor& gy){
 
 void vjp_LiSHT(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor sech_x = Tensor::sech(X->value);
         X->grad.add_( rt( gy * ( Tensor::tanh(X->value) + (sech_x * sech_x * X->value ) ), X->value) );
@@ -488,7 +499,7 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
 
 // void vjp_GELU(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 //     if (n->value.is_cpu()) {
 //         constexpr float c = 0.79788456080286535588f; // sqrt(2/pi)
 //         Tensor x=X->value;
@@ -504,7 +515,7 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
 // }
 void vjp_GELU(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     if (X->value.is_cpu()) {
         auto fn = ag::kernels::cpu().gelu_bwd;
@@ -529,7 +540,7 @@ void vjp_GELU(Node* n, const Tensor& gy){
 
 void vjp_LeakyRelu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
 
     // Get alpha from the second input node in the graph. This is correct.
     Node* A_node = n->inputs[1].get();
@@ -568,10 +579,10 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
 //     const Tensor& Bt = B->value;
 
 //     if (At.is_cpu()) {
-//         if (A->requires_grad){
+//         if (A->requires_grad()){
 //             A->grad.add_(Tensor::matmul(gy, Tensor::transpose(Bt)));
 //         }
-//         if (B->requires_grad){
+//         if (B->requires_grad()){
 //             B->grad.add_(Tensor::matmul(Tensor::transpose(At), gy));
 //         }
 //     } else {
@@ -600,7 +611,7 @@ void vjp_MatMul(Node* n, const Tensor& gy){
         auto fn_dA = ag::kernels::cpu().matmul_bwd_dA;
         auto fn_dB = ag::kernels::cpu().matmul_bwd_dB;
 
-        if (A_node->requires_grad) {
+        if (A_node->requires_grad()) {
             Tensor dA_temp = Tensor::zeros_like(A);
             if (fn_dA) {
                 // gA(M,K) = gy(M,N) @ B^T(N,K)
@@ -612,7 +623,7 @@ void vjp_MatMul(Node* n, const Tensor& gy){
             A_node->grad.add_(dA_temp);
         }
 
-        if (B_node->requires_grad) {
+        if (B_node->requires_grad()) {
             Tensor dB_temp = Tensor::zeros_like(B);
             if (fn_dB) {
                 // gB(K,N) = A^T(K,M) @ gy(M,N)
@@ -645,10 +656,10 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
     Node* G = n->inputs[3].get();
     if (n->value.is_cpu()) {
         Tensor sech_val = Tensor::sech(X->value * A->value);
-        if (X->requires_grad) X->grad.add_(gy * sech_val * sech_val * A->value * G->value); 
-        if (A->requires_grad) A->grad.add_(gy * sech_val * sech_val * X->value * G->value);
-        if (B->requires_grad) B->grad.add_(gy);
-        if (G->requires_grad) G->grad.add_(gy * Tensor::tanh(*(n->tape.back())));
+        if (X->requires_grad()) X->grad.add_(gy * sech_val * sech_val * A->value * G->value); 
+        if (A->requires_grad()) A->grad.add_(gy * sech_val * sech_val * X->value * G->value);
+        if (B->requires_grad()) B->grad.add_(gy);
+        if (G->requires_grad()) G->grad.add_(gy * Tensor::tanh(*(n->tape.back())));
     } else {
         throw std::runtime_error("VJP for Dyntanh on CUDA not implemented yet!");
     }
@@ -657,7 +668,7 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
 // ----- Reductions -----
 void vjp_Sum(Node* n, const Tensor& gy){
     Node* X=n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         float s = gy(0,0);
         X->grad.add_( Tensor::ones_like(X->value) * s );
@@ -667,7 +678,7 @@ void vjp_Sum(Node* n, const Tensor& gy){
 }
 void vjp_RowSum(Node* n, const Tensor& gy){
     Node* X=n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( gy * Tensor::ones_like(X->value) );
     } else {
@@ -676,7 +687,7 @@ void vjp_RowSum(Node* n, const Tensor& gy){
 }
 void vjp_RowMax(Node* n, const Tensor& gy){
     Node* X=n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor m = Tensor::row_max(X->value);
         Tensor g = Tensor::zeros_like(X->value);
@@ -689,7 +700,7 @@ void vjp_RowMax(Node* n, const Tensor& gy){
 }
 void vjp_MeanAll(Node* n, const Tensor& gy){
     Node* X=n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         float scale = gy(0,0) / float(X->value.numel());
         X->grad.add_( Tensor::ones_like(X->value) * scale );
@@ -701,7 +712,7 @@ void vjp_MeanAll(Node* n, const Tensor& gy){
 // ----- Softmax / Losses -----
 void vjp_SoftmaxRow(Node* n, const Tensor& gy){
     Node* Z = n->inputs[0].get();
-    if (!Z->requires_grad) return;
+    if (!Z->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor y = n->value;
         Tensor dot = Tensor::row_sum( y * gy );
@@ -712,7 +723,7 @@ void vjp_SoftmaxRow(Node* n, const Tensor& gy){
 }
 void vjp_LogSumExpRow(Node* n, const Tensor& gy){
     Node* Z = n->inputs[0].get();
-    if (!Z->requires_grad) return;
+    if (!Z->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor y = Tensor::softmax_row(Z->value);
         Z->grad.add_( y * gy );
@@ -727,8 +738,8 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
         int B = Z->value.rows();
         Tensor sm = Tensor::softmax_row(Z->value);
         Tensor gZ = (sm - Y->value) * (1.0f / float(B));
-        if (Z->requires_grad) Z->grad.add_( gZ );
-        if (Y->requires_grad) {
+        if (Z->requires_grad()) Z->grad.add_( gZ );
+        if (Y->requires_grad()) {
             Tensor lse = Tensor::logsumexp_row(Z->value);
             Tensor lsm = Z->value - lse;
             Tensor gY  = lsm * (-1.0f / float(B));
@@ -746,8 +757,8 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
         int B = Z->value.rows();
         Tensor sm = Tensor::softmax_row(Z->value);
         Tensor gZ = (sm - Y->value) * (1.0f / float(B));
-        if (Z->requires_grad) Z->grad.add_( gZ );
-        if (Y->requires_grad) {
+        if (Z->requires_grad()) Z->grad.add_( gZ );
+        if (Y->requires_grad()) {
             Tensor lse = Tensor::logsumexp_row(Z->value);
             Tensor lsm = Z->value - lse;
             Tensor gY = (Tensor::log(Y->value) + Tensor::ones_like(Y->value) - lsm) * (1.0f / float(B));
@@ -762,15 +773,15 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
 void vjp_Div(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get(); Node* B = n->inputs[1].get();
     if (n->value.is_cpu()) {
-        if (A->requires_grad) A->grad.add_( rt( gy * Tensor::reciprocal(B->value), A->value) );
-        if (B->requires_grad) B->grad.add_( rt( -gy * Tensor::reciprocal(B->value) * Tensor::reciprocal(B->value) * A->value, B->value) );
+        if (A->requires_grad()) A->grad.add_( rt( gy * Tensor::reciprocal(B->value), A->value) );
+        if (B->requires_grad()) B->grad.add_( rt( -gy * Tensor::reciprocal(B->value) * Tensor::reciprocal(B->value) * A->value, B->value) );
     } else {
         throw std::runtime_error("VJP for Div on CUDA not implemented yet!");
     }
 }
 void vjp_Reciprocal(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         Tensor recip_x = Tensor::reciprocal(X->value);
         X->grad.add_( rt( -gy * recip_x * recip_x, X->value) );
@@ -801,7 +812,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
         // --- CPU PATH ---
 
         // Gradient for input A (dX = dY @ W)
-        if (A_node->requires_grad) {
+        if (A_node->requires_grad()) {
             // gy is dY, shape (Batch, out_features)
             // B is W, shape (out_features, in_features)
             // The result dX has shape  (Batch, in_features), which matches A.
@@ -810,7 +821,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
         }
 
         // Gradient for weight B (dW = dY^T @ X)
-        if (B_node->requires_grad) {
+        if (B_node->requires_grad()) {
             // Transpose of gy is dY^T, shape (out_features, Batch)
             // A is X, shape (Batch, in_features)
             // The result dW has shape (out_features, in_features), which matches B.
@@ -819,7 +830,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
         }
 
         // Gradient for bias C (db = sum of dY along batch dimension)
-        if (C_node->requires_grad) {
+        if (C_node->requires_grad()) {
             // gy has shape (Batch, out_features). We need to sum it along dimension 0.
             // Our rt() helper function handles this reduction perfectly.
             C_node->grad.add_(rt(gy, C));
@@ -836,7 +847,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
 
 void vjp_Cosh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * Tensor::sinh(X->value), X->value) );
     } else {
@@ -846,7 +857,7 @@ void vjp_Cosh(Node* n, const Tensor& gy){
 
 void vjp_Sinh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * Tensor::cosh(X->value), X->value) );
     } else {
@@ -856,7 +867,7 @@ void vjp_Sinh(Node* n, const Tensor& gy){
 
 void vjp_Sign(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * 0.0f, X->value) ); // Gradient of sign is 0 almost everywhere
     } else {
@@ -866,7 +877,7 @@ void vjp_Sign(Node* n, const Tensor& gy){
 
 void vjp_Cos(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( -1.0 * gy* Tensor::sin(X->value), X->value) );
     } else {
@@ -876,7 +887,7 @@ void vjp_Cos(Node* n, const Tensor& gy){
 
 void vjp_Sin(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * Tensor::cos(X->value), X->value) );
     } else {
@@ -886,7 +897,7 @@ void vjp_Sin(Node* n, const Tensor& gy){
 
 // void vjp_Sqrt(Node* n, const Tensor& gy){
 //     Node* X = n->inputs[0].get();
-//     if (!X->requires_grad) return;
+//     if (!X->requires_grad()) return;
 //     if (n->value.is_cpu()) {
 //         X->grad.add_( rt(0.5f * gy * Tensor::reciprocal(n->value), X->value) );
 //     } else {
@@ -896,7 +907,7 @@ void vjp_Sin(Node* n, const Tensor& gy){
 
     void vjp_Sqrt(Node* n, const Tensor& gy){
         Node* X = n->inputs[0].get();
-        if (!X->requires_grad) return;
+        if (!X->requires_grad()) return;
 
         if (X->value.is_cpu()) {
             auto fn = ag::kernels::cpu().sqrt_bwd_from_y;
@@ -919,7 +930,7 @@ void vjp_Sin(Node* n, const Tensor& gy){
 
 void vjp_Relumask(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad) return;
+    if (!X->requires_grad()) return;
     if (n->value.is_cpu()) {
         X->grad.add_( rt( gy * 0.0f, X->value) ); // Gradient is 0
     } else {
@@ -932,21 +943,21 @@ void vjp_RELUAtt(Node* n, const Tensor& gy){
         Node* A = n->inputs[0].get(), *B = n->inputs[1].get(), *C = n->inputs[2].get(), *D = n->inputs[3].get();
         Tensor q = *n->tape[0], k = *n->tape[1], v = *n->tape[2], s = *n->tape[3];
         float scale = 1.0f / std::sqrt(float(k.cols()));
-        Tensor dL_ds = Tensor::matmul(gy, Tensor::transpose(v));
-        Tensor dL_dv = Tensor::matmul(Tensor::transpose(s), gy);
+        Tensor dL_ds = matmul(gy, Tensor::transpose(v));
         Tensor dL_dg = Tensor::relu_mask(s) * dL_ds;
-        Tensor dL_dq = Tensor::matmul(dL_dg, k);
-        Tensor dL_dk = Tensor::matmul(Tensor::transpose(dL_dg), q);
-        Tensor dL_dA_q = Tensor::matmul(dL_dq, B->value) * scale;
-        Tensor dL_dB   = Tensor::matmul(Tensor::transpose(dL_dq), A->value) * scale;
-        Tensor dL_dA_k = Tensor::matmul(dL_dk, C->value) * scale;
-        Tensor dL_dC   = Tensor::matmul(Tensor::transpose(dL_dk), A->value) * scale;
-        Tensor dL_dA_v = Tensor::matmul(dL_dv, D->value);
-        Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
-        if (A->requires_grad) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
-        if (B->requires_grad) B->grad.add_(dL_dB);
-        if (C->requires_grad) C->grad.add_(dL_dC);
-        if (D->requires_grad) D->grad.add_(dL_dD);
+        Tensor dL_dq = matmul(dL_dg, k);
+        Tensor dL_dv = matmul(Tensor::transpose(s), gy);
+        Tensor dL_dk = matmul(Tensor::transpose(dL_dg), q);
+        Tensor dL_dA_q = matmul(dL_dq, B->value) * scale;
+        Tensor dL_dB   = matmul(Tensor::transpose(dL_dq), A->value) * scale;
+        Tensor dL_dA_k = matmul(dL_dk, C->value) * scale;
+        Tensor dL_dC   = matmul(Tensor::transpose(dL_dk), A->value) * scale;
+        Tensor dL_dA_v = matmul(dL_dv, D->value);
+        Tensor dL_dD   = matmul(Tensor::transpose(dL_dv), A->value);
+        if (A->requires_grad()) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
+        if (B->requires_grad()) B->grad.add_(dL_dB);
+        if (C->requires_grad()) C->grad.add_(dL_dC);
+        if (D->requires_grad()) D->grad.add_(dL_dD);
     } else {
         throw std::runtime_error("VJP for RELUAtt on CUDA not implemented yet!");
     }
@@ -958,11 +969,11 @@ void vjp_MOE(Node* n, const Tensor& gy){
         Node* W = n->inputs[1].get();
         Node* B = n->inputs[2].get();
         Tensor dL_dB = gy;
-        Tensor dL_dW = Tensor::matmul(Tensor::transpose(gy), X->value);
-        Tensor dL_dX = Tensor::matmul(gy, W->value);
-        if (X->requires_grad) X->grad.add_(dL_dX);
-        if (W->requires_grad) W->grad.add_(dL_dW);
-        if (B->requires_grad) B->grad.add_(dL_dB);
+        Tensor dL_dW = matmul(transpose(gy), X->value);
+        Tensor dL_dX = matmul(gy, W->value);
+        if (X->requires_grad()) X->grad.add_(dL_dX);
+        if (W->requires_grad()) W->grad.add_(dL_dW);
+        if (B->requires_grad()) B->grad.add_(dL_dB);
     } else {
         throw std::runtime_error("VJP for MOE on CUDA not implemented yet!");
     }
@@ -984,10 +995,10 @@ void vjp_SigAtt(Node* n, const Tensor& gy){
         Tensor dL_dC   = Tensor::matmul(Tensor::transpose(dL_dk), A->value) * scale;
         Tensor dL_dA_v = Tensor::matmul(dL_dv, D->value);
         Tensor dL_dD   = Tensor::matmul(Tensor::transpose(dL_dv), A->value);
-        if (A->requires_grad) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
-        if (B->requires_grad) B->grad.add_(dL_dB);
-        if (C->requires_grad) C->grad.add_(dL_dC);
-        if (D->requires_grad) D->grad.add_(dL_dD);
+        if (A->requires_grad()) A->grad.add_(dL_dA_q + dL_dA_k + dL_dA_v);
+        if (B->requires_grad()) B->grad.add_(dL_dB);
+        if (C->requires_grad()) C->grad.add_(dL_dC);
+        if (D->requires_grad()) D->grad.add_(dL_dD);
     } else {
         throw std::runtime_error("VJP for SigAtt on CUDA not implemented yet!");
     }
@@ -1002,8 +1013,8 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
         Tensor diff = Z->value - Y->value;
         Tensor gZ = diff * (2.0f / float(N));
         Tensor gY = -diff * (2.0f / float(N));
-        if (Z->requires_grad) Z->grad.add_(gZ);
-        if (Y->requires_grad) Y->grad.add_(gY);
+        if (Z->requires_grad()) Z->grad.add_(gZ);
+        if (Y->requires_grad()) Y->grad.add_(gY);
     } else {
         throw std::runtime_error("VJP for MSELoss on CUDA not implemented yet!");
     }
@@ -1017,8 +1028,8 @@ void vjp_MAELoss(Node* n, const Tensor& gy){
         Tensor diff = Tensor::sign(Z->value - Y->value);
         Tensor gZ = diff * (1.0f / float(N));
         Tensor gY = -diff * (1.0f / float(N));
-        if (Z->requires_grad) Z->grad.add_(gZ);
-        if (Y->requires_grad) Y->grad.add_(gY);
+        if (Z->requires_grad()) Z->grad.add_(gZ);
+        if (Y->requires_grad()) Y->grad.add_(gY);
     } else {
         throw std::runtime_error("VJP for MAELoss on CUDA not implemented yet!");
     }

@@ -190,7 +190,7 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
             parent->value = sv.node->value;
         } else {
             // If we don't have a saved value, but parent value is missing, try to recompute
-            if (parent->value.size() == 0) {
+            if (parent->value.numel() == 0) {
                 if (parent->is_checkpoint) {
                     // Recursive recomputation of parent checkpoint
                     if (!recompute_subgraph(parent)) {
@@ -237,7 +237,7 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
  */
 inline bool ensure_value_present(const NodePtr &node) {
     if (!node) return false;
-    if (node->value.size() != 0) return true;
+    if (node->value.numel() != 0) return true;
     if (node->is_checkpoint) return recompute_subgraph(node);
     return false;
 }
