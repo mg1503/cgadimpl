@@ -47,7 +47,7 @@ namespace OwnTensor
     void CUDAAllocator::deallocate(void* ptr) {
     #ifdef WITH_CUDA
         if (ptr) {
-            cudaDeviceSynchronize();
+            // cudaDeviceSynchronize();
             cudaError_t err = cudaFree(ptr);
             if (err != cudaSuccess) {
                 std::string error_msg = std::string("CUDA free failed: ") + cudaGetErrorString(err);

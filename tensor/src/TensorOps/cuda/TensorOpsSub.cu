@@ -159,7 +159,7 @@ void cuda_sub_tensor(const Tensor& A, const Tensor& B, Tensor& output, cudaStrea
                 size_t out_rows = output.shape().dims[0];
                 size_t out_cols = output.shape().dims[1];
                 
-                sub_kernel_broadcast<<<grid_size, block_size>>>(
+                sub_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
                     a_ptr, b_ptr, output_ptr,
                     a_rows, a_cols, b_rows, b_cols, out_rows, out_cols
                 );
@@ -311,7 +311,7 @@ template <typename T>
                 size_t out_rows = A.shape().dims[0];
                 size_t out_cols = A.shape().dims[1];
                 
-                sub_inplace_kernel_broadcast<<<grid_size, block_size>>>(
+                sub_inplace_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
                     a_ptr, b_ptr, a_rows, a_cols, b_rows, b_cols, out_rows, out_cols
                 );
             }

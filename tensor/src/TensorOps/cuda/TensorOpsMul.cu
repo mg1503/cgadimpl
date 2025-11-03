@@ -149,7 +149,7 @@ namespace OwnTensor
                 size_t out_rows = output.shape().dims[0];
                 size_t out_cols = output.shape().dims[1];
                 
-                mul_kernel_broadcast<<<grid_size, block_size>>>(
+                mul_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
                     a_ptr, b_ptr, output_ptr,
                     a_rows, a_cols, b_rows, b_cols, out_rows, out_cols
                 );
@@ -302,7 +302,7 @@ namespace OwnTensor
                 size_t out_rows = A.shape().dims[0];
                 size_t out_cols = A.shape().dims[1];
                 
-                mul_inplace_kernel_broadcast<<<grid_size, block_size>>>(
+                mul_inplace_kernel_broadcast<<<grid_size, block_size, 0, stream>>>(
                     a_ptr, b_ptr, a_rows, a_cols, b_rows, b_cols, out_rows, out_cols
                 );
             }

@@ -24,17 +24,17 @@ void log2_in_cpu_wrap(Tensor& input_tensor);
 void log10_in_cpu_wrap(Tensor& input_tensor);
 
 // GPU wrappers - Out-of-place
-Tensor exp_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream);
-Tensor exp2_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream);
-Tensor log_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream);
-Tensor log2_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream);
-Tensor log10_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream);
+Tensor exp_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream = 0);
+Tensor exp2_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream = 0);
+Tensor log_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream = 0);
+Tensor log2_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream = 0);
+Tensor log10_out_gpu_wrap(const Tensor& input_tensor, cudaStream_t stream = 0);
 
 // GPU wrappers - In-place
-void exp_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream);
-void exp2_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream);
-void log_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream);
-void log2_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream);
-void log10_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream);
+void exp_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream = 0);
+void exp2_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream = 0);
+void log_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream = 0);
+void log2_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream = 0);
+void log10_in_gpu_wrap(Tensor& input_tensor, cudaStream_t stream = 0);
 
 }

@@ -155,32 +155,32 @@ inline OwnTensor::Tensor create_tensor_from_float(
         // Convert data to target dtype on CPU first
         if (dtype == Dtype::Int16) {
             std::vector<int16_t> converted(data.begin(), data.end());
-            cudaMemcpy(tensor.data<int16_t>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<int16_t>(), converted.data(), 
                       converted.size() * sizeof(int16_t), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Int32) {
             std::vector<int32_t> converted(data.begin(), data.end());
-            cudaMemcpy(tensor.data<int32_t>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<int32_t>(), converted.data(), 
                       converted.size() * sizeof(int32_t), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Int64) {
             std::vector<int64_t> converted(data.begin(), data.end());
-            cudaMemcpy(tensor.data<int64_t>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<int64_t>(), converted.data(), 
                       converted.size() * sizeof(int64_t), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Float32) {
-            cudaMemcpy(tensor.data<float>(), data.data(), 
+            cudaMemcpyAsync(tensor.data<float>(), data.data(), 
                       data.size() * sizeof(float), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Float64) {
             std::vector<double> converted(data.begin(), data.end());
-            cudaMemcpy(tensor.data<double>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<double>(), converted.data(), 
                       converted.size() * sizeof(double), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Float16) {
             std::vector<float16_t> converted;
             for (float f : data) converted.push_back(float16_t(f));
-            cudaMemcpy(tensor.data<float16_t>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<float16_t>(), converted.data(), 
                       converted.size() * sizeof(float16_t), cudaMemcpyHostToDevice);
         } else if (dtype == Dtype::Bfloat16) {
             std::vector<bfloat16_t> converted;
             for (float f : data) converted.push_back(bfloat16_t(f));
-            cudaMemcpy(tensor.data<bfloat16_t>(), converted.data(), 
+            cudaMemcpyAsync(tensor.data<bfloat16_t>(), converted.data(), 
                       converted.size() * sizeof(bfloat16_t), cudaMemcpyHostToDevice);
         }
         

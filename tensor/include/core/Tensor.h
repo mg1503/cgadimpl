@@ -75,6 +75,9 @@ namespace OwnTensor
 
         // Constructor with options
         Tensor(Shape shape, TensorOptions opts);
+
+        Tensor(Shape shape, bool requires_grad)
+        : Tensor(shape, Dtype::Float32, DeviceIndex(Device::CPU), requires_grad) {}  
         
         //#######################################################
         // Metadata accessors
@@ -99,6 +102,14 @@ namespace OwnTensor
 
         void* grad() { return grad_ptr_.get(); }
         const void* grad() const { return grad_ptr_.get(); }
+
+        void reset() {
+            data_ptr_.reset(); // This is the key line!
+            shape_.dims.clear();
+            stride_.strides.clear();
+            data_size_ = 0;
+            storage_offset_ = 0;
+        }
 
         // template <typename T>
         // T* data() 
