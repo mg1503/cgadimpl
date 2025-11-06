@@ -322,46 +322,41 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
 // sigatt_nodeops
 // =====================================================================================================
 
-std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
-    // --- Step 1: Use OwnTensor::matmul for projections ---
+// ===================================================================
+// In file: cgadimpl/src/nodeops.cpp (Corrected sigatt_nodeops - Pure OwnTensor)
+// ===================================================================
+
+std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a, 
+                                     const std::shared_ptr<Node>& b, 
+                                     const std::shared_ptr<Node>& c, 
+                                     const std::shared_ptr<Node>& d) { 
+    // --- Step 1: Projections using OwnTensor::matmul ---
     Tensor q = OwnTensor::matmul(a->value, b->value); 
     Tensor k = OwnTensor::matmul(a->value, c->value); 
     Tensor v = OwnTensor::matmul(a->value, d->value);
 
     // --- Step 2: Scaled dot-product attention ---
+    // --- Step 2: Scaled dot-product attention ---
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
-    // Use the .t() member function for transpose and the '*' operator for scaling
     Tensor g = OwnTensor::matmul(q, k.t()) * scale;
     
-    // --- Step 3: Sigmoid activation using YOUR kernel ---
-    // The tensor library doesn't have sigmoid, so we call your plugin.
-    Tensor s = OwnTensor::Tensor::zeros(g.shape(), ag::options(g)); // Create output tensor
-    if (g.is_cpu()) {
-        auto fn = ag::kernels::cpu().sigmoid;
-        if (fn) {
-            fn(g.data<float>(), s.data<float>(), s.numel());
-        } else {
-            throw std::runtime_error("CPU Sigmoid kernel not loaded.");
-        }
-    } else { // GPU
-        auto fn = ag::kernels::cuda().sigmoid;
-        if (fn) {
-            fn(g.data<float>(), s.data<float>(), s.numel(), ag::current_stream());
-        } else {
-            throw std::runtime_error("CUDA Sigmoid kernel not loaded.");
-        }
-    }
+    // --- Step 3: Sigmoid activation implemented with OwnTensor ops ---
+    // This is the FINAL, CORRECT, one-line version.
+    Tensor s = 1.0f / (1.0f + OwnTensor::exp(g * -1.0f));
 
     // --- Step 4: Final output projection ---
     Tensor y = OwnTensor::matmul(s, v);
 
-    // --- Step 5: Create the graph node ---
+    // --- Step 5: Create the graph node with the correct constructor ---
     auto n = std::make_shared<Node>(y, Op::SigAtt, "sigatt"); 
     n->inputs = {a, b, c, d};
+
+    // Save intermediate tensors needed for the backward pass to the tape
     n->tape.push_back(std::make_shared<Tensor>(q));
     n->tape.push_back(std::make_shared<Tensor>(k));
     n->tape.push_back(std::make_shared<Tensor>(v));
     n->tape.push_back(std::make_shared<Tensor>(s));
+    
     ag::debug::on_node_created(n); 
     return n; 
 }

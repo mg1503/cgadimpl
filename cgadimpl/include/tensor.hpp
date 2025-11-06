@@ -4,6 +4,8 @@
 
 #pragma once
 #include "TensorLib.h"
+#include "device/DeviceCore.h"
+
 using namespace OwnTensor;
     // using namespace OwnTensor::detail;
     // using  namespace OwnTensor::device;

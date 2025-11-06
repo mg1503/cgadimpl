@@ -6,6 +6,7 @@
 #include <iostream>
 #include <device/DeviceCore.h>
 
+
 // Helper macro for CUDA calls
 #define CUDA_CHECK(call) \
     do { \
