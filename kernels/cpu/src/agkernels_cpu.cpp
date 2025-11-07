@@ -232,7 +232,7 @@ static inline __m256 exp256_approx(__m256 x) {
 
     // polynomial: e^f ≈ c0 + f*(c1 + f*(c2 + f*(...)))
     // Use Horner
-    __m256 f2 = _mm256_mul_ps(f, f);
+    // __m256 f2 = _mm256_mul_ps(f, f);
 
     __m256 p = c6;
     p = _mm256_fmadd_ps(p, f, c5);
@@ -358,7 +358,7 @@ void tanh_impl_optimized(const float* x, float* y, int64_t n) {
 
 // Softplus optimized kernel: softplus(x) = log(1 + exp(x))
 void softplus_impl_optimized(const float* x, float* y, int64_t n) {
-    const __m256 one = _mm256_set1_ps(1.0f);
+    // const __m256 one = _mm256_set1_ps(1.0f);
     const __m256 zero = _mm256_setzero_ps();
     const __m256 abs_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
 
@@ -480,7 +480,7 @@ void exp_impl_optimized(const float* x, float* y, int64_t n) {
 }
 void log_impl_optimized(const float* x, float* y, int64_t n) {
     // constants
-    const __m256 one = _mm256_set1_ps(1.0f);
+    // const __m256 one = _mm256_set1_ps(1.0f);
     const __m256i exponent_mask = _mm256_set1_epi32(0x7F800000);
     const __m256i mantissa_mask = _mm256_set1_epi32(0x007FFFFF);
     const __m256i bias = _mm256_set1_epi32(127);
@@ -568,7 +568,7 @@ void sqrt_impl_optimized(const float* x, float* y, int64_t n) {
 }
 void pow_impl_optimized(const float* x, float* y, int64_t n, float exponent) {
     const __m256 expv = _mm256_set1_ps(exponent);
-    const __m256 zero = _mm256_set1_ps(0.0f);
+    // const __m256 zero = _mm256_set1_ps(0.0f);
     const __m256 min_val = _mm256_set1_ps(1e-20f); // to prevent log(0)
 
     #pragma omp parallel for
@@ -817,7 +817,7 @@ void gelu_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t
 // Softplus backward: d/dx log(1+exp(x)) = sigmoid(x)
 void softplus_bwd_impl_optimized(const float* x, const float* dY, float* dX, int64_t n) {
     // use sigmoid(x) as derivative
-    const __m256 one = _mm256_set1_ps(1.0f);
+    // const __m256 one = _mm256_set1_ps(1.0f);
     #pragma omp parallel for
     for (int64_t i = 0; i < n; i += 8) {
         if (i + 8 <= n) {

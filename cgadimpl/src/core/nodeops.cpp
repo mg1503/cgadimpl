@@ -17,7 +17,7 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // This correctly uses the stream-aware overloaded operator+
     Tensor Y = a->value + b->value; 
     // FIX: Use the new 3-argument Node constructor
-    auto n = std::make_shared<Node>(Y, Op::Add, "+");
+    auto n = std::make_shared<Node>(Y, Op::Add, (a->requires_grad() || b->requires_grad()), "+");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);
     return n;
@@ -27,7 +27,7 @@ std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // This correctly uses the stream-aware overloaded operator-
     Tensor Y = a->value - b->value;
     // FIX: Use the new 3-argument Node constructor
-    auto n = std::make_shared<Node>(Y, Op::Sub, "-");
+    auto n = std::make_shared<Node>(Y, Op::Sub, (a->requires_grad() || b->requires_grad()), "-");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);
     return n;
@@ -37,7 +37,7 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // This correctly uses the stream-aware overloaded operator*
     Tensor y = a->value * b->value; 
     // FIX: Use the new 3-argument Node constructor
-    auto n = std::make_shared<Node>(y, Op::Mul, "*"); 
+    auto n = std::make_shared<Node>(y, Op::Mul, (a->requires_grad() || b->requires_grad()), "*"); 
     n->inputs = {a, b}; 
     ag::debug::on_node_created(n); 
     return n; 
@@ -46,7 +46,7 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
 std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b){
     const Tensor& C = a->value / b->value;
 
-    auto n = std::make_shared<Node>(C, Op::Div, "/");
+    auto n = std::make_shared<Node>(C, Op::Div, (a->requires_grad() || b->requires_grad()), "/");
     n->inputs = { a, b };
     ag::debug::on_node_created(n);  
     return n;
@@ -86,7 +86,7 @@ std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b) {
     // The underlying operator* will handle the stream context correctly.
     Tensor y = a->value * c->value;
 
-    auto n = std::make_shared<Node>(y, Op::Mul, "*");
+    auto n = std::make_shared<Node>(y, Op::Mul, a->requires_grad(), "*");
     n->inputs = {a, c};
     ag::debug::on_node_created(n);
     return n;
@@ -104,7 +104,7 @@ std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
     Tensor Y = (X + OwnTensor::abs(X, ag::current_stream())) * 0.5f;
     // --- FIX END ---
     
-    auto n = std::make_shared<Node>(Y, Op::Relu, "relu");
+    auto n = std::make_shared<Node>(Y, Op::Relu, x->requires_grad(), "relu");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -125,7 +125,7 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
 
     // --- 2. Wrap the result in a new Node ---
     // The new Node constructor correctly infers requires_grad from the output tensor C.
-    auto n = std::make_shared<Node>(C, Op::MatMul, "matmul");
+    auto n = std::make_shared<Node>(C, Op::MatMul, (a->requires_grad() || b->requires_grad()), "matmul");
     n->inputs = {a, b};
     ag::debug::on_node_created(n);
     return n;
@@ -139,7 +139,7 @@ std::shared_ptr<Node> matmul_nodeops(const std::shared_ptr<Node>& a, const std::
     Tensor y = matmul(a->value, b->value) + c->value;
 
     // FIX: Use the new Node constructor
-    auto n = std::make_shared<Node>(y, Op::FMA, "fmab");
+    auto n = std::make_shared<Node>(y, Op::FMA, (a->requires_grad() || b->requires_grad() || c->requires_grad()), "fmab");
 
     n->inputs = {a, b, c};
     ag::debug::on_node_created(n);
@@ -165,7 +165,7 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
 
     Tensor y = matmul(s, v);
 
-    auto n = std::make_shared<Node>(y, Op::Attention, "attention");
+    auto n = std::make_shared<Node>(y, Op::Attention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "attention");
     n->inputs = {a, b, c, d};
     // Save intermediate tensors needed for the backward pass to the tape
     n->tape.push_back(std::make_shared<Tensor>(q));
@@ -201,7 +201,7 @@ std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a,
     Tensor y = OwnTensor::matmul(s, v);
 
     // --- Step 5: Create the graph node with the correct constructor ---
-    auto n = std::make_shared<Node>(y, Op::SigAtt, "sigatt");
+    auto n = std::make_shared<Node>(y, Op::SigAtt, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()),  "sigatt");
     n->inputs = {a, b, c, d};
 
     // Save intermediate tensors needed for the backward pass to the tape
@@ -247,7 +247,7 @@ std::shared_ptr<Node> reluatt_nodeops(const std::shared_ptr<Node>& a,
 
     // --- Step 5: Create the graph node ---
     // This part is correct.
-    auto n = std::make_shared<Node>(y, Op::RELUAtt, "reluatt"); 
+    auto n = std::make_shared<Node>(y, Op::RELUAtt, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "reluatt"); 
     n->inputs = {a, b, c, d};
     n->tape.push_back(std::make_shared<Tensor>(q));
     n->tape.push_back(std::make_shared<Tensor>(k));
@@ -276,7 +276,7 @@ std::shared_ptr<Node> moewe_nodeops(const std::shared_ptr<Node>& x,
     Tensor y = exp_logits / sum_exp_logits;
 
     // --- Step 3: Create the graph node ---
-    auto n = std::make_shared<Node>(y, Op::MOE, "moe");
+    auto n = std::make_shared<Node>(y, Op::MOE, (x->requires_grad() || w->requires_grad() || b->requires_grad()), "moe");
     n->inputs = {x, w, b}; 
     ag::debug::on_node_created(n);  
     return n;
@@ -291,7 +291,7 @@ std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a) {
     Tensor y = 1.0f / a->value;
     
     // Use the new 3-argument Node constructor.
-    auto n = std::make_shared<Node>(y, Op::Reciprocal, "reciprocal");
+    auto n = std::make_shared<Node>(y, Op::Reciprocal, a->requires_grad(),"reciprocal");
     n->inputs = {a};
     ag::debug::on_node_created(n);
     return n;
@@ -320,7 +320,7 @@ std::shared_ptr<Node> flodiv_nodeops(float b, const std::shared_ptr<Node>& a) {
     Tensor y = c->value / a->value;
     
     // --- Step 3: Create the Node ---
-    auto n = std::make_shared<Node>(y, Op::Div, "/");
+    auto n = std::make_shared<Node>(y, Op::Div, a->requires_grad(), "/");
     n->inputs = {c, a}; // Note the order: c is the numerator, a is the denominator
     ag::debug::on_node_created(n);
     return n;
@@ -348,7 +348,7 @@ std::shared_ptr<Node> floadd_nodeops(float b, const std::shared_ptr<Node>& a) {
     Tensor y = c->value + a->value;
     
     // --- Step 3: Create the Node ---
-    auto n = std::make_shared<Node>(y, Op::Add, "+");
+    auto n = std::make_shared<Node>(y, Op::Add, a->requires_grad(), "+");
     n->inputs = {c, a}; // Order matches the operation
     ag::debug::on_node_created(n);
     return n;
@@ -383,7 +383,7 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
     }
     
     // FIX: Use the new Node constructor
-    auto n = std::make_shared<Node>(y, Op::Relumask, "relumask");
+    auto n = std::make_shared<Node>(y, Op::Relumask, x->requires_grad(), "relumask");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -399,28 +399,22 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
                                      const std::shared_ptr<Node>& c) // Bias b
 {
     const Tensor& input_X = a->value;
-    const Tensor& weight_W = b->value;
+    const Tensor& weight_W = b->value; // Shape is [out, in]
     const Tensor& bias_b = c->value;
+    Tensor y = matmul(input_X, weight_W.t()) + bias_b;
 
-    Tensor W_T = weight_W.t();
-    Tensor matmul_result = matmul(input_X, W_T);
-    Tensor y = matmul_result + bias_b;
-
-    // --- Create the graph node ---
-    // Use the new, correct 3-argument constructor.
-    auto n = std::make_shared<Node>(y, Op::Linear, "linear");
+    auto n = std::make_shared<Node>(y, Op::Linear, (a->requires_grad() || b->requires_grad() || c->requires_grad()), "linear");
     n->inputs = {a, b, c};
     ag::debug::on_node_created(n);
     return n;
 }
-
 // ===================================================================
 // cosh_nodeops
 // ===================================================================
 
     std::shared_ptr<Node> cosh_nodeops(const std::shared_ptr<Node>& x){
         Tensor y = cosh(x->value);
-        auto n=std::make_shared<Node>(y, Op::Cosh, "cosh");
+        auto n=std::make_shared<Node>(y, Op::Cosh, x->requires_grad(), "cosh");
         n->inputs={x};
         ag::debug::on_node_created(n);
         return n;
@@ -432,7 +426,7 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
 
      std::shared_ptr<Node> sinh_nodeops(const std::shared_ptr<Node>& x){
         Tensor y = sinh(x->value);
-        auto n=std::make_shared<Node>(y, Op::Sinh, "sinh");
+        auto n=std::make_shared<Node>(y, Op::Sinh, x->requires_grad(), "sinh");
         n->inputs={x};
         ag::debug::on_node_created(n);
         return n;
@@ -445,7 +439,7 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
 
      std::shared_ptr<Node> cos_nodeops(const std::shared_ptr<Node>& x){
         Tensor y = cos(x->value);
-        auto n=std::make_shared<Node>(y, Op::Cos, "cosh");
+        auto n=std::make_shared<Node>(y, Op::Cos, x->requires_grad(), "cosh");
         n->inputs={x};
         ag::debug::on_node_created(n);
         return n;
@@ -457,7 +451,7 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
 
      std::shared_ptr<Node> sin_nodeops(const std::shared_ptr<Node>& x){
         Tensor y = sin(x->value);
-        auto n=std::make_shared<Node>(y, Op::Sin, "sinh");
+        auto n=std::make_shared<Node>(y, Op::Sin, x->requires_grad(), "sinh");
         n->inputs={x};
         ag::debug::on_node_created(n);
         return n;
@@ -472,7 +466,7 @@ std::shared_ptr<Node> sign_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::sign(x->value, ag::current_stream());
 
     // Use the new 3-argument Node constructor
-    auto n = std::make_shared<Node>(y, Op::Sign, "sign");
+    auto n = std::make_shared<Node>(y, Op::Sign, x->requires_grad(), "sign");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -488,7 +482,7 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
     Tensor y = OwnTensor::sqrt(x->value, ag::current_stream());
 
     // 2. Wrap the result in a new Node using the correct constructor.
-    auto n = std::make_shared<Node>(y, Op::Sqrt, "sqrt");
+    auto n = std::make_shared<Node>(y, Op::Sqrt, x->requires_grad(), "sqrt");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -540,7 +534,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     // Step 5: Final projection
     Tensor y = OwnTensor::matmul(s, v);
 
-    auto n = std::make_shared<Node>(y, Op::AlibiAttention, "alibiattention"); 
+    auto n = std::make_shared<Node>(y, Op::AlibiAttention, (a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()), "alibiattention"); 
     n->inputs = {a, b, c, d};
     n->tape = {std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), 
                std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
@@ -561,7 +555,7 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     // Value projection and final multiplication
     Tensor w = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
     
-    auto n = std::make_shared<Node>(w, Op::SWIGLU, "swiglu"); 
+    auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
     n->inputs={x, a, b, c, d};
     ag::debug::on_node_created(n); 
     return n;
@@ -573,7 +567,7 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
  
 std::shared_ptr<Node> sum_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::reduce_sum(x->value, {}, false);
-    auto n = std::make_shared<Node>(y, Op::Sum, "sum");
+    auto n = std::make_shared<Node>(y, Op::Sum, x->requires_grad(), "sum");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -590,7 +584,7 @@ std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = x->value.t();
     
     // FIX: Use the correct Op and name, and the correct constructor.
-    auto n = std::make_shared<Node>(y, Op::Transpose, "transpose");
+    auto n = std::make_shared<Node>(y, Op::Transpose, x->requires_grad(), "transpose");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -605,7 +599,7 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::exp(x->value);
     
     // 3. Use the correct Node constructor.
-    auto n = std::make_shared<Node>(y, Op::Exp, "exp");
+    auto n = std::make_shared<Node>(y, Op::Exp, x->requires_grad(), "exp");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -617,7 +611,7 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
 std::shared_ptr<Node> log_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::log(x->value);
     
-    auto n = std::make_shared<Node>(y, Op::Log, "log");
+    auto n = std::make_shared<Node>(y, Op::Log, x->requires_grad(), "log");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -637,7 +631,7 @@ std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){
     // mish(x) = x * tanh(softplus(x))
     Tensor y = x->value * OwnTensor::tanh(sp);
     
-    auto n = std::make_shared<Node>(y, Op::Mish, "mish");
+    auto n = std::make_shared<Node>(y, Op::Mish, x->requires_grad(), "mish");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -656,7 +650,7 @@ std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::tanh(x->value);
 
     // 2. Wrap the result in a new Node using the correct constructor.
-    auto n = std::make_shared<Node>(y, Op::Tanh, "tanh");
+    auto n = std::make_shared<Node>(y, Op::Tanh, x->requires_grad(), "tanh");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -670,7 +664,7 @@ std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
     // All operations are stream-aware.
     Tensor y = 1.0f / (1.0f + OwnTensor::exp(x->value * -1.0f));
 
-    auto n = std::make_shared<Node>(y, Op::Sigmoid, "sigmoid"); 
+    auto n = std::make_shared<Node>(y, Op::Sigmoid, x->requires_grad(), "sigmoid"); 
     n->inputs={x}; 
     ag::debug::on_node_created(n);  
     return n;
@@ -683,7 +677,7 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
     // All ops automatically use the stream from the context.
     Tensor y = OwnTensor::log(1.0f + OwnTensor::exp(x->value));
 
-    auto n = std::make_shared<Node>(y, Op::Softplus, "softplus");
+    auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -696,7 +690,7 @@ std::shared_ptr<Node> gaus_nodeops(const std::shared_ptr<Node>& x){
     Tensor x_squared = x->value * x->value;
     Tensor y = OwnTensor::exp(x_squared * -1.0f);
 
-    auto n = std::make_shared<Node>(y, Op::Gaus, "gaus");
+    auto n = std::make_shared<Node>(y, Op::Gaus, x->requires_grad(), "gaus");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -722,7 +716,7 @@ std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
     // 3. Calculate the full GELU formula: 0.5 * x * (1 + tanh(u))
     Tensor y = x->value * (1.0f + OwnTensor::tanh(u)) * 0.5f;
     
-    auto n = std::make_shared<Node>(y, Op::GELU, "gelu");
+    auto n = std::make_shared<Node>(y, Op::GELU, x->requires_grad(), "gelu");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -733,7 +727,7 @@ std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
 std::shared_ptr<Node> gcu_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = x->value * OwnTensor::cos(x->value);
 
-    auto n = std::make_shared<Node>(y, Op::GCU, "gcu");
+    auto n = std::make_shared<Node>(y, Op::GCU, x->requires_grad(), "gcu");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -751,7 +745,7 @@ std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){
     // 2. Implement silu: x * sigmoid(x)
     Tensor y = x->value * sig_x;
     
-    auto n = std::make_shared<Node>(y, Op::SiLU, "silu");
+    auto n = std::make_shared<Node>(y, Op::SiLU, x->requires_grad(), "silu");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -764,7 +758,7 @@ std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){
 std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = x->value * (2.0f - x->value);
 
-    auto n = std::make_shared<Node>(y, Op::Parcon, "parcon");
+    auto n = std::make_shared<Node>(y, Op::Parcon, x->requires_grad(), "parcon");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -779,7 +773,7 @@ std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = x->value * OwnTensor::tanh(x->value);
 
     // FIX: The Op type was incorrect in your original code.
-    auto n = std::make_shared<Node>(y, Op::LiSHT, "lisht"); 
+    auto n = std::make_shared<Node>(y, Op::LiSHT, x->requires_grad(), "lisht"); 
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -810,7 +804,7 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     Tensor aT = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), alpha);
     auto aC = make_tensor(aT, "alpha"); 
     
-    auto n = std::make_shared<Node>(Y, Op::LeakyRelu, "leakyrelu");
+    auto n = std::make_shared<Node>(Y, Op::LeakyRelu, x->requires_grad(), "leakyrelu");
     n->inputs = {x, aC.node}; 
     ag::debug::on_node_created(n);  
     return n;
@@ -821,7 +815,7 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     std::shared_ptr<Node> rowsum_nodeops(const std::shared_ptr<Node>& x){
     // Reduce over axis 1 (the columns), and keep the dimension so shape goes from [B,C] to [B,1].
     Tensor y = OwnTensor::reduce_sum(x->value, {1}, true);
-    auto n = std::make_shared<Node>(y, Op::RowSum, "rowsum");
+    auto n = std::make_shared<Node>(y, Op::RowSum, x->requires_grad(), "rowsum");
     n->inputs = {x};
     ag::debug::on_node_created(n);
     return n;
@@ -833,7 +827,7 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
 std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x){
     // Reduce over axis 1 (columns) and keep the dimension.
     Tensor y = OwnTensor::reduce_max(x->value, {1}, true);
-    auto n = std::make_shared<Node>(y, Op::RowMax, "rowmax");
+    auto n = std::make_shared<Node>(y, Op::RowMax, x->requires_grad(), "rowmax");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -858,7 +852,7 @@ std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x){
     // Normalize x
     Tensor y = x->value * rsqrt_var;
 
-    auto n = std::make_shared<Node>(y, Op::RMSNorm, "rmsnorm");
+    auto n = std::make_shared<Node>(y, Op::RMSNorm, x->requires_grad(), "rmsnorm");
     // --- FIX START ---
     // The backward pass needs rsqrt_var and the normalized output 'y'.
     n->tape.push_back(std::make_shared<Tensor>(rsqrt_var));
@@ -896,7 +890,7 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
 
     Tensor y_scaled = y_normalized * G->value;
 
-    auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm, "realrmsnorm");
+    auto n = std::make_shared<Node>(y_scaled, Op::RealRMSNorm, x->requires_grad(), "realrmsnorm");
     n->tape.push_back(std::make_shared<Tensor>(rsqrt_var));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
     n->inputs = {x, G};
@@ -918,7 +912,7 @@ std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x){
     // 3. Normalize
     Tensor y = x_minus_mean / OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
     
-    auto n = std::make_shared<Node>(y, Op::LayerNorm, "layernorm");
+    auto n = std::make_shared<Node>(y, Op::LayerNorm, x->requires_grad(), "layernorm");
     n->tape.push_back(std::make_shared<Tensor>(variance));
     n->tape.push_back(std::make_shared<Tensor>(mean));
     n->inputs = {x};
@@ -955,7 +949,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     // 4. Apply scale and shift
     Tensor y = y_normalized * G->value + B->value;
 
-    auto n = std::make_shared<Node>(y, Op::RealLayerNorm, "reallayernorm");
+    auto n = std::make_shared<Node>(y, Op::RealLayerNorm, x->requires_grad(), "reallayernorm");
     n->tape.push_back(std::make_shared<Tensor>(variance));
     n->tape.push_back(std::make_shared<Tensor>(mean));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
@@ -970,7 +964,7 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
 std::shared_ptr<Node> mean_all_nodeops(const std::shared_ptr<Node>& x){
     // reduce_mean with empty axes reduces over the entire tensor
     Tensor y = OwnTensor::reduce_mean(x->value);
-    auto n = std::make_shared<Node>(y, Op::MeanAll, "meanall");
+    auto n = std::make_shared<Node>(y, Op::MeanAll, x->requires_grad(), "meanall");
     n->inputs={x};
     ag::debug::on_node_created(n);
     return n;
@@ -993,7 +987,7 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     Tensor y = OwnTensor::tanh(h) * G->value + B->value;
     
     // Note: The Op was incorrectly MeanAll in your old code. Let's assume it should be Dyntanh.
-    auto n = std::make_shared<Node>(y, Op::Dyntanh, "dyntanh");
+    auto n = std::make_shared<Node>(y, Op::Dyntanh, x->requires_grad(), "dyntanh");
     n->inputs={x, A, B, G};
     n->tape.push_back(std::make_shared<Tensor>(h));
     ag::debug::on_node_created(n);
@@ -1018,7 +1012,7 @@ std::shared_ptr<Node> softmax_row_nodeops(const std::shared_ptr<Node>& z){
     // 4. Divide to get the final softmax probabilities.
     Tensor y = exp_z / sum_exp_z;
     
-    auto n = std::make_shared<Node>(y, Op::SoftmaxRow, "softmax_row"); 
+    auto n = std::make_shared<Node>(y, Op::SoftmaxRow, z->requires_grad(), "softmax_row"); 
     n->inputs = {z}; 
     ag::debug::on_node_created(n);  
     return n;
@@ -1042,14 +1036,14 @@ std::shared_ptr<Node> logsumexp_row_nodeops(const std::shared_ptr<Node>& z){
     // 4. Add the max value back.
     Tensor y = log_sum + max_val;
     
-    auto n = std::make_shared<Node>(y, Op::LogSumExpRow, "logsumexp_row"); 
+    auto n = std::make_shared<Node>(y, Op::LogSumExpRow, z->requires_grad(), "logsumexp_row"); 
     n->inputs = {z}; 
     ag::debug::on_node_created(n);  
     return n;
 }
 
 // ===================================================================
-// In file: cgadimpl/src/nodeops.cpp (Corrected)
+// mambassm_nodeops
 // ===================================================================
 std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){
 
@@ -1126,7 +1120,7 @@ std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<No
     Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); // Sum over classes, shape=[B]
     Tensor loss = OwnTensor::reduce_mean(sum_prod * -1.0f); // Mean over batch and negate
 
-    auto n = std::make_shared<Node>(loss, Op::CeWithLogits, "ce_with_logits");
+    auto n = std::make_shared<Node>(loss, Op::CeWithLogits, (logits->requires_grad() || onehot->requires_grad()), "ce_with_logits");
     n->inputs = {logits, onehot};
     ag::debug::on_node_created(n);
     return n;
@@ -1157,7 +1151,7 @@ std::shared_ptr<Node> kldivergence_nodeops(const std::shared_ptr<Node>& logits, 
     Tensor sum_kl = OwnTensor::reduce_sum(kl_div_elementwise, {-1});
     Tensor loss = OwnTensor::reduce_mean(sum_kl);
 
-    auto n = std::make_shared<Node>(loss, Op::KLDivergence, "kldivergence");
+    auto n = std::make_shared<Node>(loss, Op::KLDivergence, (logits->requires_grad() || onehot->requires_grad()), "kldivergence");
     n->inputs = {logits, onehot};
     ag::debug::on_node_created(n);
     return n;
@@ -1168,6 +1162,7 @@ std::shared_ptr<Node> kldivergence_nodeops(const std::shared_ptr<Node>& logits, 
 // =================================================================
 
 std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
+
     Tensor diff = pred->value - target->value;
     Tensor sq   = diff * diff;
     // --- THIS IS THE BUG ---
@@ -1176,7 +1171,7 @@ std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const 
     Tensor loss = OwnTensor::reduce_mean(sq); 
     // --- END BUG ---
 
-    auto n = std::make_shared<Node>(loss, Op::MSELoss, "mseloss");
+    auto n = std::make_shared<Node>(loss, Op::MSELoss, (pred->requires_grad()), "mseloss");
     n->inputs = {pred, target};
     ag::debug::on_node_created(n);
     return n;
@@ -1192,7 +1187,7 @@ std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const 
     // The mean of the absolute error
     Tensor loss = OwnTensor::reduce_mean(abs_diff);
 
-    auto n = std::make_shared<Node>(loss, Op::MAELoss, "maeloss");
+    auto n = std::make_shared<Node>(loss, Op::MAELoss, (pred->requires_grad() || target->requires_grad()), "maeloss");
     n->inputs = {pred, target};
     ag::debug::on_node_created(n);
     return n;

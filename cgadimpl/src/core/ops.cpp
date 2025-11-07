@@ -361,15 +361,16 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         }
         case Op::Linear: {
             const Tensor& input_X = node->inputs[0]->value;
-            const Tensor& weight_W = node->inputs[1]->value;
+            const Tensor& weight_W = node->inputs[1]->value; // Shape is [out, in]
             const Tensor& bias_b = node->inputs[2]->value;
-            // Use the same logic as your new nn::Linear::operator()
-            return matmul(input_X, weight_W) + bias_b;
+            
+            // This logic MUST match the forward logic in linear_nodeops
+            return matmul(input_X, weight_W.t()) + bias_b;
         }
-        case Op::Sigmoid: {
-            const Tensor &X = node->inputs[0]->value;
-        //     return Tensor::sigmoid(X);
-        }
+        // case Op::Sigmoid: {
+        //     const Tensor &X = node->inputs[0]->value;
+        // //     return Tensor::sigmoid(X);
+        // }
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
             return tanh(X);
@@ -382,6 +383,7 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             const Tensor &X = node->inputs[0]->value;
             return log(X);
         }
+        
 
         // ============================================================
         // Complex operation: AlibiAttention
@@ -495,9 +497,9 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
          * as a fallback recomputation result.
          */
         default:
-            if (!node->tape.empty()) {
-                return *(node->tape.back());
-            }
+            // if (!node->tape.empty()) {
+            //     return *(node->tape.back());
+            // }
             throw std::runtime_error(std::string("forward_eval_node: unsupported op for recompute: ") + op_name(node->op));
     }
 }

@@ -30,16 +30,17 @@ struct Node : std::enable_shared_from_this<Node> {
     std::vector<uint8_t> saved_rng_blob;
     const char* debug_name{""};
     Op op{Op::Leaf};
+    bool requires_grad_flag_{false};
     bool is_checkpoint{false};
     bool has_saved_rng{false};
-    bool requires_grad() const { return value.requires_grad(); }
+    bool requires_grad() const { return requires_grad_flag_; }
     const std::vector<int64_t>& shape() const { return value.shape().dims; }
-    Node(const Tensor& v, Op op_, const char* nm="");
+    Node(const Tensor& v, Op op_, bool req_grad, const char* nm="");
     Node() = default;
 };
 
 inline Value make_tensor(const Tensor& v, const char* name = "") {
-    return Value(std::make_shared<Node>(v, Op::Leaf, name));
+    return Value(std::make_shared<Node>(v, Op::Leaf, v.requires_grad(), name));
 }
 
 std::vector<Node*> topo_from(Node* root);

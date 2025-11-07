@@ -12,14 +12,13 @@ namespace ag {
 
 // --- Node Implementation ---
 // Node::Node() = default; 
-Node::Node(const Tensor& v, Op op_, const char* nm) 
+Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm) 
     : op(op_), 
-      value(v), 
-      // Initialize `grad` with an empty but valid Tensor using TensorOptions.
-      grad(), 
+      value(v),
+      requires_grad_flag_(req_grad),
       debug_name(nm) 
 {
-    if (v.requires_grad()) {
+    if (requires_grad_flag_) {
         // CORRECT WAY:
         // 1. Create a TensorOptions object with the correct properties.
         // TensorOptions opts = TensorOptions()

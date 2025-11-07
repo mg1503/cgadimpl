@@ -15,10 +15,24 @@ namespace detail{
 // ----- elementwise binary -----
 // Correct: Accumulates gradient for both parents.
 void vjp_Add(Node* n, const Tensor& gy){
-    if (n->inputs[0]->requires_grad()) n->inputs[0]->grad += gy;
-    if (n->inputs[1]->requires_grad()) n->inputs[1]->grad += gy;
+    Node* p0 = n->inputs[0].get();
+    Node* p1 = n->inputs[1].get();
+    cudaStream_t stream = (cudaStream_t)ag::current_stream();
+    if (p0->requires_grad()) {
+        if (p0->grad.numel() != gy.numel()) {
+            p0->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
+        } else {
+            p0->grad += gy;
+        }
+    }
+    if (p1->requires_grad()) {
+        if (p1->grad.numel() != gy.numel()) {
+            p1->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
+        } else {
+            p1->grad += gy;
+        }
+    }
 }
-
 // Correct: Accumulates +gy for A and -gy for B.
 void vjp_Sub(Node* n, const Tensor& gy){
     if (n->inputs[0]->requires_grad()) n->inputs[0]->grad += gy;
@@ -753,22 +767,22 @@ void vjp_Linear(Node* n, const Tensor& gy){
     const Tensor& X = X_node->value;
     const Tensor& W = W_node->value;
 
-    // --- FIX START ---
-     if (X_node->requires_grad()) {
-        // [batch, out] @ [out, in] -> [batch, in] (Correct shape for dX)
-        X_node->grad += OwnTensor::matmul(gy, W.t());
+    // VJP for input X: dX = dY @ W. Correct.
+    // [B, Out] @ [Out, In] -> [B, In]
+    if (X_node->requires_grad()) {
+        X_node->grad += OwnTensor::matmul(gy, W);
     }
 
-    // VJP for weight W: dW = X.T @ dY
+    // VJP for weight W: dW = dY.T @ X. Correct math for Y = X @ W.T + b
+    // [Out, B] @ [B, In] -> [Out, In]
     if (W_node->requires_grad()) {
-        // [in, batch] @ [batch, out] -> [in, out] (Correct shape for dW)
-        W_node->grad += OwnTensor::matmul(X.t(), gy);
+        W_node->grad += OwnTensor::matmul(gy.t(), X);
     }
-    // --- FIX END ---
 
-    // VJP for bias b is correct
+    // VJP for bias b: sum(dY) over batch dimension, keeping rank. Correct.
+    // [B, Out] -> reduce(axis=0) -> [1, Out]
     if (b_node->requires_grad()) {
-        b_node->grad += OwnTensor::reduce_sum(gy, {0}, false);
+        b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
     }
 }
 // ===================================================================
@@ -964,23 +978,19 @@ void vjp_SigAtt(Node* n, const Tensor& gy){
 // vjp_MSELoss
 // ===================================================================
 
-void vjp_MSELoss(Node* n, const Tensor& gy){
-    Node* Z_node = n->inputs[0].get(); // Predictions
-    Node* Y_node = n->inputs[1].get(); // Targets
-    const Tensor& Z = Z_node->value;
-    const Tensor& Y = Y_node->value;
-    
-    const float N = static_cast<float>(Z.numel());
-    const float scale = 2.0f / N;
+// In namespace ag::detail
 
-    Tensor diff = Z - Y;
-    
+void vjp_MSELoss(Node* n, const Tensor& gy){
+    Node* Z_node = n->inputs[0].get();
+    Node* Y_node = n->inputs[1].get();
+    const float gy_scalar = gy.to_cpu().data<float>()[0];
+    const float scale = 2.0f / static_cast<float>(Z_node->value.numel());
+    Tensor diff = Z_node->value - Y_node->value;
     if (Z_node->requires_grad()) {
-        // gy is a scalar from the loss. It will be broadcast.
-        Z_node->grad += gy * diff * scale;
+        Z_node->grad += (diff * (gy_scalar * scale));
     }
     if (Y_node->requires_grad()) {
-        Y_node->grad += gy * diff * (-1.0f * scale);
+        Y_node->grad += (diff * (-1.0f * gy_scalar * scale));
     }
 }
 
