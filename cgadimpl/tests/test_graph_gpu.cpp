@@ -1,79 +1,135 @@
-// =========================================================
-// FILE: cgadimpl/tests/test_graph_gpu.cpp
-// A simple, standalone test for the full framework on the CPU.
-// =========================================================
+// #include "ad/ag_all.hpp"
+// #include <iostream>
+
+// using namespace ag;
+// using namespace OwnTensor;
+
+// // Simple model for CUDA graph capture
+// class SimpleMLP : public nn::Module {
+// public:
+//     nn::Linear fc1, fc2;
+
+//     // --- FIX #1: Constructor must take ag::Device ---
+//     SimpleMLP(int in, int hid, int out, Device dev)
+//         : fc1(in, hid, dev), fc2(hid, out, dev) {
+//         for(auto& p : fc1.parameters()) params_.push_back(p);
+//         for(auto& p : fc2.parameters()) params_.push_back(p);
+//     }
+
+//     // --- FIX #2: Un-hide the base class's operator() overloads ---
+//     using nn::Module::operator();
+
+//     // --- FIX #3: Signature must match the base class pure virtual function ---
+//     Value operator()(Value x) override {
+//         x = fc1(x);
+//         x = ag::relu(x);
+//         x = fc2(x);
+//         return x;
+//     }
+// };
+
+// // --- FIX #4: Function signature must use ag::Device ---
+
+// void test_cuda_graph(Device device) {
+//     if (device != Device::CUDA) return;
+//     std::cout << "\n--- Testing CUDA Graph Capture ---\n";
+
+//     // --- FIX: Create the model BEFORE capturing ---
+//     SimpleMLP model(10, 20, 5, device);
+//     Tensor x_tensor = Tensor::randn(Shape{{4, 10}}, TensorOptions().with_device(device));
+//     // --- END FIX ---
+
+//     CudaGraphRunner runner;
+
+//     // Capture
+//     std::cout << "Beginning capture...\n";
+//     runner.begin_capture();
+//     Value y1 = model(x_tensor); // Only the forward pass is inside the capture block
+//     (void)y1;
+//     runner.end_capture();
+//     std::cout << "Capture successful.\n";
+
+//     // Replay
+//     std::cout << "Replaying graph...\n";
+//     bool ok = runner.replay();
+//     std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
+// }
+// int main() {
+//     if (device::cuda_available()) {
+//         // --- FIX #5: Call the test with the correct ag::Device enum value ---
+//         test_cuda_graph(Device::CUDA);
+//     } else {
+//         std::cout << "CUDA not available, skipping CUDA graph test.\n";
+//     }
+
+//     std::cout << "\n✅ CUDA graph test completed.\n";
+//     return 0;
+// }
 #include "ad/ag_all.hpp"
+#include <iostream>
+#include <cassert>
 
+using namespace ag;
+using namespace OwnTensor;
 
-// --- A Simple MLP Model ---
-class SimpleMLP : public ag::nn::Module {
+// Simple model for CUDA graph capture
+class SimpleMLP : public nn::Module {
 public:
-    ag::nn::Linear fc1;
-    ag::nn::ReLU relu1;
-    ag::nn::Linear fc2;
-    ag::nn::ReLU relu2;
-    ag::nn::Linear fc3;
-
-    SimpleMLP() : fc1(10, 20), fc2(20, 20), fc3(20, 5) {
-        // Manually collect parameters from sub-modules for now
-        params_.insert(params_.end(), fc1.parameters().begin(), fc1.parameters().end());
-        params_.insert(params_.end(), fc2.parameters().begin(), fc2.parameters().end());
-        params_.insert(params_.end(), fc3.parameters().begin(), fc3.parameters().end());
+    nn::Linear fc1, fc2;
+    SimpleMLP(int in, int hid, int out, Device dev)
+        : fc1(in, hid, dev), fc2(hid, out, dev) {
+        for(auto& p : fc1.parameters()) params_.push_back(p);
+        for(auto& p : fc2.parameters()) params_.push_back(p);
     }
-
-    // The forward pass that fulfills the Module contract
-    ag::Value operator()(const ag::Value& x) override {
-        auto h = relu1(fc1(x));
-        h = relu2(fc2(h));
-        return fc3(h);
+    using nn::Module::operator();
+    Value operator()(Value x) override {
+        return fc2(ag::relu(fc1(x)));
     }
 };
 
+void test_cuda_graph(Device device) {
+    if (device != Device::CUDA) return;
+    std::cout << "\n--- Testing CUDA Graph Capture ---\n";
+
+    SimpleMLP model(10, 20, 5, device);
+    Tensor x_tensor = Tensor::randn(Shape{{4, 10}}, TensorOptions().with_device(device));
+        // --- FIX: Add a warm-up run before capturing ---
+    std::cout << "Performing warm-up run...\n";
+    Value y_warmup = model(x_tensor);
+    (void)y_warmup; // Suppress unused warning
+    cudaDeviceSynchronize(); // Wait for the warm-up to finish
+    std::cout << "Warm-up complete.\n";
+    // --- END FIX ---
+        // 1. Forward pass to build the graph. NO capture here.
+    std::cout << "Building graph with forward pass...\n";
+    Value y = model(x_tensor);
+    cudaDeviceSynchronize(); // Ensure forward pass is complete
+
+    // 2. Prepare for backward pass (typically done before training steps)
+    model.zero_grad();
+    
+    CudaGraphRunner runner;
+
+    // 3. Capture the execution of the backward pass kernels.
+    std::cout << "Beginning capture of backward pass...\n";
+    runner.begin_capture();
+    ag::backward(y); // This queues up all the VJP kernels
+    runner.end_capture();
+    std::cout << "Capture successful.\n";
+
+    // 4. Replay the captured backward pass.
+    std::cout << "Replaying graph...\n";
+    bool ok = runner.replay();
+    std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
+    assert(ok);
+}
 
 int main() {
-    // --- SETUP (same as your GPU test) ---
-    using namespace ag;
-    const Device device = Device::CUDA;
-    SimpleMLP model;
-    model.to(device);
-    Value input = make_tensor(Tensor::randn(8, 10, 1337, device), "input");
-    Value labels = make_tensor(Tensor::zeros(8, 5, device), "labels");
-    std::cout << "Data created successfully." << std::endl;
-
-    CudaGraphRunner graph_runner;
-
-    // --- WARMUP (Crucial!) ---
-    // Run the training step once or twice eagerly to let cuBLAS
-    // and other libraries initialize and allocate any internal memory.
-    std::cout << "Warming up..." << std::endl;
-    for(int i = 0; i < 2; ++i) {
-        model.zero_grad();
-        Value output = model(input);
-        Value loss = mse_loss(output, labels);
-        backward(loss);
-        // optimizer.step();
+    if (device::cuda_available()) {
+        test_cuda_graph(Device::CUDA);
+    } else {
+        std::cout << "CUDA not available, skipping CUDA graph test.\n";
     }
-    cudaDeviceSynchronize(); // Wait for warmup to finish
-
-    // --- CAPTURE ---
-    std::cout << "Capturing graph..." << std::endl;
-    graph_runner.begin_capture();
-        // This code block is NOT executed by the CPU. It is recorded by CUDA.
-        model.zero_grad();
-        Value output_captured = model(input);
-        Value loss_captured = mse_loss(output_captured, labels);
-        backward(loss_captured);
-        // optimizer.step();
-    graph_runner.end_capture();
-    std::cout << "Graph captured successfully." << std::endl;
-
-    // --- HIGH-PERFORMANCE REPLAY LOOP ---
-    std::cout << "Starting replay loop..." << std::endl;
-    for(int i = 0; i < 1000; ++i) {
-        graph_runner.replay(); // Single, low-overhead launch
-    }
-    cudaDeviceSynchronize(); // Wait for all replays to finish
-
-    std::cout << "\nSUCCESS: CUDA Graph captured and replayed." << std::endl;
+    std::cout << "\n✅ CUDA graph test completed.\n";
     return 0;
 }

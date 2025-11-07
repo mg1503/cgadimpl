@@ -1,8 +1,4 @@
-// =========================================================
-// FILE: cgadimpl/tests/test_kernels_cpu.cpp
-// =========================================================
-#include "ad/kernels_api.hpp"
-#include "tensor.hpp"
+#include "ad/ag_all.hpp" // Includes TensorLib.h and brings in namespaces
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -10,48 +6,67 @@
 #include <stdexcept>
 #include <string>
 
-// A simple helper to check if two tensors are close enough
-void check_tensors_close(const ag::Tensor& a, const ag::Tensor& b, const std::string& label, float epsilon = 1e-5f) {
-    assert(a.shape() == b.shape());
-    for (int r = 0; r < a.rows(); ++r) {
-        for (int c = 0; c < a.cols(); ++c) {
-            if (std::abs(a(r, c) - b(r, c)) > epsilon) {
-                std::cerr << "FAIL: " << label << " mismatch at (" << r << "," << c << ")\n";
-                std::cerr << "Tensor A:\n" << a << "\n";
-                std::cerr << "Tensor B:\n" << b << "\n";
-                throw std::runtime_error("Tensor check failed for " + label);
-            }
+// Use the correct namespaces as defined in your project
+using namespace OwnTensor;
+using namespace ag;
+
+// Helper now uses types from the correct namespaces
+void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& label, float epsilon = 1e-5f) {
+    if (a.shape().dims != b.shape().dims) {
+        throw std::runtime_error(label + ": Shape mismatch.");
+    }
+    Tensor a_cpu = a.to_cpu();
+    Tensor b_cpu = b.to_cpu();
+    const float* a_data = a_cpu.data<float>();
+    const float* b_data = b_cpu.data<float>();
+
+    for (size_t i = 0; i < a.numel(); ++i) {
+        if (std::abs(a_data[i] - b_data[i]) > epsilon) {
+            std::cerr << "FAIL: " << label << " mismatch at index " << i << "\n";
+            debug::print_tensor("Tensor A", a);
+            debug::print_tensor("Tensor B", b);
+            throw std::runtime_error("Tensor check failed for " + label);
         }
     }
     std::cout << "PASS: " << label << "\n";
 }
 
 void test_cpu_relu() {
-    auto& K = ag::kernels::cpu();
+    auto& K = kernels::cpu();
     assert(K.relu != nullptr);
 
-    ag::Tensor x = ag::Tensor::randn(4, 4, 123);
-    x(0, 0) = -5.0f; x(1, 1) = 0.0f; x(2, 2) = -0.1f;
+    // Use the modern API to create a CPU tensor from the correct namespace
+    auto opts = TensorOptions().with_device(Device::CPU);
+    Tensor x = Tensor::randn(Shape{{4, 4}}, opts);
+    
+    float* x_data = x.data<float>();
+    x_data[0] = -5.0f;
+    x_data[5] = 0.0f;
+    x_data[10] = -0.1f;
 
-    ag::Tensor y_ref = ag::Tensor::relu(x);
-    ag::Tensor y_out(4, 4);
+    // Use the framework's high-level `relu` op for the reference calculation
+    Value x_val = make_tensor(x);
+    Tensor y_ref = relu(x_val).val();
 
-    K.relu(x.data(), y_out.data(), x.numel());
+    Tensor y_out(x.shape(), options(x));
+    K.relu(x.data<float>(), y_out.data<float>(), x.numel());
 
     check_tensors_close(y_ref, y_out, "test_cpu_relu");
 }
 
 void test_cpu_matmul() {
-    auto& K = ag::kernels::cpu();
+    auto& K = kernels::cpu();
     assert(K.matmul != nullptr);
+    
+    auto opts = TensorOptions().with_device(Device::CPU);
+    Tensor a = Tensor::randn(Shape{{8, 16}}, opts);
+    Tensor b = Tensor::randn(Shape{{16, 8}}, opts);
 
-    ag::Tensor a = ag::Tensor::randn(8, 16, 456);
-    ag::Tensor b = ag::Tensor::randn(16, 8, 789);
+    // Use the underlying OwnTensor::matmul for the reference calculation
+    Tensor c_ref = OwnTensor::matmul(a, b);
+    Tensor c_out(Shape{{8, 8}}, options(a));
 
-    ag::Tensor c_ref = ag::Tensor::matmul(a, b);
-    ag::Tensor c_out(8, 8);
-
-    K.matmul(a.data(), b.data(), c_out.data(), 8, 16, 8);
+    K.matmul(a.data<float>(), b.data<float>(), c_out.data<float>(), 8, 16, 8);
 
     check_tensors_close(c_ref, c_out, "test_cpu_matmul");
 }
@@ -59,8 +74,6 @@ void test_cpu_matmul() {
 int main() {
     std::cout << "=== Running CPU Kernel Tests ===\n";
     try {
-        // Path depends on OS and where run.sh stages it.
-        // Assuming we run from the core build directory.
         #if defined(_WIN32)
             const char* plugin_path = "./agkernels_cpu.dll";
         #elif defined(__APPLE__)
@@ -70,7 +83,7 @@ int main() {
         #endif
 
         std::cout << "Loading CPU plugin from: " << plugin_path << "\n";
-        ag::kernels::load_cpu_plugin(plugin_path);
+        kernels::load_cpu_plugin(plugin_path);
 
         test_cpu_relu();
         test_cpu_matmul();

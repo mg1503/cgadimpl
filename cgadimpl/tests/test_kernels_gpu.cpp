@@ -1,8 +1,4 @@
-// =========================================================
-// FILE: cgadimpl/tests/test_kernels_gpu.cpp
-// =========================================================
-#include "ad/kernels_api.hpp"
-#include "tensor.hpp"
+#include "ad/ag_all.hpp"
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -11,143 +7,125 @@
 #include <string>
 #include <cuda_runtime.h>
 
-#define CUDA_CHECK(call) \
-    do { \
-        cudaError_t err = call; \
-        if (err != cudaSuccess) { \
-            fprintf(stderr, "CUDA Error in %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(err)); \
-            exit(EXIT_FAILURE); \
-        } \
-    } while (0)
+// Use the correct namespaces as defined in your project
+using namespace OwnTensor;
+using namespace ag;
 
-// Re-using the same helper from the CPU test
-void check_tensors_close(const ag::Tensor& a, const ag::Tensor& b, const std::string& label, float epsilon = 1e-4f) {
-    assert(a.shape() == b.shape());
-    for (int r = 0; r < a.rows(); ++r) {
-        for (int c = 0; c < a.cols(); ++c) {
-            if (std::abs(a(r, c) - b(r, c)) > epsilon) {
-                std::cerr << "FAIL: " << label << " mismatch at (" << r << "," << c << ")\n";
-                std::cerr << "Tensor A (ref):\n" << a << "\n";
-                std::cerr << "Tensor B (out):\n" << b << "\n";
-                throw std::runtime_error("Tensor check failed for " + label);
-            }
+// Helper updated to use types from the correct namespaces
+void check_tensors_close(const Tensor& a, const Tensor& b, const std::string& label, float epsilon = 1e-4f) {
+    if (a.shape().dims != b.shape().dims) {
+        throw std::runtime_error(label + ": Shape mismatch.");
+    }
+    Tensor a_cpu = a.to_cpu();
+    Tensor b_cpu = b.to_cpu();
+    const float* a_data = a_cpu.data<float>();
+    const float* b_data = b_cpu.data<float>();
+
+    for (size_t i = 0; i < a.numel(); ++i) {
+        if (std::abs(a_data[i] - b_data[i]) > epsilon) {
+            std::cerr << "FAIL: " << label << " mismatch at index " << i << "\n";
+            debug::print_tensor("Tensor A (ref)", a);
+            debug::print_tensor("Tensor B (out)", b);
+            throw std::runtime_error("Tensor check failed for " + label);
         }
     }
     std::cout << "PASS: " << label << "\n";
 }
 
-// --- GPU Memory Helpers ---
-float* to_gpu(const ag::Tensor& t) {
-    float* d_ptr;
-    CUDA_CHECK(cudaMalloc(&d_ptr, t.numel() * sizeof(float)));
-    CUDA_CHECK(cudaMemcpy(d_ptr, t.data(), t.numel() * sizeof(float), cudaMemcpyHostToDevice));
-    return d_ptr;
-}
-
-ag::Tensor from_gpu(const float* d_ptr, int rows, int cols) {
-    ag::Tensor t(rows, cols);
-    CUDA_CHECK(cudaMemcpy(t.data(), d_ptr, t.numel() * sizeof(float), cudaMemcpyDeviceToHost));
-    return t;
-}
-
 // --- Test Functions ---
 
 void test_gpu_add() {
-    auto& K = ag::kernels::cuda();
-    ag::Tensor a_cpu = ag::Tensor::randn(8, 8, 1);
-    ag::Tensor b_cpu = ag::Tensor::randn(8, 8, 2);
-    ag::Tensor ref = a_cpu + b_cpu;
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
 
-    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
-    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    Tensor a_cpu = Tensor::randn(Shape{{8, 8}}, cpu_opts);
+    Tensor b_cpu = Tensor::randn(Shape{{8, 8}}, cpu_opts);
+    Tensor ref = a_cpu + b_cpu;
 
-    K.add(a_gpu, b_gpu, c_gpu, ref.numel(), nullptr);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    Tensor a_gpu = a_cpu.to(gpu_opts.device);
+    Tensor b_gpu = b_cpu.to(gpu_opts.device);
+    Tensor c_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
 
-    ag::Tensor out = from_gpu(c_gpu, 8, 8);
-    check_tensors_close(ref, out, "test_gpu_add");
+    K.add(a_gpu.data<float>(), b_gpu.data<float>(), c_gpu.data<float>(), ref.numel(), nullptr);
+    cudaDeviceSynchronize();
 
-    CUDA_CHECK(cudaFree(a_gpu));
-    CUDA_CHECK(cudaFree(b_gpu));
-    CUDA_CHECK(cudaFree(c_gpu));
+    Tensor out_cpu = c_gpu.to_cpu();
+    check_tensors_close(ref, out_cpu, "test_gpu_add");
 }
 
 void test_gpu_matmul() {
-    auto& K = ag::kernels::cuda();
-    ag::Tensor a_cpu = ag::Tensor::randn(8, 16, 3);
-    ag::Tensor b_cpu = ag::Tensor::randn(16, 8, 4);
-    ag::Tensor ref = ag::Tensor::matmul(a_cpu, b_cpu);
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
 
-    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *c_gpu;
-    CUDA_CHECK(cudaMalloc(&c_gpu, ref.numel() * sizeof(float)));
+    Tensor a_cpu = Tensor::randn(Shape{{8, 16}}, cpu_opts);
+    Tensor b_cpu = Tensor::randn(Shape{{16, 8}}, cpu_opts);
+    Tensor ref = OwnTensor::matmul(a_cpu, b_cpu);
 
-    K.matmul(a_gpu, b_gpu, c_gpu, 8, 16, 8, nullptr);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    Tensor a_gpu = a_cpu.to(gpu_opts.device);
+    Tensor b_gpu = b_cpu.to(gpu_opts.device);
+    Tensor c_gpu(ref.shape(), options(ref).with_device(gpu_opts.device));
+    
+    K.matmul(a_gpu.data<float>(), b_gpu.data<float>(), c_gpu.data<float>(), 8, 16, 8, nullptr);
+    cudaDeviceSynchronize();
 
-    ag::Tensor out = from_gpu(c_gpu, 8, 8);
-    check_tensors_close(ref, out, "test_gpu_matmul");
-
-    CUDA_CHECK(cudaFree(a_gpu));
-    CUDA_CHECK(cudaFree(b_gpu));
-    CUDA_CHECK(cudaFree(c_gpu));
+    Tensor out_cpu = c_gpu.to_cpu();
+    check_tensors_close(ref, out_cpu, "test_gpu_matmul");
 }
 
 void test_gpu_vjp_add() {
-    auto& K = ag::kernels::cuda();
-    ag::Tensor gy_cpu = ag::Tensor::randn(8, 8, 5);
-    ag::Tensor ga_ref = gy_cpu; // vjp_add just passes gradient through
-    ag::Tensor gb_ref = gy_cpu;
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
 
-    ag::Tensor ga_cpu_init = ag::Tensor::zeros(8, 8);
-    ag::Tensor gb_cpu_init = ag::Tensor::zeros(8, 8);
+    Tensor gy_cpu = Tensor::randn(Shape{{8, 8}}, cpu_opts);
+    Tensor ga_ref = gy_cpu; // vjp_add just passes gradient through
+    Tensor gb_ref = gy_cpu;
 
-    float *gy_gpu = to_gpu(gy_cpu);
-    float *ga_gpu = to_gpu(ga_cpu_init);
-    float *gb_gpu = to_gpu(gb_cpu_init);
+    Tensor ga_init = Tensor::zeros(Shape{{8, 8}}, gpu_opts);
+    Tensor gb_init = Tensor::zeros(Shape{{8, 8}}, gpu_opts);
+    Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
 
-    K.vjp_add(ga_gpu, gb_gpu, gy_gpu, gy_cpu.numel(), nullptr);
-    CUDA_CHECK(cudaDeviceSynchronize());
+    K.vjp_add(ga_init.data<float>(), gb_init.data<float>(), gy_gpu.data<float>(), gy_cpu.numel(), nullptr);
+    cudaDeviceSynchronize();
 
-    ag::Tensor ga_out = from_gpu(ga_gpu, 8, 8);
-    ag::Tensor gb_out = from_gpu(gb_gpu, 8, 8);
+    Tensor ga_out = ga_init.to_cpu();
+    Tensor gb_out = gb_init.to_cpu();
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_add (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_add (gB)");
-
-    CUDA_CHECK(cudaFree(gy_gpu));
-    CUDA_CHECK(cudaFree(ga_gpu));
-    CUDA_CHECK(cudaFree(gb_gpu));
 }
 
 void test_gpu_vjp_matmul() {
-    auto& K = ag::kernels::cuda();
-    ag::Tensor a_cpu = ag::Tensor::randn(8, 16, 6);
-    ag::Tensor b_cpu = ag::Tensor::randn(16, 8, 7);
-    ag::Tensor gy_cpu = ag::Tensor::randn(8, 8, 8);
+    auto& K = kernels::cuda();
+    auto cpu_opts = TensorOptions().with_device(Device::CPU);
+    auto gpu_opts = TensorOptions().with_device(DeviceIndex(Device::CUDA));
+
+    Tensor a_cpu = Tensor::randn(Shape{{8, 16}}, cpu_opts);
+    Tensor b_cpu = Tensor::randn(Shape{{16, 8}}, cpu_opts);
+    Tensor gy_cpu = Tensor::randn(Shape{{8, 8}}, cpu_opts);
 
     // Reference calculation on CPU
-    ag::Tensor ga_ref = ag::Tensor::matmul(gy_cpu, ag::Tensor::transpose(b_cpu));
-    ag::Tensor gb_ref = ag::Tensor::matmul(ag::Tensor::transpose(a_cpu), gy_cpu);
+    Tensor ga_ref = OwnTensor::matmul(gy_cpu, b_cpu.t());
+    Tensor gb_ref = OwnTensor::matmul(a_cpu.t(), gy_cpu);
 
-    float *a_gpu = to_gpu(a_cpu), *b_gpu = to_gpu(b_cpu), *gy_gpu = to_gpu(gy_cpu);
-    float *ga_gpu, *gb_gpu;
-    CUDA_CHECK(cudaMalloc(&ga_gpu, ga_ref.numel() * sizeof(float)));
-    CUDA_CHECK(cudaMalloc(&gb_gpu, gb_ref.numel() * sizeof(float)));
+    Tensor a_gpu = a_cpu.to(gpu_opts.device);
+    Tensor b_gpu = b_cpu.to(gpu_opts.device);
+    Tensor gy_gpu = gy_cpu.to(gpu_opts.device);
+    
+    Tensor ga_gpu(ga_ref.shape(), options(ga_ref).with_device(gpu_opts.device));
+    Tensor gb_gpu(gb_ref.shape(), options(gb_ref).with_device(gpu_opts.device));
+    
+    K.vjp_matmul(ga_gpu.data<float>(), gb_gpu.data<float>(), gy_gpu.data<float>(), 
+                 a_gpu.data<float>(), b_gpu.data<float>(), 8, 16, 8, nullptr);
+    cudaDeviceSynchronize();
 
-    K.vjp_matmul(ga_gpu, gb_gpu, gy_gpu, a_gpu, b_gpu, 8, 16, 8, nullptr);
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    ag::Tensor ga_out = from_gpu(ga_gpu, 8, 16);
-    ag::Tensor gb_out = from_gpu(gb_gpu, 16, 8);
+    Tensor ga_out = ga_gpu.to_cpu();
+    Tensor gb_out = gb_gpu.to_cpu();
 
     check_tensors_close(ga_ref, ga_out, "test_gpu_vjp_matmul (gA)");
     check_tensors_close(gb_ref, gb_out, "test_gpu_vjp_matmul (gB)");
-
-    CUDA_CHECK(cudaFree(a_gpu));
-    CUDA_CHECK(cudaFree(b_gpu));
-    CUDA_CHECK(cudaFree(gy_gpu));
-    CUDA_CHECK(cudaFree(ga_gpu));
-    CUDA_CHECK(cudaFree(gb_gpu));
 }
 
 int main() {
@@ -162,7 +140,7 @@ int main() {
         #endif
 
         std::cout << "Loading GPU plugin from: " << plugin_path << "\n";
-        ag::kernels::load_cuda_plugin(plugin_path);
+        kernels::load_cuda_plugin(plugin_path);
 
         test_gpu_add();
         test_gpu_matmul();

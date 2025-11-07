@@ -2,7 +2,7 @@
 // In file: cgadimpl/src/runtime/cuda_graphs.cpp
 // ===================================================
 #include "ad/cuda_graphs.hpp"
-#include "tensor.hpp"
+// #include "tensor.hpp"
 #include <iostream>
 #include <device/DeviceCore.h>
 
@@ -34,7 +34,7 @@ void CudaGraphRunner::begin_capture() {
     if (is_capturing_) return;
     
     // Set the framework's global stream to our private stream
-    // set_current_stream(reinterpret_cast<ag_cuda_stream_t>(stream_));
+    set_current_stream(reinterpret_cast<ag_cuda_stream_t>(stream_));
     OwnTensor::cuda::setCurrentStream(stream_);
     
     // Begin capturing all operations on this stream
@@ -54,7 +54,7 @@ void CudaGraphRunner::end_capture() {
     CUDA_CHECK(cudaGraphInstantiate(&instance_, graph_, NULL, NULL, 0));
 
     // Reset the framework's global stream back to the default (nullptr)
-    // set_current_stream(nullptr);
+    set_current_stream(nullptr);
     OwnTensor::cuda::setCurrentStream(nullptr);
 }
 

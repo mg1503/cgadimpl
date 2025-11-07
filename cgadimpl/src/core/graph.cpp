@@ -11,12 +11,12 @@
 namespace ag {
 
 // --- Node Implementation ---
-Node::Node() = default; 
+// Node::Node() = default; 
 Node::Node(const Tensor& v, Op op_, const char* nm) 
     : op(op_), 
       value(v), 
       // Initialize `grad` with an empty but valid Tensor using TensorOptions.
-      grad(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device())), 
+      grad(), 
       debug_name(nm) 
 {
     if (v.requires_grad()) {
@@ -28,14 +28,15 @@ Node::Node(const Tensor& v, Op op_, const char* nm)
         
         // 2. Call the 'zeros' factory with the correct signature (shape, opts).
         grad = OwnTensor::Tensor::zeros(v.shape(), ag::options(v));
-    }else {
+    }/*else {
         // If no grad is required, grad can be an empty tensor.
         grad = Tensor(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device()));
-    }
+    }*/
 }
 
 // --- Value Implementation ---
 // ADDED: Implement the Value helper functions
+Tensor& Value::val() { return node->value; }
 const Tensor& Value::val() const { return node->value; }
 Tensor& Value::grad() { return node->grad; }
 const Tensor& Value::grad() const { return node->grad; }
@@ -55,10 +56,10 @@ std::pair<int, int> Value::shape_2d() const {
     return {static_cast<int>(dims[0]), static_cast<int>(dims[1])};
 }
 
-// --- Factory Implementation ---
-Value make_tensor(const Tensor& v, const char* name) {
-    return Value(std::make_shared<Node>(v, Op::Leaf, name));
-}
+// // --- Factory Implementation ---
+// Value make_tensor(const Tensor& v, const char* name) {
+//     return Value(std::make_shared<Node>(v, Op::Leaf, name));
+// }
 
 // --- Graph Traversal ---
 std::vector<Node*> topo_from(Node* root){

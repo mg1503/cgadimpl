@@ -1,37 +1,22 @@
-// ====================================================================
-// FILE: cgadimpl/include/nn/nn.hpp (The Complete Merged Version)
-// ====================================================================
 #pragma once
 
-#include "ad/graph.hpp" // For Value, Tensor, Device
-#include "ad/ops.hpp"   // For matmul, add
+#include "ad/graph.hpp"
+#include "ad/ops.hpp"
 #include <vector>
 
 namespace ag::nn {
 
-// --- NEW: High-Level Module API ---
-
 class Module {
 public:
     virtual ~Module() = default;
-    // Addition a "pure virtual" operator() to the base class.
-    // This tells the compiler that all derived classes (like Linear, ReLU)
-    // are guaranteed to have a callable forward pass.
-    virtual Value operator()(const Value& input) = 0;
+    virtual Value operator()(Value input) = 0; // Takes by value
 
-    // --- NEW "Convenience" Overload ---
-    // This is the user-facing method that accepts a raw Tensor.
     Value operator()(const Tensor& input) {
-        // 1. Automatically wrap the raw Tensor into a graph node.
         Value graph_input = ag::make_tensor(input);
-
-        // 2. Call the original, core forward pass with the new graph node.
         return this->operator()(graph_input);
     }
 
-    const std::vector<Value>& parameters() const { 
-        return params_; 
-    }
+    std::vector<Value>& parameters() { return params_; }
 
     void to(Device dev);
     void zero_grad();
@@ -43,36 +28,23 @@ protected:
 class Linear : public Module {
 public:
     Linear(int in_features, int out_features, Device dev = Device::CPU);
-    // forward pass declaration
-    Value operator()(const Value& input);
-
+    Value operator()(Value input) override;
 private:
     Value W, b;
 };
 
 class Sequential : public Module {
 public:
-    // Takes a list of modules you've created with 'new'
     Sequential(const std::vector<Module*>& modules);
-    Value operator()(Value x);
-
+    Value operator()(Value x) override;
+    const std::vector<Module*>& get_layers() const { return layers_; }
 private:
     std::vector<Module*> layers_;
 };
 
 class ReLU : public Module {
 public:
-    Value operator()(const Value& input);
+    Value operator()(Value input) override;
 };
 
-
 } // namespace ag::nn
-
-
-
-
-
-// // --- OLD: Tensor-based helpers needed by the JIT compiler in graph.cpp ---
-
-// Tensor silu(const Tensor& x);
-// Tensor gelu(const Tensor& x);

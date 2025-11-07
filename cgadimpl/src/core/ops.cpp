@@ -4,6 +4,7 @@
 #include "ad/ops.hpp"
 #include "ad/nodeops.hpp" // Include the new node-level declarations
 #include "ad/inplace.hpp"
+#include "ad/runtime.hpp"
 
 namespace ag {
     Value inplace_checkpoint(const Value& v) {
@@ -353,14 +354,22 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         // ============================================================
         // Unary elementwise activations
         // ============================================================
-        // case Op::Relu: {
-        //     const Tensor &X = node->inputs[0]->value;
-        //     return Tensor::relu(X);
-        // }
-        // case Op::Sigmoid: {
-        //     const Tensor &X = node->inputs[0]->value;
+        case Op::Relu: {
+            // Re-implement ReLU using the tensor library's ops
+            auto& x = node->inputs[0]->value;
+            return (x + OwnTensor::abs(x, ag::current_stream())) * 0.5f;
+        }
+        case Op::Linear: {
+            const Tensor& input_X = node->inputs[0]->value;
+            const Tensor& weight_W = node->inputs[1]->value;
+            const Tensor& bias_b = node->inputs[2]->value;
+            // Use the same logic as your new nn::Linear::operator()
+            return matmul(input_X, weight_W) + bias_b;
+        }
+        case Op::Sigmoid: {
+            const Tensor &X = node->inputs[0]->value;
         //     return Tensor::sigmoid(X);
-        // }
+        }
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
             return tanh(X);
@@ -489,7 +498,7 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             if (!node->tape.empty()) {
                 return *(node->tape.back());
             }
-            throw std::runtime_error("forward_eval_node: unsupported op for recompute");
+            throw std::runtime_error(std::string("forward_eval_node: unsupported op for recompute: ") + op_name(node->op));
     }
 }
 

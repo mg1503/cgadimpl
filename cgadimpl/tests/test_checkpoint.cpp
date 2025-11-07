@@ -84,23 +84,25 @@ int main() {
     // ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
     // ------------------------------------------------------------
     // 1. Prepare small deterministic tensors
-    Tensor x_data = Tensor::randn(2, 4, 42);
-    Tensor W1_data = Tensor::randn(4, 4, 123);
-    Tensor W2_data = Tensor::randn(4, 4, 321);
-    Tensor W3_data = Tensor::randn(4, 2, 999);
-    Tensor b1_data = Tensor::randn(1, 4, 55);
-    Tensor b2_data = Tensor::randn(1, 4, 77);
-    Tensor b3_data = Tensor::randn(1, 2, 88);
+
+    Tensor x_data = Tensor::randn(Shape{{2, 4, 42}}, TensorOptions().with_req_grad(true));
+    Tensor W1_data = Tensor::randn(Shape{{4, 4, 123}}, TensorOptions().with_req_grad(true));
+    Tensor W2_data = Tensor::randn(Shape{{4, 4, 321}}, TensorOptions().with_req_grad(true));
+    Tensor W3_data = Tensor::randn(Shape{{4, 2, 999}}, TensorOptions().with_req_grad(true));
+    Tensor b1_data = Tensor::randn(Shape{{1, 4, 55}}, TensorOptions().with_req_grad(true));
+    Tensor b2_data = Tensor::randn(Shape{{1, 4, 77}}, TensorOptions().with_req_grad(true));
+    Tensor b3_data = Tensor::randn(Shape{{1, 2, 88}}, TensorOptions().with_req_grad(true));
+
 
     // ------------------------------------------------------------
     // 2. Wrap them as Values
-    Value x = constant(x_data, "x");
-    Value W1 = param(W1_data, "W1");
-    Value W2 = param(W2_data, "W2");
-    Value W3 = param(W3_data, "W3");
-    Value b1 = param(b1_data, "b1");
-    Value b2 = param(b2_data, "b2");
-    Value b3 = param(b3_data, "b3");
+    Value x = make_tensor(x_data, "x");
+    Value W1 = make_tensor(W1_data, "W1");
+    Value W2 = make_tensor(W2_data, "W2");
+    Value W3 = make_tensor(W3_data, "W3");
+    Value b1 = make_tensor(b1_data, "b1");
+    Value b2 = make_tensor(b2_data, "b2");
+    Value b3 = make_tensor(b3_data, "b3");
 
     // ------------------------------------------------------------
     // 3. Build a deeper network
@@ -148,10 +150,10 @@ int main() {
     // ------------------------------------------------------------
     // 7. Inspect gradients for parameters
     std::cout << "\nGradients:\n";
-    std::cout << "dL/dW1:\n" << W1.grad() << "\n";
-    std::cout << "dL/dW2:\n" << W2.grad() << "\n";
-    std::cout << "dL/dW3:\n" << W3.grad() << "\n";
-    std::cout << "dL/db3:\n" << b3.grad() << "\n";
+    debug::print_grad("grad of w1: \n", W1);
+    debug::print_grad("grad of w2: \n", W2);
+    debug::print_grad("grad of w3: \n", W3);
+    debug::print_grad("grad of b3: \n", b3);
 
     // ------------------------------------------------------------
     // 8. Manual recomputation test on one of the checkpointed nodes
