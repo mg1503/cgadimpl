@@ -1,3 +1,6 @@
+// =========================================
+// cgadimpl/src/tools/debug.cpp
+// =========================================
 #include "ad/debug.hpp"
 #include <iostream>
 #include <iomanip>
@@ -19,33 +22,30 @@ bool g_trace_jvp = false;
 
 
 std::string shape_str(const Tensor& t) {
-    auto [r,c] = t.shape();
-    std::ostringstream os; os << r << "x" << c;
+    std::ostringstream os;
+    const auto& dims = t.shape().dims;
+    if (dims.empty()) {
+        return "scalar";
+    }
+    for (size_t i = 0; i < dims.size(); ++i) {
+        os << dims[i] << (i == dims.size() - 1 ? "" : "x");
+    }
     return os.str();
 }
 
-void print_tensor_impl(const Tensor& T) {
-    int R = std::min(T.rows(), g_max_r);
-    int C = std::min(T.cols(), g_max_c);
-    std::cout << std::fixed << std::setprecision(g_prec);
-    for (int i=0;i<R;++i) {
-        for (int j=0;j<C;++j)
-            std::cout << std::setw(g_w) << T(i,j);
-        if (C < T.cols()) std::cout << "  ...";
-        std::cout << "\n";
-    }
-    if (R < T.rows()) std::cout << "...\n";
-}
 } // anon
 
 void enable_tracing(bool on) { g_trace = on; }
-void set_print_limits(int max_rows, int max_cols, int width, int precision) {
-    g_max_r = max_rows; g_max_c = max_cols; g_w = width; g_prec = precision;
-}
+
 
 void print_tensor(const std::string& label, const Tensor& T){
     std::cout << label << " [" << shape_str(T) << "]\n";
-    print_tensor_impl(T);
+    
+    // The new tensor library has a powerful display method.
+    // It automatically handles device placement (copies to CPU for printing) and formatting.
+    // The second argument is the desired precision.
+    T.display(std::cout, g_prec);
+    
     std::cout << std::endl;
 }
 void print_value (const std::string& label, const Value& v){
@@ -59,12 +59,15 @@ void on_node_created(const std::shared_ptr<Node>& n){
     if (!g_trace) return;
     std::ostringstream label;
     label << "[" << op_name(n->op) << "]"
-          << (n->requires_grad ? " (grad)" : "      ")
-          << "  value " << shape_str(n->value)
+          << (n->requires_grad() ? " (grad)" : "      ") // Use function call
+          << "  value " << shape_str(n->value)          // Use new shape_str
           << "  @" << n.get();
     if (n->debug_name && n->debug_name[0] != '\0')
         label << "  name=\"" << n->debug_name << "\"";
-    print_tensor(label.str(), n->value);
+    
+    // We can't print the full tensor here as it might be huge.
+    // Let's just print the label. The user can call print_value() for details.
+    std::cout << label.str() << std::endl;
 }
 
 // ---- whole-graph printers ----
@@ -75,21 +78,21 @@ void print_all_values(const Value& root){
     for (Node* n : order) {
         std::ostringstream label;
         label << "[" << op_name(n->op) << "]"
-              << (n->requires_grad ? " (grad)" : "      ")
+              << (n->requires_grad() ? " (grad)" : "      ")
               << " value " << shape_str(n->value)
               << " @" << n;
-        print_tensor(label.str(), n->value);
+        print_tensor(label.str(), n->value); // This will now use the powerful display()
     }
 }
 
 void print_all_grads(const Value& root){
     auto order = topo_from(root.node.get());
     std::cout << "=== GRADS (topo) ===\n";
-    for (Node* n : order) if (n->requires_grad) {
+    for (Node* n : order) if (n->requires_grad()) {
         std::ostringstream label;
         label << "[" << op_name(n->op) << "] grad " << shape_str(n->grad)
               << " @" << n;
-        print_tensor(label.str(), n->grad);
+        print_tensor(label.str(), n->grad); // This will now use the powerful display()
     }
 }
 
@@ -107,11 +110,12 @@ void dump_dot(const Value& root, const std::string& filepath){
            "  node [shape=record, fontsize=10];\n";
 
     // nodes
-    for (Node* n : order) {
-        std::ostringstream id;   id   << "n" << n;
-        std::ostringstream lab;  lab  << op_name(n->op) << "\\n" << shape_str(n->value);
-        std::string color = (n->op==Op::Leaf ? (n->requires_grad ? "lightgoldenrod1" : "lightgrey")
-                                             : (n->requires_grad ? "lightblue" : "white"));
+     for (Node* n : order) {
+        std::ostringstream id; id << "n" << n;
+        std::ostringstream lab;
+        lab  << op_name(n->op) << "\\n" << shape_str(n->value); // Correct
+        std::string color = (n->op==Op::Leaf ? (n->requires_grad() ? "lightgoldenrod1" : "lightgrey")
+                                             : (n->requires_grad() ? "lightblue" : "white")); // Correct
         out << "  " << id.str()
             << " [label=\"" << lab.str() << "\", style=filled, fillcolor=\""
             << color << "\"];\n";
@@ -143,15 +147,14 @@ void on_backprop_step(Node* n, const Tensor& gy) {
     if (!g_trace_bp) return;
     auto shp = n->value.shape();
     std::cout << "[VJP] node @" << n << " op=" << op_name(n->op)
-              << "  y_grad shape=" << shp.first << "x" << shp.second << "\n";
+          << "  y_grad shape=" << shape_str(gy) << "\n";
 
-    // Show where gradients will go (just shapes; actual values printed by print_all_grads later)
     for (size_t k = 0; k < n->inputs.size(); ++k) {
         Node* p = n->inputs[k].get();
-        auto pshp = p->value.shape();
+        // FIX: Use the new shape_str helper for N-D printing
         std::cout << "   -> parent[" << k << "] @" << p
-                  << " (" << op_name(p->op) << ") receives grad shape "
-                  << pshp.first << "x" << pshp.second << "\n";
+                << " (" << op_name(p->op) << ") receives grad shape "
+                << shape_str(p->value) << "\n";
     }
 }
 
@@ -161,18 +164,15 @@ void dump_vjp_dot(const Value& root, const std::string& filepath) {
     std::ofstream out(filepath);
     if (!out) { std::cerr << "debug::dump_vjp_dot: failed to open " << filepath << "\n"; return; }
 
-    auto shape_str = [](const Tensor& t){
-        auto s = t.shape(); std::ostringstream os; os << s.first << "x" << s.second; return os.str();
-    };
-
+   
     out << "digraph VJP {\n"
            "  rankdir=LR;\n"
            "  node [shape=record, fontsize=10];\n";
 
     // forward nodes (same as dump_dot, but neutral colors)
     for (Node* n : order) {
-        std::string color = (n->op==Op::Leaf ? (n->requires_grad ? "lightgoldenrod1" : "lightgrey")
-                                             : (n->requires_grad ? "white" : "white"));
+        std::string color = (n->op==Op::Leaf ? (n->requires_grad() ? "lightgoldenrod1" : "lightgrey")
+                                             : (n->requires_grad() ? "white" : "white"));
         out << "  n" << n
             << " [label=\"" << op_name(n->op) << "\\n" << shape_str(n->value)
             << "\", style=filled, fillcolor=\"" << color << "\"];\n";
@@ -198,16 +198,16 @@ void enable_jvp_tracing(bool on) { g_trace_jvp = on; }
 
 void on_jvp_step(Node* n) {
     if (!g_trace_jvp) return;
-    auto shp = n->value.shape();
+    // FIX: Use the global shape_str helper
     std::cout << "[JVP] node @" << n
               << " op=" << op_name(n->op)
-              << "  value=" << shp.first << "x" << shp.second << "\n";
+              << "  value=" << shape_str(n->value) << "\n";
     for (size_t k = 0; k < n->inputs.size(); ++k) {
         Node* p = n->inputs[k].get();
-        auto pshp = p->value.shape();
+        // FIX: Use the global shape_str helper
         std::cout << "    parent[" << k << "] @" << p
                   << " (" << op_name(p->op) << ")  value="
-                  << pshp.first << "x" << pshp.second << "\n";
+                  << shape_str(p->value) << "\n";
     }
 }
 
@@ -216,9 +216,7 @@ void dump_jvp_dot(const Value& root, const std::string& filepath) {
     std::ofstream out(filepath);
     if (!out) { std::cerr << "debug::dump_jvp_dot: failed to open " << filepath << "\n"; return; }
 
-    auto shape_str = [](const Tensor& t){
-        auto s = t.shape(); std::ostringstream os; os << s.first << "x" << s.second; return os.str();
-    };
+
 
     out << "digraph JVP {\n"
            "  rankdir=LR;\n"

@@ -1,3 +1,7 @@
+// =====================
+// file: cgadimpl/src/core/schema.cpp
+// =====================
+
 #include "ad/schema.hpp"
 #include <array>
 // #include "ad/ops.def" // Ensure OpCount is defined or included

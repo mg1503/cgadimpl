@@ -1,5 +1,5 @@
 // =====================
-// file: include/ag/optim.hpp (declarations only)
+// file: cgadimpl/include/ag/optim.hpp (declarations only)
 // =====================
 #pragma once
 #include "ad/ops.hpp"
@@ -12,6 +12,6 @@
 
 namespace ag {
 
-void SGD(const Value& root, const Tensor* grad_seed=nullptr, int learning_rate=100);
+void SGD(const Value& root, const Tensor* grad_seed=nullptr, float learning_rate=100);
 
 }

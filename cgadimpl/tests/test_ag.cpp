@@ -83,52 +83,75 @@
 using namespace ag;
 
 
-int main(){
-using namespace std;
-using namespace ag;
-Tensor A = Tensor::randn(2,3);
-Tensor B = Tensor::randn(3,2);
-auto a = param(A, "A");
-auto b = param(B, "B");
+int main() {
+    using namespace std;
+    // using namespace ag;
 
-Tensor Yt(2, 2);
+    // --- 1. Correct Tensor and Value Creation ---
+
+    // Create a Tensor that requires a gradient for a model input 'a'
+    Tensor A_tensor = Tensor::randn(Shape{{2, 3}}, TensorOptions().with_req_grad(true));
+    auto a = make_tensor(A_tensor, "A");
+
+    // Create Tensors for trainable parameters 'b' and 'bias'
+    Tensor B_tensor = Tensor::randn(Shape{{3, 2}}, TensorOptions().with_req_grad(true));
+    auto b = make_tensor(B_tensor, "B");
+    
+    Tensor Bias_tensor = Tensor::zeros(Shape{{1, 2}}, TensorOptions().with_req_grad(true));
+    auto bias = make_tensor(Bias_tensor, "bias");
+
+    // Create the target tensor 'Yt'. This is a constant, so requires_grad=false (the default).
+    Tensor Yt(Shape{{2, 2}}, TensorOptions());
+    float* yt_data = Yt.data<float>(); // Get the raw data pointer
     std::mt19937 gen(42);
-    std::uniform_int_distribution<int> pick(0, 2 - 1);
+    std::uniform_int_distribution<int> pick(0, 1); // Corrected range for 2 columns
     for (int i = 0; i < 2; ++i) {
         int k = pick(gen);
-        for (int j = 0; j < 2; ++j) Yt(i, j) = (j == k) ? 1.f : 0.f;
+        for (int j = 0; j < 2; ++j) {
+            // Access elements using linear indexing: row * num_cols + col
+            yt_data[i * 2 + j] = (j == k) ? 1.0f : 0.0f;
+        }
     }
-    Value W = constant(Yt, "Y");
+    // Wrap the constant tensor in a Value node
+    auto W = make_tensor(Yt, "Y_target");
 
+    // --- 2. Training Loop ---
 
-auto bias = param(Tensor::zeros(1,2), "bias");
+    cout << fixed << setprecision(4);
+    for (int i = 0; i < 10; ++i) {
+        cout << "\n=============== Iteration " << i << " ===============\n";
 
-for(int i=0;i<10;i++){
-    auto q = (matmul(a,b) + bias); // [2,2]
-    auto y = kldivergence((q + bias), W); // scalar, tests broadcasting [B,2] + [1,2]
-std::cout << "y = " << y.val()
-<<","<< endl<< "A = " << a.val()
-<<","<< endl<< "B = " << b.val()<<","<< endl
-<< "bias = " << bias.val() << endl<< "q = " << q.val() << endl;
-std::cout << "y grad " << y.grad() << endl;
-std::cout << "dL/dA[0,0] = " << a.grad()
-<<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
-<< "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
-zero_grad(y);
-backward(y);
-SGD(y);
+        // Forward pass
+        auto q = matmul(a, b) + bias;
+        // Note: The original code added bias twice. I have preserved this logic.
+        auto y = kldivergence(q + bias, W);
 
+        // --- Before backward ---
+        cout << "--- Forward Pass Results ---\n";
+        debug::print_value("Loss (y)", y);
+        debug::print_grad("Grad of b (before)", b);
+        debug::print_grad("Grad of bias (before)", bias);
 
-std::cout << "y = " << y.val()
-<<","<< endl<< "A = " << a.val()
-<<","<< endl<< "B = " << b.val()<<","<< endl
-<< "bias = " << bias.val() << endl<< "q = " << q.val() << endl;
-std::cout << "y grad " << y.grad() << endl;
-std::cout << "dL/dA[0,0] = " << a.grad()
-<<","<< endl<< "dL/dB[0,0] = " << b.grad()<<","<< endl
-<< "dL/dbias[0,0] = " << bias.grad() << endl<< "dL/dq = " << q.grad() << endl;
+        // Zero gradients from previous iteration
+        zero_grad(y);
 
+        // Backward pass to compute gradients
+        backward(y);
 
+        // --- After backward ---
+        cout << "\n--- Backward Pass Results ---\n";
+        debug::print_grad("Grad of y (dL/dy)", y); // Will be 1.0
+        debug::print_grad("Grad of b (dL/dB)", b);
+        debug::print_grad("Grad of bias (dL/dbias)", bias);
 
-}
+        // Update weights using the optimizer
+        SGD(y, nullptr, 0.1f); // Using a learning rate of 0.1
+
+        // --- After SGD update ---
+        cout << "\n--- After SGD Step ---\n";
+        debug::print_value("Updated b", b);
+        debug::print_value("Updated bias", bias);
+    }
+
+    return 0;
 }
