@@ -14,35 +14,116 @@ namespace detail{
 
 // ----- elementwise binary -----
 // Correct: Accumulates gradient for both parents.
-void vjp_Add(Node* n, const Tensor& gy){
-    Node* p0 = n->inputs[0].get();
-    Node* p1 = n->inputs[1].get();
-    cudaStream_t stream = (cudaStream_t)ag::current_stream();
-    if (p0->requires_grad()) {
-        if (p0->grad.numel() != gy.numel()) {
-            p0->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
-        } else {
-            p0->grad += gy;
+// void vjp_Add(Node* n, const Tensor& gy){
+//     Node* p0 = n->inputs[0].get();
+//     Node* p1 = n->inputs[1].get();
+//     cudaStream_t stream = (cudaStream_t)ag::current_stream();
+//     if (p0->requires_grad()) {
+//         if (p0->grad.numel() != gy.numel()) {
+//             p0->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
+//         } else {
+//             p0->grad += gy;
+//         }
+//     }
+//     if (p1->requires_grad()) {
+//         if (p1->grad.numel() != gy.numel()) {
+//             p1->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
+//         } else {
+//             p1->grad += gy;
+//         }
+//     }
+// }
+
+// Adds incoming_grad to target_grad, summing where necessary.
+void unbroadcast_and_add(Tensor& target_grad, const Tensor& incoming_grad) {
+    auto& target_dims = target_grad.shape().dims;
+    auto& incoming_dims = incoming_grad.shape().dims;
+
+    // Fast path: No broadcasting needed
+    if (target_dims == incoming_dims) {
+        target_grad += incoming_grad;
+        return;
+    }
+
+    // --- Broadcasting Happened: Sum the incoming_grad ---
+    std::vector<int64_t> axes_to_sum;
+    int rank_diff = incoming_dims.size() - target_dims.size();
+    
+    // Sum over dimensions that were added during broadcasting
+    for(int i = 0; i < rank_diff; ++i) {
+        axes_to_sum.push_back(i);
+    }
+    
+    // Sum over dimensions that were size 1 in the target
+    for(size_t i = 0; i < target_dims.size(); ++i) {
+        if (target_dims[i] == 1 && incoming_dims[i + rank_diff] > 1) {
+            axes_to_sum.push_back(i + rank_diff);
         }
     }
-    if (p1->requires_grad()) {
-        if (p1->grad.numel() != gy.numel()) {
-            p1->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
-        } else {
-            p1->grad += gy;
+
+    if (axes_to_sum.empty()) {
+        target_grad += incoming_grad;
+    } else {
+        Tensor grad_sum = OwnTensor::reduce_sum(incoming_grad, axes_to_sum, true);
+        
+        // After summing, the rank might be higher (e.g., [1, 1, C]). Reshape to match target rank.
+        if (grad_sum.shape().dims.size() != target_dims.size()) {
+             grad_sum = grad_sum.reshape({target_dims});
         }
+        
+        target_grad += grad_sum;
     }
-}
-// Correct: Accumulates +gy for A and -gy for B.
-void vjp_Sub(Node* n, const Tensor& gy){
-    if (n->inputs[0]->requires_grad()) n->inputs[0]->grad += gy;
-    if (n->inputs[1]->requires_grad()) n->inputs[1]->grad += (gy * -1.0f);
 }
 
-// Correct: Chain rule for multiplication.
+
+// ----- elementwise binary -----
+void vjp_Add(Node* n, const Tensor& gy){
+    // --- FIX: Replace simple addition with broadcast-aware accumulation ---
+    if (n->inputs[0]->requires_grad()) {
+        unbroadcast_and_add(n->inputs[0]->grad, gy);
+    }
+    if (n->inputs[1]->requires_grad()) {
+        unbroadcast_and_add(n->inputs[1]->grad, gy);
+    }
+    // --- END FIX ---
+}
+
+// ... rest of the file is correct ...
+// Correct: Accumulates +gy for A and -gy for B.
+
+void vjp_Sub(Node* n, const Tensor& gy){
+    // --- FIX: Apply un-broadcasting logic ---
+    if (n->inputs[0]->requires_grad()) {
+        unbroadcast_and_add(n->inputs[0]->grad, gy);
+    }
+    if (n->inputs[1]->requires_grad()) {
+        unbroadcast_and_add(n->inputs[1]->grad, gy * -1.0f);
+    }
+}
+
 void vjp_Mul(Node* n, const Tensor& gy){
-    if (n->inputs[0]->requires_grad()) n->inputs[0]->grad += (gy * n->inputs[1]->value);
-    if (n->inputs[1]->requires_grad()) n->inputs[1]->grad += (gy * n->inputs[0]->value);
+    // --- FIX: Apply un-broadcasting logic ---
+    if (n->inputs[0]->requires_grad()) {
+        Tensor grad_for_A = gy * n->inputs[1]->value;
+        unbroadcast_and_add(n->inputs[0]->grad, grad_for_A);
+    }
+    if (n->inputs[1]->requires_grad()) {
+        Tensor grad_for_B = gy * n->inputs[0]->value;
+        unbroadcast_and_add(n->inputs[1]->grad, grad_for_B);
+    }
+}
+void vjp_Div(Node* n, const Tensor& gy){
+    // --- FIX: Apply un-broadcasting logic ---
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    if (A->requires_grad()) {
+        Tensor grad_for_A = gy / B->value;
+        unbroadcast_and_add(A->grad, grad_for_A);
+    }
+    if (B->requires_grad()) {
+        Tensor grad_for_B = gy * ((A->value * -0.1f) / (B->value * B->value));
+        unbroadcast_and_add(B->grad, grad_for_B);
+    }
 }
 
 // ----- elementwise trinary & matmul -----
@@ -69,53 +150,6 @@ void vjp_FMA(Node* n, const Tensor& gy){
     }
 }
 
-// ----- Normalization Layers -----
-// // ===================================================================
-// // vjp_LayerNorm
-// // ===================================================================
-// void vjp_LayerNorm(Node* n, const Tensor& gy){
-//     Node* x_node = n->inputs[0].get();
-//     if (!x_node->requires_grad()) return;
-
-//     const Tensor& x = x_node->value;
-//     const Tensor& variance = *n->tape[0];
-//     const Tensor& mean = *n->tape[1];
-
-//     const float N = static_cast<float>(x.shape().dims.back());
-    
-//     Tensor std_dev_inv = 1.0f / OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
-//     Tensor x_normalized = (x - mean) * std_dev_inv;
-
-//     // --- Start VJP Calculation ---
-    
-//     // VJP of the normalization: dL/dx_normalized
-//     // Simplified from your original code. Let's use a more standard formulation.
-//     // Ref: https://github.com/karpathy/makemore/blob/master/makemore.py (search for layernorm backward)
-    
-//     // 1. Gradient of the normalized output
-//     Tensor d_x_normalized = gy;
-    
-//     // 2. Gradient of the variance
-//     // dL/dvar = sum(dL/dx_norm * (x - mu) * -0.5 * (var + eps)^-1.5, axis=-1)
-//     Tensor d_variance = OwnTensor::reduce_sum(
-//         d_x_normalized * (x - mean) * -0.5f * OwnTensor::pow(variance + 1e-5f, -1.5f, ag::current_stream()), 
-//         {-1}, 
-//         true
-//     );
-    
-//     // 3. Gradient of the mean
-//     // dL/dmu = sum(dL/dx_norm * -1/std, axis=-1) + dL/dvar * sum(-2*(x-mu)/N, axis=-1)
-//     Tensor d_mean = OwnTensor::reduce_sum(d_x_normalized * -1.0f * std_dev_inv, {-1}, true) + 
-//                   d_variance * OwnTensor::reduce_sum(-2.0f * (x - mean) / N, {-1}, true);
-
-//     // 4. Gradient of the input x
-//     // dL/dx = dL/dx_norm * 1/std + dL/dvar * 2*(x-mu)/N + dL/dmu * 1/N
-//     Tensor dx = (d_x_normalized * std_dev_inv) + 
-//                 (d_variance * 2.0f * (x - mean) / N) +
-//                 (d_mean / N);
-
-//     x_node->grad += dx;
-// }
 
 // ===================================================================
 // vjp_LayerNorm
@@ -738,23 +772,6 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
     }
 }
 
-// ----- Other Math -----
-// ===================================================================
-// vjp_Div
-// ===================================================================
-void vjp_Div(Node* n, const Tensor& gy){
-    Node* A_node = n->inputs[0].get();
-    Node* B_node = n->inputs[1].get();
-    const Tensor& A = A_node->value;
-    const Tensor& B = B_node->value;
-
-    if (A_node->requires_grad()) {
-        A_node->grad += gy / B;
-    }
-    if (B_node->requires_grad()) {
-        B_node->grad += (gy * -1.0f * A) / (B * B);
-    }
-}
 
 // ===================================================================
 // vjp_Linear
