@@ -30,12 +30,6 @@ void zero_grad(const Value& root){
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
 
-    for (Node* n : order) {
-        if (n->requires_grad() && n->grad.numel() == 0) {
-            n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
-        }
-    }
-
      // seed
     if (root.node->requires_grad()) {
         if (grad_seed) {
