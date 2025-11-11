@@ -10,119 +10,69 @@
 namespace ag {
 namespace detail{
 
-
-
-// ----- elementwise binary -----
-// Correct: Accumulates gradient for both parents.
-// void vjp_Add(Node* n, const Tensor& gy){
-//     Node* p0 = n->inputs[0].get();
-//     Node* p1 = n->inputs[1].get();
-//     cudaStream_t stream = (cudaStream_t)ag::current_stream();
-//     if (p0->requires_grad()) {
-//         if (p0->grad.numel() != gy.numel()) {
-//             p0->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
-//         } else {
-//             p0->grad += gy;
-//         }
-//     }
-//     if (p1->requires_grad()) {
-//         if (p1->grad.numel() != gy.numel()) {
-//             p1->grad += OwnTensor::reduce_sum(gy, {0}, true, stream);
-//         } else {
-//             p1->grad += gy;
-//         }
-//     }
-// }
-
-// Adds incoming_grad to target_grad, summing where necessary.
-void unbroadcast_and_add(Tensor& target_grad, const Tensor& incoming_grad) {
-    auto& target_dims = target_grad.shape().dims;
-    auto& incoming_dims = incoming_grad.shape().dims;
-
-    // Fast path: No broadcasting needed
-    if (target_dims == incoming_dims) {
-        target_grad += incoming_grad;
-        return;
+static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_val) {
+    // If shapes already match, no reduction is needed.
+    if (grad_in.shape().dims == target_val.shape().dims) {
+        return grad_in;
     }
 
-    // --- Broadcasting Happened: Sum the incoming_grad ---
+    const auto& grad_dims = grad_in.shape().dims;
+    const auto& target_dims = target_val.shape().dims;
+    
     std::vector<int64_t> axes_to_sum;
-    int rank_diff = incoming_dims.size() - target_dims.size();
+    int grad_ndim = grad_dims.size();
+    int target_ndim = target_dims.size();
     
-    // Sum over dimensions that were added during broadcasting
-    for(int i = 0; i < rank_diff; ++i) {
-        axes_to_sum.push_back(i);
-    }
-    
-    // Sum over dimensions that were size 1 in the target
-    for(size_t i = 0; i < target_dims.size(); ++i) {
-        if (target_dims[i] == 1 && incoming_dims[i + rank_diff] > 1) {
-            axes_to_sum.push_back(i + rank_diff);
+    // Find which axes of the incoming gradient need to be summed.
+    for (int i = 0; i < grad_ndim; ++i) {
+        int target_dim_idx = i + target_ndim - grad_ndim;
+        if (target_dim_idx < 0 || (target_dims[target_dim_idx] == 1 && grad_dims[i] > 1)) {
+            axes_to_sum.push_back(i);
         }
     }
 
-    if (axes_to_sum.empty()) {
-        target_grad += incoming_grad;
-    } else {
-        Tensor grad_sum = OwnTensor::reduce_sum(incoming_grad, axes_to_sum, true);
-        
-        // After summing, the rank might be higher (e.g., [1, 1, C]). Reshape to match target rank.
-        if (grad_sum.shape().dims.size() != target_dims.size()) {
-             grad_sum = grad_sum.reshape({target_dims});
-        }
-        
-        target_grad += grad_sum;
+    Tensor summed_grad = grad_in;
+    if (!axes_to_sum.empty()) {
+        summed_grad = OwnTensor::reduce_sum(grad_in, axes_to_sum, true);
     }
+    
+    // Reshape to exactly match the target shape (e.g., from [1, 5] to [5]).
+    return summed_grad.reshape(target_val.shape());
 }
 
-
-// ----- elementwise binary -----
+// // ----- elementwise binary -----
+// // Correct: Accumulates gradient for both parents.
 void vjp_Add(Node* n, const Tensor& gy){
-    // --- FIX: Replace simple addition with broadcast-aware accumulation ---
-    if (n->inputs[0]->requires_grad()) {
-        unbroadcast_and_add(n->inputs[0]->grad, gy);
-    }
-    if (n->inputs[1]->requires_grad()) {
-        unbroadcast_and_add(n->inputs[1]->grad, gy);
-    }
-    // --- END FIX ---
+    Node* A = n->inputs[0].get(); 
+    Node* B = n->inputs[1].get();
+    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy, A->value);
+    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy, B->value);
 }
-
-// ... rest of the file is correct ...
-// Correct: Accumulates +gy for A and -gy for B.
 
 void vjp_Sub(Node* n, const Tensor& gy){
-    // --- FIX: Apply un-broadcasting logic ---
-    if (n->inputs[0]->requires_grad()) {
-        unbroadcast_and_add(n->inputs[0]->grad, gy);
-    }
-    if (n->inputs[1]->requires_grad()) {
-        unbroadcast_and_add(n->inputs[1]->grad, gy * -1.0f);
-    }
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy, A->value);
+    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy * -1.0f, B->value);
 }
 
 void vjp_Mul(Node* n, const Tensor& gy){
-    // --- FIX: Apply un-broadcasting logic ---
-    if (n->inputs[0]->requires_grad()) {
-        Tensor grad_for_A = gy * n->inputs[1]->value;
-        unbroadcast_and_add(n->inputs[0]->grad, grad_for_A);
-    }
-    if (n->inputs[1]->requires_grad()) {
-        Tensor grad_for_B = gy * n->inputs[0]->value;
-        unbroadcast_and_add(n->inputs[1]->grad, grad_for_B);
-    }
-}
-void vjp_Div(Node* n, const Tensor& gy){
-    // --- FIX: Apply un-broadcasting logic ---
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
-    if (A->requires_grad()) {
-        Tensor grad_for_A = gy / B->value;
-        unbroadcast_and_add(A->grad, grad_for_A);
-    }
+    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy * B->value, A->value);
+    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy * A->value, B->value);
+}
+void vjp_Div(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+
+    // VJP for A: dL/dA = gy * (1/B)
+    if (A->requires_grad())  A->grad += reduce_for_broadcast(gy / B->value, A->value);
+    
+    // VJP for B: dL/dB = gy * (-A / (B*B))
     if (B->requires_grad()) {
-        Tensor grad_for_B = gy * ((A->value * -0.1f) / (B->value * B->value));
-        unbroadcast_and_add(B->grad, grad_for_B);
+        Tensor grad_B = gy * -1.0f * A->value / (B->value * B->value);
+        B->grad += reduce_for_broadcast(grad_B, B->value);
     }
 }
 
@@ -329,13 +279,25 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 // ===================================================================
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (!X->requires_grad()) return;
-    const float epsilon = 1e-9f;
-    Tensor sign_X = X->value / (OwnTensor::abs(X->value, ag::current_stream()) + epsilon);
-    Tensor mask = (sign_X + OwnTensor::abs(sign_X, ag::current_stream())) * 0.5f;
-    X->grad += gy * mask;
-}
+     if (!X->requires_grad()) return;
 
+    // --- DEFINITIVE FIX for ReLU VJP ---
+    // The output of the forward pass is n->value, which is relu(X->value).
+    // Where n->value is > 0, the original input was > 0.
+    // We can create a mask from this.
+
+    // 1. Create a sign tensor from the OUTPUT of the ReLU.
+    //    This is more stable than using the input.
+    const float epsilon = 1e-9f;
+    Tensor sign_output = n->value / (OwnTensor::abs(n->value, ag::current_stream()) + epsilon);
+
+    // 2. Create the mask where output > 0
+    Tensor mask = (sign_output + OwnTensor::abs(sign_output, ag::current_stream())) * 0.5f;
+
+    // 3. Apply the mask
+    X->grad += gy * mask;
+    // --- END FIX ---
+}
 // ===================================================================
 // vjp_Exp
 // ===================================================================
@@ -799,6 +761,8 @@ void vjp_Linear(Node* n, const Tensor& gy){
     // VJP for bias b: sum(dY) over batch dimension, keeping rank. Correct.
     // [B, Out] -> reduce(axis=0) -> [1, Out]
     if (b_node->requires_grad()) {
+        // Change keepdim from 'false' to 'true'.
+        // This makes the result [1, Out] instead of [Out].
         b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
     }
 }

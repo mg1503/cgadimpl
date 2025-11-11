@@ -2,7 +2,9 @@
 // In file: cgadimpl/src/runtime/cuda_graphs.cpp
 // ===================================================
 #include "ad/cuda_graphs.hpp"
-// #include "tensor.hpp"
+#include "ad/runtime.hpp" 
+#include "ad/ag_all.hpp"
+#include "tensor.hpp"
 #include <iostream>
 #include <device/DeviceCore.h>
 
@@ -33,12 +35,16 @@ CudaGraphRunner::~CudaGraphRunner() {
 void CudaGraphRunner::begin_capture() {
     if (is_capturing_) return;
     
-    // Set the framework's global stream to our private stream
     set_current_stream(reinterpret_cast<ag_cuda_stream_t>(stream_));
+    // 2. Set the stream for the 'OwnTensor' framework (Tensor ops, Allocator)
     OwnTensor::cuda::setCurrentStream(stream_);
     
-    // Begin capturing all operations on this stream
-    CUDA_CHECK(cudaStreamBeginCapture(stream_, cudaStreamCaptureModeGlobal));
+    // --- FIX START ---
+    // Change capture mode from Global to ThreadLocal.
+    // This allows for temporary pausing of the capture, which is needed
+    // to get around the cudaMalloc restriction for this test.
+    CUDA_CHECK(cudaStreamBeginCapture(stream_, cudaStreamCaptureModeThreadLocal));
+    // --- FIX END ---
     is_capturing_ = true;
 }
 

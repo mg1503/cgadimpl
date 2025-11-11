@@ -50,12 +50,26 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
     // ... (Your RNG restore logic can go here) ...
 
     // 1. Recursively ensure all parents have their values present BEFORE we compute this node.
-    for (const auto& parent_node_ptr : node->inputs) {
-        if (!ensure_value_present(parent_node_ptr)) {
-            std::cerr << "[checkpoint] FATAL: Failed to restore dependency for node @" 
-                      << node.get() << " because parent @" << parent_node_ptr.get() 
-                      << " could not be recomputed.\n";
-            return false;
+    for (const auto& parent_node : node->inputs) {
+        if (!parent_node) continue;
+
+        // Check if the parent's value is missing
+        if (parent_node->value.numel() == 0) {
+            // If the parent is also a checkpoint, we can recursively recompute it.
+            if (parent_node->is_checkpoint) {
+                if (!recompute_subgraph(parent_node)) {
+                    std::cerr << "[checkpoint] ERROR: Failed to recursively recompute parent node @" 
+                              << parent_node.get() << std::endl;
+                    return false; // Propagate the failure up the chain
+                }
+            } else {
+                // This is a critical failure. The parent's value is gone, and it's not a
+                // checkpoint, so there is no way to bring it back.
+                std::cerr << "[checkpoint] ERROR: Cannot recompute node @" << node.get()
+                          << " because its non-checkpoint parent @" << parent_node.get() 
+                          << " has been deallocated." << std::endl;
+                return false;
+            }
         }
     }
 
