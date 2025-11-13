@@ -1,6 +1,7 @@
 // test_mlp.cpp:
 #include "ad/ag_all.hpp"
 #include "ad/debug.hpp"
+#include "ad/export_hlo.hpp"
 #include <iostream>
 
 using namespace ag;
@@ -87,8 +88,9 @@ int main() {
 
     // --- 4. Loss and Backward Pass ---
     Value loss = ag::mse_loss(logits, Y);
-    backward(loss);
 
+    backward(loss);
+    ag::hlo::dump_stablehlo(loss,  "build/mlp_test_hlo.mlir");
     // --- 5. Print All Gradients ---
     std::cout << "\n--- RESULTS ---\n";
     debug::print_value("Final Loss", loss);
