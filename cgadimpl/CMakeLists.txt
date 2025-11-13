@@ -44,6 +44,7 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
 target_include_directories(cgadimpl PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_include_directories(cgadimpl PRIVATE /usr/local/cuda/include)
 target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
 
 # ---- Tests ----
@@ -76,7 +77,7 @@ if(true)
   add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
   add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
   # add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
-  add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
+  # add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

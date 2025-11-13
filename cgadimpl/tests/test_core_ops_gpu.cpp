@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <iomanip>
-
+#include <functional>
 using namespace ag;
 using namespace OwnTensor;
 

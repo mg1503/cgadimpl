@@ -29,7 +29,7 @@ int main() {
     Value X = make_tensor(Xt, "X");
     print_val("X", X);
 
-    Tensor Yt(Shape{{B, Out}});
+    Tensor Yt(Shape{{B, Out}}, false);
     float* y_data = Yt.data<float>();
     y_data[0*Out + 0] = 1; y_data[0*Out + 1] = 0;
     y_data[1*Out + 0] = 0; y_data[1*Out + 1] = 1;
