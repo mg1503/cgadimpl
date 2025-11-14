@@ -15,14 +15,14 @@ int main() {
 
     // --- 2. Create deterministic data and parameters ---
     // Input X
-    Tensor Xt(Shape{{B, In}});
+    Tensor Xt(Shape{{B, In}}, false);
     Xt.data<float>()[0] = 1.0f; Xt.data<float>()[1] = 2.0f;
     Xt.data<float>()[2] = 3.0f; Xt.data<float>()[3] = 4.0f;
     Value X = make_tensor(Xt, "X");
     debug::print_value("Input X", X);
 
     // Target Y
-    Tensor Yt(Shape{{B, Out}});
+    Tensor Yt(Shape{{B, Out}}, false);
     Yt.data<float>()[0] = 1.0f; Yt.data<float>()[1] = 0.0f;
     Yt.data<float>()[2] = 0.0f; Yt.data<float>()[3] = 1.0f;
     Value Y = make_tensor(Yt, "Y");
