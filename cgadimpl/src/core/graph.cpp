@@ -71,7 +71,7 @@ std::vector<Node*> topo_from(Node* root){
 
 } // namespace ag
 // ===================================================================
-// JIT COMPILER IMPLEMENTATION -- REMAINS TEMPORARILY DISABLED
+// JIT COMPILER IMPLEMENTATION 
 //     Deleted broadcast_to and mul_scalar: These helper functions are no longer needed. The new OwnTensor library overloads operators like + and * to handle broadcasting automatically. This simplifies the code.
 //     Rewrote apply(): This is the most significant change.
 //         Binary Operators: Changed A + B to *a[0] + *a[1]. The OwnTensor operators will handle everything.
@@ -89,6 +89,7 @@ std::vector<Node*> topo_from(Node* root){
 // ===================================================================  
 #include <unordered_map>
 #include <variant>
+#include <ad/runtime.hpp>
 
 namespace ag::jit {
 // ===================================================================
@@ -177,7 +178,7 @@ struct Compiled::Impl {
 
             // Unary operators now use the free functions from the OwnTensor namespace.
             case Op::Transpose:  return a[0]->transpose(-2, -1);
-            // case Op::Relu:       return OwnTensor::relu(*a[0]);
+            case Op::Relu:     { cudaStream_t stream = (cudaStream_t)ag::current_stream(); return (*a[0] + OwnTensor::abs(*a[0], stream)) * 0.5f;}
             case Op::Exp:        return OwnTensor::exp(*a[0]);
             case Op::Log:        return OwnTensor::log(*a[0]);
             case Op::Tanh:       return OwnTensor::tanh(*a[0]);
@@ -196,11 +197,12 @@ struct Compiled::Impl {
             case Op::MatMul:     return OwnTensor::matmul(*a[0], *a[1]);
 
             // Reductions need to be updated to the new API
-            case Op::Sum:        return OwnTensor::reduce_sum(*a[0]);
-            case Op::RowSum:     return OwnTensor::reduce_sum(*a[0], {1}, true); // reduce axis 1, keepdim
-            case Op::RowMax:     return OwnTensor::reduce_max(*a[0], {1}, true); // reduce axis 1, keepdim
-            
-            case Op::MeanAll:    return OwnTensor::reduce_mean(*a[0]);
+            case Op::Sum: return OwnTensor::reduce_sum(*a[0]);
+            case Op::RowSum: return OwnTensor::reduce_sum(*a[0], {1}, true);
+            case Op::RowMax: return OwnTensor::reduce_max(*a[0], {1}, true);
+            case Op::MeanAll: return OwnTensor::reduce_mean(*a[0]);
+
+            // case Op::Abs:       { cudaStream_t stream = (cudaStream_t)ag::current_stream(); return OwnTensor::abs(*a[0], stream); }
 
             // case Op::SoftmaxRow: return Tensor::softmax_row(*a[0]);
             // case Op::LogSumExpRow: return Tensor::logsumexp_row(*a[0]);

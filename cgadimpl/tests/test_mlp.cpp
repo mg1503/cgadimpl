@@ -1,6 +1,7 @@
 // test_mlp.cpp:
 #include "ad/ag_all.hpp"
 #include "ad/debug.hpp"
+#include "ad/export_hlo.hpp"
 #include <iostream>
 
 using namespace ag;
@@ -14,14 +15,14 @@ int main() {
 
     // --- 2. Create deterministic data and parameters ---
     // Input X
-    Tensor Xt(Shape{{B, In}});
+    Tensor Xt(Shape{{B, In}}, false);
     Xt.data<float>()[0] = 1.0f; Xt.data<float>()[1] = 2.0f;
     Xt.data<float>()[2] = 3.0f; Xt.data<float>()[3] = 4.0f;
     Value X = make_tensor(Xt, "X");
     debug::print_value("Input X", X);
 
     // Target Y
-    Tensor Yt(Shape{{B, Out}});
+    Tensor Yt(Shape{{B, Out}}, false);
     Yt.data<float>()[0] = 1.0f; Yt.data<float>()[1] = 0.0f;
     Yt.data<float>()[2] = 0.0f; Yt.data<float>()[3] = 1.0f;
     Value Y = make_tensor(Yt, "Y");
@@ -87,8 +88,9 @@ int main() {
 
     // --- 4. Loss and Backward Pass ---
     Value loss = ag::mse_loss(logits, Y);
-    backward(loss);
 
+    backward(loss);
+    ag::hlo::dump_stablehlo(loss,  "build/mlp_test_hlo.mlir");
     // --- 5. Print All Gradients ---
     std::cout << "\n--- RESULTS ---\n";
     debug::print_value("Final Loss", loss);

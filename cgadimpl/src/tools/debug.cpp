@@ -52,7 +52,7 @@ void print_value (const std::string& label, const Value& v){
     print_tensor(label, v.val());
 }
 void print_grad  (const std::string& label, const Value& v){
-    print_tensor(label + ".grad", v.node->grad);
+    print_tensor(label + ".grad", v.grad());
 }
 
 void on_node_created(const std::shared_ptr<Node>& n){

@@ -30,6 +30,13 @@ void zero_grad(const Value& root){
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get());
 
+    // for (Node* n : order) {
+        
+    //     if (n->requires_grad() /*&& n->grad.numel() == 0*/) {
+    //         n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    //     }
+    // }
+
      // seed
     if (root.node->requires_grad()) {
         if (grad_seed) {
@@ -38,7 +45,7 @@ void backward(const Value& root, const Tensor* grad_seed){
             // Use the new factories and get options from the value tensor
             auto opts = ag::options(root.node->value);
             if (root.node->value.numel() == 1) {
-                root.node->grad = OwnTensor::Tensor::ones(Shape({1, 1}), opts);
+                root.node->grad.fill(1.0f);
             } else {
                 root.node->grad = OwnTensor::Tensor::ones(root.node->value.shape(), opts);
             }
@@ -59,6 +66,7 @@ void backward(const Value& root, const Tensor* grad_seed){
             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
         }
         }
+        //  this part calculates and accumulates gradients into parent nodes
         VjpFn fn = vjp_lookup(n->op);
         if (fn) fn(n, gy); // handler accumulates into parents
     }
