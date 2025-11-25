@@ -165,10 +165,7 @@ namespace ag {
     }
 
 
-  
-
-
- 
+    
 
     Value sigmoid(const Value& x){ 
         return Value(detail::sigmoid_nodeops(x.node));

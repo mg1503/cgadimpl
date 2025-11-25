@@ -71,15 +71,12 @@ TENSOR_DIR="$ROOT/tensor"
 echo "== Build Type:    $BUILD_TYPE"
 echo "== Using CUDA CXX: $(which nvcc)"
 
-# --- Clean all projects for a guaranteed fresh start ---
-echo "== Cleaning build directories for a fresh start..."
-rm -rf "$CGADIMPL_BUILD"
-rm -rf "$KERNELS_BUILD"
-# Also clean the old tensor library artifacts to be safe
-rm -rf "$TENSOR_DIR/lib" "$TENSOR_DIR/lib/objects"
+# --- Incremental Build (default) ---
+# To force a clean rebuild, run: rm -rf cgadimpl/build kernels/build tensor/lib
+# This script now does incremental builds by default for faster compilation
 
 # =========================================================================
-# ====> STEP 1: BUILD THE TENSOR LIBRARY (THIS IS THE FIX) <====
+# ====> STEP 1: BUILD THE TENSOR LIBRARY (INCREMENTAL) <====
 # =========================================================================
 echo "== Building tensor library"
 cd "${TENSOR_DIR}"

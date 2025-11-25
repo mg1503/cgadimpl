@@ -21,7 +21,7 @@ int main() {
     // ---------- Data ----------
     // Inputs are constants (requires_grad=false, which is the default)
     Tensor Xt = Tensor::randn(Shape{{B, In}}, TensorOptions());
-    Value  X  = make_tensor(Xt, "X");
+    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions()), "X");
 
     // One-hot labels Y[B,Out]
     Tensor Yt(Shape{{B, Out}}, TensorOptions());

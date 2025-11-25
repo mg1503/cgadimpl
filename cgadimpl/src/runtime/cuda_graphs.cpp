@@ -36,16 +36,15 @@ void CudaGraphRunner::begin_capture() {
     if (is_capturing_) return;
     
     set_current_stream(reinterpret_cast<ag_cuda_stream_t>(stream_));
-    // 2. Set the stream for the 'OwnTensor' framework (Tensor ops, Allocator)
     OwnTensor::cuda::setCurrentStream(stream_);
     
-    // --- FIX START ---
-    // Change capture mode from Global to ThreadLocal.
-    // This allows for temporary pausing of the capture, which is needed
-    // to get around the cudaMalloc restriction for this test.
-    CUDA_CHECK(cudaStreamBeginCapture(stream_, cudaStreamCaptureModeThreadLocal));
-    // --- FIX END ---
+    cudaError_t err = cudaStreamBeginCapture(stream_, cudaStreamCaptureModeThreadLocal);
+    if (err != cudaSuccess) {
+        std::cerr << "CAPTURE FAILED: " << cudaGetErrorString(err) << std::endl;
+        return;
+    }
     is_capturing_ = true;
+    std::cout << "✅ Capture started successfully" << std::endl;
 }
 
 void CudaGraphRunner::end_capture() {

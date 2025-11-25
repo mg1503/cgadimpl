@@ -23,7 +23,7 @@ struct Value {
 
 struct Node : std::enable_shared_from_this<Node> {
     Tensor value;
-    Tensor grad;
+    Tensor grad;    
     std::vector<std::shared_ptr<Node>> inputs;
     std::vector<Value> saved_inputs;
     std::vector<std::shared_ptr<Tensor>> tape;
