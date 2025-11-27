@@ -1,0 +1,17 @@
+@PACKAGE_INIT@
+
+# Import targets from the build or install tree
+include(CMakeFindDependencyMacro)
+
+# Ensure MLIR is available for the consumer
+find_dependency(MLIR REQUIRED CONFIG)
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/mlir-compilerTargets.cmake")
+
+# Define include directories for downstream projects
+set_and_check(NOVA_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
+list(APPEND NOVA_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include/Compiler/Dialect")
+
+# Provide package check for downstream projects
+check_required_components(mlir-compiler)

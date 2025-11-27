@@ -61,11 +61,17 @@ int main() {
     // ---------- Backprop ----------
     zero_grad(loss);
     backward(loss);
+        // Tell the compiler which leaves are runtime inputs vs. trainable parameters
+    std::vector<Value> inputs = {X};
+    std::vector<Value> params = {W1, b1, W2,b2,W3,b3,W4,b4,W5,b5};
+
+    // The 'loss' Value is the root of the graph to be compiled
+    auto comp = ag::jit::compile(loss, inputs, params);
     
     // Use the framework's debug utilities
-    ag::debug::print_all_grads(loss);
-    ag::debug::dump_dot(loss, "build/graph.dot");
-    ag::debug::dump_vjp_dot(loss, "build/graph_vjp.dot");
+    // ag::debug::print_all_grads(loss);
+    // ag::debug::dump_dot(loss, "build/graph.dot");
+    // ag::debug::dump_vjp_dot(loss, "build/graph_vjp.dot");
 
     // ---------- Report ----------
     // To get a scalar value, move to CPU and get the data pointer

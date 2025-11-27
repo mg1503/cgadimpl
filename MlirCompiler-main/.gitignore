@@ -1,0 +1,49 @@
+# Ignore build directory
+build/
+
+# Executable files
+final_benchmark
+matmul
+matmul_benchmark
+matmul_omp
+openblas
+reference
+
+test/output.ll
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.make
+*.cmake
+*.dir/
+*.a
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.s
+
+# Ignore generated configs
+compile_commands.json
+tablegen_compile_commands.yml
+
+# IDE / OS-specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Executable files (added)
+*.out
+*.app
+*.bin
+*.run
+
+# Shell scripts (added)
+*.sh
+*.bash
+*.zsh
