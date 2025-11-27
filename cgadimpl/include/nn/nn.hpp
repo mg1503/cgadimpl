@@ -1,33 +1,50 @@
 #pragma once
-#include "tensor.hpp"
-#include <utility>
+
+#include "ad/graph.hpp"
+#include "ad/ops.hpp"
+#include <vector>
 
 namespace ag::nn {
 
-// Elementwise activations
-Tensor relu   (const Tensor& x);
-Tensor leaky_relu(const Tensor& x, float alpha);
-Tensor sigmoid(const Tensor& x);
-Tensor tanh   (const Tensor& x);
-Tensor softplus(const Tensor& x);
-Tensor silu   (const Tensor& x);    // x * sigmoid(x)
-Tensor gelu   (const Tensor& x);    // tanh approximation
+class Module {
+public:
+    virtual ~Module() = default;
+    virtual Value operator()(Value input) = 0; // Takes by value
 
-// Rowwise reductions (B x C)
-// Tensor row_max        (const Tensor& x);   // -> [B,1]
-// Tensor row_sum        (const Tensor& x);   // -> [B,1]
-Tensor logsumexp_row  (const Tensor& x);   // -> [B,1]
-Tensor softmax_row    (const Tensor& x);   // -> [B,C]
+    Value operator()(const Tensor& input) {
+        Value graph_input = ag::make_tensor(input);
+        return this->operator()(graph_input);
+    }
 
-// Loss (expects one-hot targets Y, same shape as logits Z)
-Tensor cross_entropy_with_logits(const Tensor& logits, const Tensor& onehot_targets); // -> [1,1]
+    std::vector<Value>& parameters() { return params_; }
 
-// Scaled Dot-Product Attention (single-head, 2D tensors)
-// Q:[B,D], K:[C,D], V:[C,E], optional mask:[B,C] (1=keep, 0=mask), scale ~ 1/sqrt(D)
-Tensor scaled_dot_product_attention(const Tensor& Q,
-                                    const Tensor& K,
-                                    const Tensor& V,
-                                    const Tensor* mask,   // pass nullptr for no mask
-                                    float scale);
+    void to(Device dev);
+    void zero_grad();
+
+protected:
+    std::vector<Value> params_;
+};
+
+class Linear : public Module {
+public:
+    Linear(int in_features, int out_features, Device dev = Device::CPU);
+    Value operator()(Value input) override;
+private:
+    Value W, b;
+};
+
+class Sequential : public Module {
+public:
+    Sequential(const std::vector<Module*>& modules);
+    Value operator()(Value x) override;
+    const std::vector<Module*>& get_layers() const { return layers_; }
+private:
+    std::vector<Module*> layers_;
+};
+
+class ReLU : public Module {
+public:
+    Value operator()(Value input) override;
+};
 
 } // namespace ag::nn

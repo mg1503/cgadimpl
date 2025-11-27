@@ -1,11 +1,17 @@
 // =====================
-// file: src/ops.cpp
+// file: cgadimpl/src/ops.cpp
 // =====================
 #include "ad/ops.hpp"
 #include "ad/nodeops.hpp" // Include the new node-level declarations
 #include "ad/inplace.hpp"
+#include "ad/runtime.hpp"
 
 namespace ag {
+    Value inplace_checkpoint(const Value& v) {
+        if (!v.node) return v;
+        ag::inplace::mark_inplace_checkpoint(v.node);
+        return v;
+    }
 
     Value add(const Value& a, const Value& b){ 
         return Value(detail::add_nodeops(a.node, b.node)); 
@@ -15,19 +21,49 @@ namespace ag {
         
         return Value(detail::sub_nodeops(a.node, b.node)); 
     }
-    Value inplace_checkpoint(const Value& v) {
-        if (!v.node) return v;
-        ag::inplace::mark_inplace_checkpoint(v.node);
-        return v;
-    }
+
 
 
     Value mul(const Value& a, const Value& b){ 
         return Value(detail::mul_nodeops(a.node, b.node)); 
     }
 
+    Value div(const Value& a, const Value& b){ 
+        
+        return Value(detail::div_nodeops(a.node, b.node)); 
+    }
+
+    Value sign(const Value& a, const Value& b){ 
+        return Value(detail::sign_nodeops(a.node)); 
+    }
+
+    Value sinh(const Value& a, const Value& b){ 
+        return Value(detail::sinh_nodeops(a.node)); 
+    }
+
+    Value cosh(const Value& a, const Value& b){ 
+        return Value(detail::cosh_nodeops(a.node)); 
+    }
+
+    Value sin(const Value& a, const Value& b){ 
+        return Value(detail::sin_nodeops(a.node)); 
+    }
+
+    Value cos(const Value& a, const Value& b){ 
+        return Value(detail::cos_nodeops(a.node)); 
+    }
+
+
     Value flomul(const Value& a, float b){ 
         return Value(detail::flomul_nodeops(a.node, b));
+    }
+
+    Value floadd(const Value& a, float b){ 
+        return Value(detail::floadd_nodeops(b, a.node));
+    }
+
+     Value flodiv(const Value& a, float b){ 
+        return Value(detail::flodiv_nodeops(b, a.node));
     }
 
     Value relu(const Value& x){ 
@@ -35,7 +71,41 @@ namespace ag {
         return Value(detail::relu_nodeops(x.node));
     }
 
+    Value reci(const Value& x){ 
+      
+        return Value(detail::reci_nodeops(x.node));
+    }
 
+    Value cos(const Value& x){ 
+      
+        return Value(detail::cos_nodeops(x.node));
+    }
+
+    Value sinh(const Value& x){ 
+      
+        return Value(detail::sinh_nodeops(x.node));
+    }
+
+    Value cosh(const Value& x){ 
+      
+        return Value(detail::cosh_nodeops(x.node));
+    }
+
+
+
+
+    Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
+    return Value(detail::sigatt_nodeops(a.node, b.node, c.node, d.node));
+    }
+
+    Value linear(const Value& a, const Value& b, const Value& c){ 
+        return Value(detail::linear_nodeops(a.node, b.node, c.node)); 
+    }
+
+
+        Value moewe(const Value& x, const Value& w, const Value& b){ 
+        return Value(detail::moewe_nodeops(x.node, w.node, b.node));
+    }
 
 
 
@@ -77,7 +147,7 @@ namespace ag {
     }
     
     Value log(const Value& x){ 
-        return Value(detail::exp_nodeops(x.node));
+        return Value(detail::log_nodeops(x.node));
     }
 
 
@@ -88,7 +158,15 @@ namespace ag {
     Value tanh(const Value& x){ 
         return Value(detail::tanh_nodeops(x.node));
     }
+
     
+    Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
+    return Value(detail::reluatt_nodeops(a.node, b.node, c.node, d.node));
+    }
+
+
+    
+
     Value sigmoid(const Value& x){ 
         return Value(detail::sigmoid_nodeops(x.node));
     }
@@ -191,93 +269,293 @@ return Value(detail::realrms_nodeops(x.node, g));
     return Value(detail::mse_loss_nodeops(pred.node, target.node));
 }
 
-
+ 
     Value mae_loss(const Value& pred, const Value& target) {
     return Value(detail::mae_loss_nodeops(pred.node, target.node));
 }
 
+//  The implementation of **forward evaluation logic** for a single
+// computational graph node (`Node`) in the autodiff system.
+//
+// The purpose of `forward_eval_node()` is to *recompute* or *evaluate*
+// a node’s output tensor based solely on its input nodes’ values,
+// without using stored intermediate data.
+//
+// This is crucial for:
+//    - Checkpoint recomputation (freeing and restoring activations),
+//    - Lazy evaluation (on-demand computation),
+//    - Debug visualization or forward-only inference.
+//
+// Additionally, the `checkpoint()` function here provides a user-facing API
+// for marking specific nodes as checkpoints, integrating with the
+// `checkpoint_impl` subsystem.
+//
+// Together, these functions enable **memory-efficient recomputation**
+// during backward passes and safe graph traversal.
+//
+
+
+// -----------------------------------------------------------------------------
+// forward_eval_node (shared_ptr<Node> version)
+// -----------------------------------------------------------------------------
+
+/*
+ *  forward_eval_node():
+ *  ---------------------
+ *  Evaluates (or recomputes) the output tensor of a single computational node.
+ *
+ *  Parameters:
+ *      - node : shared_ptr<Node> representing a node in the computational graph.
+ *
+ *  Returns:
+ *      - A new Tensor that represents the computed output of this node,
+ *        based on its operation type (`node->op`) and its input tensors.
+ *
+ *  Purpose:
+ *      - This function allows recomputation of node outputs when they
+ *        have been deleted or released during checkpointing.
+ *      - It’s also used for lazy forward evaluation, debug visualization,
+ *        or runtime validation of the computational graph.
+ *
+ *  Core logic:
+ *      1️⃣  Validate that the node exists.
+ *      2️⃣  Switch over the node’s operation (`Op` enum).
+ *      3️⃣  Retrieve the node’s input tensors (`node->inputs[i]->value`).
+ *      4️⃣  Perform the appropriate mathematical operation.
+ *      5️⃣  Return the computed output tensor.
+ *      6️⃣  If unsupported, throw a runtime error.
+ */
+#include <ad/checkpoint.hpp>
 Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
     if (!node) throw std::runtime_error("forward_eval_node: null node");
 
     switch (node->op) {
-        case Op::Add: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A + B;
-        }
-        case Op::Sub: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A - B;
-        }
-        case Op::Mul: {
-            const Tensor &A = node->inputs[0]->value;
-            const Tensor &B = node->inputs[1]->value;
-            return A * B;
-        }
+
+        // ============================================================
+        // Basic arithmetic operations
+        // ============================================================
+        case Op::Add: return node->inputs[0]->value + node->inputs[1]->value;
+        case Op::Sub: return node->inputs[0]->value - node->inputs[1]->value;
+        case Op::Mul: return node->inputs[0]->value * node->inputs[1]->value;
+
+        // ============================================================
+        // Matrix multiplication (dense layer or attention block)
+        // ============================================================
         case Op::MatMul: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
-            return Tensor::matmul(A, B);
+            // Use the named async function for clarity
+            return matmul(A, B);
         }
+
+        // ============================================================
+        // Unary elementwise activations
+        // ============================================================
         case Op::Relu: {
-            const Tensor &X = node->inputs[0]->value;
-            return Tensor::relu(X);
+            // Re-implement ReLU using the tensor library's ops
+            auto& x = node->inputs[0]->value;
+            return (x + OwnTensor::abs(x, ag::current_stream())) * 0.5f;
         }
-        case Op::Sigmoid: {
-            const Tensor &X = node->inputs[0]->value;
-            return Tensor::sigmoid(X);
+        case Op::Linear: {
+            const Tensor& input_X = node->inputs[0]->value;
+            const Tensor& weight_W = node->inputs[1]->value; // Shape is [out, in]
+            const Tensor& bias_b = node->inputs[2]->value;
+            
+            // This logic MUST match the forward logic in linear_nodeops
+            return matmul(input_X, weight_W.t()) + bias_b;
         }
+        // case Op::Sigmoid: {
+        //     const Tensor &X = node->inputs[0]->value;
+        // //     return Tensor::sigmoid(X);
+        // }
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::tanh(X);
+            return tanh(X);
         }
         case Op::Exp: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::exp(X);
+            return exp(X);
         }
         case Op::Log: {
             const Tensor &X = node->inputs[0]->value;
-            return Tensor::log(X);
+            return log(X);
         }
+        
+
+        // ============================================================
+        // Complex operation: AlibiAttention
+        // ============================================================
+        /*
+         * AlibiAttention:
+         * ---------------
+         * This is a specialized attention mechanism variant that adds
+         * a learned or deterministic bias (ALIBI) to the attention logits.
+         *
+         * Steps:
+         *    1. Compute queries (q), keys (k), and values (v) via matmul.
+         *    2. Compute scaled dot-product attention scores.
+         *    3. Apply ALIBI positional bias.
+         *    4. Compute softmax over the attention weights.
+         *    5. Multiply attention weights with the values to get the output.
+         */
         case Op::AlibiAttention: {
+            // NOTE: This re-computation will automatically use the correct CUDA stream
+            // because all the OwnTensor functions called below (matmul, exp, sum, etc.)
+            // are designed to get the stream from the thread-local context.
+
             const Tensor &a = node->inputs[0]->value;
             const Tensor &b = node->inputs[1]->value;
             const Tensor &c = node->inputs[2]->value;
             const Tensor &d = node->inputs[3]->value;
 
-            Tensor q = Tensor::matmul(a, b);
-            Tensor k = Tensor::matmul(a, c);
-            Tensor v = Tensor::matmul(a, d);
+            // Step 1: compute projections using the new matmul function
+            Tensor q = matmul(a, b);
+            Tensor k = matmul(a, c);
+            Tensor v = matmul(a, d);
 
-            Tensor logits = Tensor::matmul(q, Tensor::transpose(k) * (1.f / sqrt(float(k.cols()))));
-            Tensor bias   = Tensor::alibi(logits.rows(), logits.cols(), /*m*/128);
-            Tensor g      = logits + bias;
-            Tensor s      = Tensor::softmax_row(g);
-            Tensor y      = Tensor::matmul(s, v);
+            // Step 2: scaled dot-product attention
+            // FIX: Use .shape().dims.back() instead of .cols()
+            float scale = 1.0f / sqrtf(static_cast<float>(k.shape().dims.back()));
+            Tensor k_transposed = k.t(); // .t() is still correct
+            Tensor logits = (matmul(q, k_transposed)) * scale;
+
+            // Step 3: add ALIBI bias
+            // FIX: Re-implement the missing 'alibi' function.
+            // Alibi creates a positional bias matrix.
+            {
+                int n_heads = logits.shape().dims[0]; // Assuming shape is [heads, seq, seq]
+                int seq_len = logits.shape().dims[1];
+                
+                // For simplicity, create bias on CPU and move to GPU.
+                // For max performance, this would be a custom CUDA kernel.
+                auto cpu_opts = TensorOptions().with_dtype(logits.dtype());
+                Tensor bias_cpu(Shape{{n_heads, seq_len, seq_len}}, cpu_opts);
+
+                // This is a simplified ALIBI implementation.
+                float slope_start = 1.0f / powf(2.0f, 8.0f / n_heads);
+                
+                dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy){
+                    using T = decltype(dummy);
+                    T* data = bias_cpu.data<T>();
+                    for(int h = 0; h < n_heads; ++h) {
+                        float slope = powf(slope_start, h + 1);
+                        for (int i = 0; i < seq_len; ++i) {
+                            for (int j = 0; j < seq_len; ++j) {
+                                // Causal mask part of alibi
+                                data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<T>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
+                            }
+                        }
+                    }
+                });
+                
+                // Move the created bias to the same device as the logits and add it.
+                logits += bias_cpu.to(logits.device());
+            }
+
+            // Step 4: softmax normalization over rows
+            // FIX: Re-implement the missing 'softmax_row' function using basic ops.
+            Tensor s{Shape{}, Dtype::Float32};  ///************************************************************************************************************************************************************************* */
+            {
+                // Numerically stable softmax: subtract max before exponentiating
+                Tensor max_val = reduce_max(logits, {-1}, true);
+                Tensor z = logits - max_val;
+                Tensor exp_z = exp(z);
+                Tensor sum_exp_z = reduce_sum(exp_z, {-1}, true);
+                s = exp_z / sum_exp_z; // Broadcasting is handled by the '/' operator
+            }
+
+            // Step 5: output = attention weights × values
+            Tensor y = matmul(s, v);
             return y;
         }
+
+        // ============================================================
+        // Leaf node (constants or inputs)
+        // ============================================================
+        /*
+         * Op::Leaf:
+         * ----------
+         * Represents graph input nodes, constants, or parameters.
+         * These do not require recomputation since their values
+         * are provided externally or stored persistently.
+         */
         case Op::Leaf:
             return node->value;
+
+        // ============================================================
+        // Default / fallback case
+        // ============================================================
+        /*
+         * Handles cases where an operation type is not explicitly listed.
+         * In some composite operations (like attention or layernorm),
+         * intermediate tensors are temporarily stored in `node->tape`.
+         *
+         * If `tape` is not empty, it uses the last tensor in the tape
+         * as a fallback recomputation result.
+         */
         default:
-            if (!node->tape.empty()) {
-                return *(node->tape.back());
-            }
-            throw std::runtime_error("forward_eval_node: unsupported op for recompute");
+            // if (!node->tape.empty()) {
+            //     return *(node->tape.back());
+            // }
+            throw std::runtime_error(std::string("forward_eval_node: unsupported op for recompute: ") + op_name(node->op));
     }
 }
 
-// ------------------------------------------------------------
-// Small adapter so checkpoint.cpp (which uses Node*) can link.
-// ------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Adapter overload for raw pointer nodes
+// -----------------------------------------------------------------------------
+
+/*
+ * forward_eval_node(Node*):
+ * --------------------------
+ *  Provides a lightweight wrapper around the main version of
+ *  `forward_eval_node()` that takes a raw Node pointer instead of
+ *  a shared_ptr.
+ *
+ *  This is used for internal integration with systems like
+ *  checkpointing, which store and traverse raw Node* references.
+ *
+ *  Implementation detail:
+ *      - Wraps the raw Node* in a non-owning `shared_ptr<Node>`.
+ *      - Uses a custom deleter `[](Node*){}` to prevent freeing.
+ */
 Tensor forward_eval_node(Node* node) {
     // Non-owning shared_ptr wrapper (no deletion)
     return forward_eval_node(std::shared_ptr<Node>(node, [](Node*){}));
 }
 
-// ------------------------------------------------------------
-// checkpoint() — mark a node for checkpointing
-// ------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// checkpoint() — Mark a node for checkpointing
+// -----------------------------------------------------------------------------
+
+/*
+ * checkpoint():
+ * --------------
+ *  A user-facing function that marks a value (and its corresponding node)
+ *  for checkpointing.
+ *
+ *  When a node is checkpointed:
+ *      - Its intermediate activations may be freed to save memory.
+ *      - During backpropagation, if its output is required,
+ *        the system will recompute it using `forward_eval_node()`
+ *        and its input dependencies.
+ *
+ *  Parameters:
+ *      - v    : Value object wrapping the Node to be checkpointed.
+ *      - opts : CheckpointOptions structure (default-initialized).
+ *
+ *  Returns:
+ *      - The same Value `v` (allowing function chaining).
+ *
+ *  Internally, it calls:
+ *      `checkpoint_impl::mark_node_checkpoint()`
+ *  which performs the actual checkpoint marking and state saving.
+ *
+ *  Example usage:
+ *      Value y = checkpoint(forward_pass(x));
+ *      Tensor loss = mse(y, target);
+ *      backward(loss);
+ */
 Value checkpoint(const Value &v, const CheckpointOptions &opts) {
     if (!v.node) return v;
     ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);

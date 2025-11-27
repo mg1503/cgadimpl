@@ -1,53 +1,40 @@
-#include "ad/ag_all.hpp"
-#include "ad/debug.hpp"
+#include "tensor.hpp" // Main adapter header
 #include <iostream>
-#include <iomanip>
+#include <cassert>
+#include <vector> // Required for shape printing
 
-static void printTensor(const char* name,
-                        const ag::Tensor& T,
-                        int max_r = -1, int max_c = -1,
-                        int width = 9, int prec = 4) {
-    using std::cout;
-    using std::fixed;
-    using std::setw;
-    using std::setprecision;
-
-    const int r = T.rows(), c = T.cols();
-    if (max_r < 0) max_r = r;
-    if (max_c < 0) max_c = c;
-
-    cout << name << " [" << r << "x" << c << "]";
-    if (r == 1 && c == 1) { // scalar fast path
-        cout << " = " << fixed << setprecision(6) << T(0,0) << "\n";
-        return;
-    }
-    cout << "\n";
-
-    const int rr = std::min(r, max_r);
-    const int cc = std::min(c, max_c);
-    for (int i = 0; i < rr; ++i) {
-        cout << "  ";
-        for (int j = 0; j < cc; ++j) {
-            cout << setw(width) << fixed << setprecision(prec) << T(i,j);
-        }
-        if (cc < c) cout << " ...";
-        cout << "\n";
-    }
-    if (rr < r) cout << "  ...\n";
+// --- FIX: Modern print_tensor utility ---
+static void print_tensor(const char* name, const Tensor& t) {
+  std::cout << name << ": shape=[";
+  const auto& dims = t.shape().dims;
+  for(size_t i = 0; i < dims.size(); ++i) {
+      std::cout << dims[i] << (i == dims.size() - 1 ? "" : ", ");
+  }
+  std::cout << "]  device=" << (t.is_cuda() ? "CUDA" : "CPU")
+            << "  ptr=" << (const void*)t.data()
+            << "\n";
 }
 
-int main(){
-    using namespace ag;
-    using namespace std;
-    // Tensor A = Tensor::randn(2,3);
-    // Tensor B = Tensor::randn(3,2);
-    auto a = param(Tensor::randn(2,3), "A");
-    auto b = param(Tensor::randn(3,2), "B");
-    auto bias = param(Tensor::zeros(1,2), "bias");
-    auto y = sum(relu(matmul(a,b) + bias)); // scalar, tests
-    zero_grad(y);
-    backward(y);
-    std::cout << "y = " << y.val().sum_scalar() << endl;
-    cout << a.val() <<endl;
-    return 0;
+using namespace OwnTensor; // For Shape, TensorOptions
+
+int main() {
+  // --- FIX: Use modern factories ---
+  Tensor cpu = Tensor::ones(Shape{{2, 3}});
+  Tensor gpu = Tensor::ones(Shape{{2, 3}}, TensorOptions().with_device(Device::CUDA));
+  Tensor cpu2 = Tensor::zeros(cpu.shape(), ag::options(cpu));
+  Tensor gpu2 =  Tensor::zeros(gpu.shape(), ag::options(gpu));
+
+  print_tensor("cpu ", cpu);
+  print_tensor("gpu ", gpu);
+  print_tensor("cpu2", cpu2);
+  print_tensor("gpu2", gpu2);
+
+  // sanity checks (these are correct)
+  assert( cpu.is_cpu() && !cpu.is_cuda());
+  assert(!gpu.is_cpu() &&  gpu.is_cuda());
+  assert(!gpu2.is_cpu() && gpu2.is_cuda());
+  assert( cpu2.is_cpu() && !cpu2.is_cuda());
+
+  std::cout << "[OK] device flags look correct\n";
+  return 0;
 }
