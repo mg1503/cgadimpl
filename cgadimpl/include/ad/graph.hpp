@@ -53,9 +53,11 @@ struct CompileOptions {
 };
 
 struct Compiled {
+    const std::string& getMLIRSource() const;
     // Opaque impl; created by compile()
     struct Impl;
     std::shared_ptr<Impl> p;
+    std::string mlir_source;
 
     // Run with external inputs/params. Returns false if shape guard fails.
     bool run(const std::vector<Tensor*>& inputs,

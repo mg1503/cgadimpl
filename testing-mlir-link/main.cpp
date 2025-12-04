@@ -12,22 +12,34 @@ using namespace nova;
 string input = "path/to/file/test.ir";
 
 
-void to_mlir( std::string& input ){
+
+void to_mlir( const std::string& input ){
   std::ifstream file(input);
   if(!file.is_open() ){
     std::cout<< "file is missing!!"<<std::endl;
   }
 
-  std::cout<<"file found!!"<<std::endll;
-  file.close();
+  std::cout<<"file found!! Reading contents..."<<std::endl;
+  std::vector<std::string>declared_list;
+  declared_list.push_back("matmul");
+  declared_list.push_back("add");
 
   std::string line;
-  while (std::getline(input, line)) {
-    std::cout << line << endl;
-  }
+  while (std::getline(file, line)) {
+    std::cout <<"reading line: "<< line << std::endl;
+    bool match=false;
+    for (const std::string& element : declared_list) {
+       if(line.find(element)!=std::string::npos){
+        std::cout<<"Operation found:  "<<element<<std::endl;
+        match=true;
 
-  input.close();
-}
+        break;
+      }
+      if (!match){
+        continue;
+          }
+    }
+    }
 
 
 
