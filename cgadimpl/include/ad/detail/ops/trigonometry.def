@@ -1,0 +1,27 @@
+// =============================================================================
+// FILE: ops/trigonometry.def
+// PURPOSE: Trigonometric and hyperbolic functions
+// =============================================================================
+//
+// Standard trigonometric functions and their hyperbolic counterparts.
+// All are unary element-wise operations.
+//
+// VJP (Vector-Jacobian Product) patterns:
+//   - Sin:  ∂L/∂X = gy * cos(x)
+//   - Cos:  ∂L/∂X = gy * -sin(x)
+//   - Sinh: ∂L/∂X = gy * cosh(x)
+//   - Cosh: ∂L/∂X = gy * sinh(x)
+//
+// Use cases in ML:
+//   - Positional encodings (sin/cos)
+//   - GCU activation (x * cos(x))
+//   - Smooth activations
+// =============================================================================
+
+// --- Trigonometric Functions ---
+OP(Sin,       1,    "sin")         // sin(x)
+OP(Cos,       1,    "cos")         // cos(x)
+
+// --- Hyperbolic Functions ---
+OP(Sinh,      1,    "sinh")        // sinh(x) = (e^x - e^-x) / 2
+OP(Cosh,      1,    "cosh")        // cosh(x) = (e^x + e^-x) / 2

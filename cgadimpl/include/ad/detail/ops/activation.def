@@ -1,0 +1,43 @@
+// =============================================================================
+// FILE: ops/activation.def
+// PURPOSE: Neural network activation functions
+// =============================================================================
+//
+// Activation functions introduce non-linearity into neural networks.
+// Without them, stacking linear layers would just produce another linear layer.
+//
+// Categories:
+//   1. Classic activations: ReLU, Sigmoid, Tanh
+//   2. Modern smooth activations: GELU, SiLU (Swish), Mish
+//   3. Parametric activations: LeakyReLU (has alpha parameter)
+//   4. Specialized activations: GCU, LiSHT, Gaussian
+//
+// VJP patterns:
+//   - ReLU:    ∂L/∂X = gy * (x > 0)   [gradient is 0 or 1]
+//   - Sigmoid: ∂L/∂X = gy * σ(x) * (1 - σ(x))
+//   - Tanh:    ∂L/∂X = gy * (1 - tanh²(x))
+//   - GELU:    Uses tanh approximation derivative
+//   - SiLU:    ∂L/∂X = gy * (σ(x) + x * σ(x) * (1 - σ(x)))
+// =============================================================================
+
+// --- Classic Activations ---
+OP(Relu,      1,    "relu")        // max(0, x) - most common, sparse gradients
+OP(Sigmoid,   1,    "sigmoid")     // 1/(1 + e^-x) - squashes to (0, 1)
+OP(Tanh,      1,    "tanh")        // (e^x - e^-x)/(e^x + e^-x) - squashes to (-1, 1)
+OP(Softplus,  1,    "softplus")    // log(1 + e^x) - smooth approximation of ReLU
+
+// --- Modern Smooth Activations (better gradient flow) ---
+OP(GELU,      1,    "gelu")        // x * Φ(x) - Gaussian Error Linear Unit (used in BERT, GPT)
+OP(SiLU,      1,    "silu")        // x * sigmoid(x) - also called Swish
+OP(Mish,      1,    "mish")        // x * tanh(softplus(x)) - smooth, self-regularizing
+
+// --- Parametric Activations ---
+OP(LeakyRelu, 2,    "leakyrelu")   // max(αx, x) where α is small (e.g., 0.01)
+                                   // Arity=2 because alpha is passed as 2nd input
+
+// --- Specialized Activations ---
+OP(GCU,       1,    "gcu")         // x * cos(x) - Growing Cosine Unit
+OP(Gaus,      1,    "gaus")        // e^(-x²) - Gaussian activation
+OP(Parcon,    1,    "parcon")      // Parametric concave activation
+OP(LiSHT,     1,    "lisht")       // x * tanh(x) - Linearly Scaled Hyperbolic Tangent
+OP(Relumask,  1,    "relumask")    // Helper for ReLU backward (stores mask)

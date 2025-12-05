@@ -80,6 +80,7 @@ if(true)
   add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
   add_ag_test(test_kitchen_sink_mlp                   tests/test_kitchen_sink_mlp.cpp)
   add_ag_test(test_gantlet                    tests/test_gantlet.cpp)
+  add_ag_test(test_scheme                    tests/test_scheme.cpp)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")
