@@ -1,3 +1,3 @@
 [submodule "tensor"]
 	path = tensor
-	url = https://github.com/kathir-23s/Tensor-Implementations
+	url = https://github.com/mg1503/Tensor-Implementations.git
