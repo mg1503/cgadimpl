@@ -21,7 +21,13 @@
 // --- Trigonometric Functions ---
 OP(Sin,       1,    "sin")         // sin(x)
 OP(Cos,       1,    "cos")         // cos(x)
+OP(Tan,       1,    "tan")         // tan(x)
 
 // --- Hyperbolic Functions ---
 OP(Sinh,      1,    "sinh")        // sinh(x) = (e^x - e^-x) / 2
 OP(Cosh,      1,    "cosh")        // cosh(x) = (e^x + e^-x) / 2
+
+// --- Inverse Trigonometric Functions ---
+OP(Asin,      1,    "asin")        // asin(x)
+OP(Acos,      1,    "acos")        // acos(x)
+OP(Atan,      1,    "atan")        // atan(x)

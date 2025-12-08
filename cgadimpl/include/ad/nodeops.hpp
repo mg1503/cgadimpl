@@ -67,7 +67,11 @@ std::shared_ptr<Node> sinh_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> cos_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> sin_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> asin_nodeops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> acos_nodeops(const std::shared_ptr<Node>& x);
+std::shared_ptr<Node> atan_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a);
+std::shared_ptr<Node> tan_nodeops(const std::shared_ptr<Node>& x);
 
 std::shared_ptr<Node> linear_nodeops(const  std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c); // fused multiply-add a@b + c
 std::shared_ptr<Node> moewe_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& w, const std::shared_ptr<Node>& b);

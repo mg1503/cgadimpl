@@ -449,14 +449,53 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
 // sin_nodeops
 // ===================================================================
 
-     std::shared_ptr<Node> sin_nodeops(const std::shared_ptr<Node>& x){
+    std::shared_ptr<Node> sin_nodeops(const std::shared_ptr<Node>& x){
         Tensor y = sin(x->value);
-        auto n=std::make_shared<Node>(y, Op::Sin, x->requires_grad(), "sinh");
+        auto n=std::make_shared<Node>(y, Op::Sin, x->requires_grad(), "sin");
+        n->inputs={x};
+        ag::debug::on_node_created(n);
+        return n;
+    }
+    std::shared_ptr<Node> tan_nodeops(const std::shared_ptr<Node>& x){
+        Tensor y = tan(x->value);
+        auto n=std::make_shared<Node>(y, Op::Tan, x->requires_grad(), "tan");
         n->inputs={x};
         ag::debug::on_node_created(n);
         return n;
     }
 
+// ===================================================================
+// asin_nodeops
+// ===================================================================
+    std::shared_ptr<Node> asin_nodeops(const std::shared_ptr<Node>& x){
+        Tensor y = asin(x->value);
+        auto n=std::make_shared<Node>(y, Op::Asin, x->requires_grad(), "asin");
+        n->inputs={x};
+        ag::debug::on_node_created(n);
+        return n;
+    }
+
+// ===================================================================
+// acos_nodeops
+// ===================================================================
+    std::shared_ptr<Node> acos_nodeops(const std::shared_ptr<Node>& x){
+        Tensor y = acos(x->value);
+        auto n=std::make_shared<Node>(y, Op::Acos, x->requires_grad(), "acos");
+        n->inputs={x};
+        ag::debug::on_node_created(n);
+        return n;
+    }
+
+// ===================================================================
+// atan_nodeops
+// ===================================================================
+    std::shared_ptr<Node> atan_nodeops(const std::shared_ptr<Node>& x){
+        Tensor y = atan(x->value);
+        auto n=std::make_shared<Node>(y, Op::Atan, x->requires_grad(), "atan");
+        n->inputs={x};
+        ag::debug::on_node_created(n);
+        return n;
+    }
 // ===================================================================
 // In file: cgadimpl/src/nodeops.cpp (Corrected sign_nodeops)
 // ===================================================================
@@ -674,8 +713,30 @@ std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
 // softplus_nodeops
 // ===================================================================
 std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
-    // All ops automatically use the stream from the context.
-    Tensor y = OwnTensor::log(1.0f + OwnTensor::exp(x->value));
+    // Numerically stable softplus implementation:
+    // For x > threshold: softplus(x) ≈ x (avoids overflow)
+    // For x <= threshold: softplus(x) = log(1 + exp(x))
+    const float threshold = 20.0f;
+    
+    const Tensor& x_val = x->value;
+    Tensor y = OwnTensor::Tensor::zeros(x_val.shape(), ag::options(x_val));
+    
+    // Dispatch by dtype to handle the computation
+    dispatch_by_dtype(x_val.dtype(), [&](auto dummy){
+        using T = decltype(dummy);
+        const T* x_data = x_val.data<T>();
+        T* y_data = y.data<T>();
+        int64_t n = x_val.numel();
+        
+        for (int64_t i = 0; i < n; ++i) {
+            T val = x_data[i];
+            if (val > T(threshold)) {
+                y_data[i] = val;  // For large x, softplus(x) ≈ x
+            } else {
+                y_data[i] = std::log(T(1.0) + std::exp(val));
+            }
+        }
+    });
 
     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
     n->inputs = {x};

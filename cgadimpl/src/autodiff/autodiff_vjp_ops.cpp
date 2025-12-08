@@ -839,6 +839,49 @@ void vjp_Sin(Node* n, const Tensor& gy){
     // VJP is gy * cos(x)
     X->grad += gy * OwnTensor::cos(X->value);
 }
+// ===================================================================
+// vjp_Tan
+// ===================================================================
+void vjp_Tan(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // VJP is gy * (1/cos(x)*1/cos(x))
+    X->grad += gy * ((1/OwnTensor::cos(X->value)) * (1/OwnTensor::cos(X->value)));
+}
+
+// ===================================================================
+// vjp_Asin
+// ===================================================================
+void vjp_Asin(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // VJP is gy * (1 / sqrt(1 - x^2))
+    X->grad += gy * (1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+}
+
+// ===================================================================
+// vjp_Acos
+// ===================================================================
+void vjp_Acos(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // VJP is gy * (-1 / sqrt(1 - x^2))
+    X->grad += gy * (-1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+}
+
+// ===================================================================
+// vjp_Atan
+// ===================================================================
+void vjp_Atan(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // VJP is gy * (1 / (1 + x^2))
+    X->grad += gy * (1.0f / (1.0f + (X->value * X->value)));
+}
 
 
 // =================================================================== 

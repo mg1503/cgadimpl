@@ -118,20 +118,24 @@ void test_cuda_graph(Device device) {
     SimpleMLP model(10, 20, 5, device);
     Tensor x_tensor = Tensor::randn(Shape{{4, 10}}, TensorOptions().with_device(device));
 
-    // --- FIX: Perform the capture on the raw model execution, not the JIT plan ---
-
-    std::cout << "Performing warm-up forward pass (ensures cuBLAS is initialized)...\n";
-    Value y_warmup = model(x_tensor);
-    // It's good practice to synchronize after a warmup pass
-    cudaDeviceSynchronize(); 
+    std::cout << "Performing warm-up forward passes (pre-allocates all memory)...\n";
+    
+    // CRITICAL FIX: Run the model MULTIPLE times to ensure ALL intermediate
+    // tensors are allocated. The first run allocates, subsequent runs reuse.
+    for (int i = 0; i < 3; ++i) {
+        Value y_warmup = model(x_tensor);
+        cudaDeviceSynchronize();
+    }
+    
+    std::cout << "All memory pre-allocated. Starting capture...\n";
 
     CudaGraphRunner runner;
     
     std::cout << "Beginning capture of the forward pass...\n";
     runner.begin_capture();
     
-    // Execute the forward pass again. This time, all CUDA kernel launches
-    // (from matmul, relu, add, etc.) will be captured into the graph.
+    // CRITICAL: This forward pass should NOT allocate any new memory.
+    // It reuses the memory allocated during warmup.
     Value y_captured = model(x_tensor);
     
     runner.end_capture();
@@ -140,9 +144,8 @@ void test_cuda_graph(Device device) {
     std::cout << "Replaying graph...\n";
     bool ok = runner.replay();
     
-    // It is essential to synchronize the stream after replaying to ensure
-    // the computation is finished before you try to access the results.
-    cudaStreamSynchronize( (cudaStream_t)ag::current_stream() );
+    // Synchronize to ensure replay is complete
+    cudaDeviceSynchronize();
 
     std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
     assert(ok);

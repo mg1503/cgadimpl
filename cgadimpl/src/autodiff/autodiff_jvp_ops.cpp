@@ -292,6 +292,43 @@ Tensor jvp_Sin(Node* n, const std::function<const Tensor&(Node*)>& t){
     return T(t, X) * OwnTensor::cos(X->value);
 }
 
+// ===================================================================
+// jvp_Tan
+// ===================================================================
+Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    Tensor cos_x = OwnTensor::cos(X->value);
+    // JVP is tangent(x) * (1/cos(x)^2)
+    return T(t, X) * (1.0f / (cos_x * cos_x));
+}
+
+// ===================================================================
+// jvp_Asin
+// ===================================================================
+Tensor jvp_Asin(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP is tangent(x) * (1 / sqrt(1 - x^2))
+    return T(t, X) * (1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+}
+
+// ===================================================================
+// jvp_Acos
+// ===================================================================
+Tensor jvp_Acos(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP is tangent(x) * (-1 / sqrt(1 - x^2))
+    return T(t, X) * (-1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+}
+
+// ===================================================================
+// jvp_Atan
+// ===================================================================
+Tensor jvp_Atan(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP is tangent(x) * (1 / (1 + x^2))
+    return T(t, X) * (1.0f / (1.0f + (X->value * X->value)));
+}
+
 Tensor jvp_MOE(Node* n, const std::function<const Tensor&(Node*)>& t){
     throw std::runtime_error("JVP for MOE not implemented yet!");
 }

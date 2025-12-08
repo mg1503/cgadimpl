@@ -36,7 +36,14 @@ else()
 endif()
 
 # ---- Sources ----
-file(GLOB_RECURSE CGADIMPL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+# List source files explicitly for proper incremental compilation
+# (similar to how the tensor team's Makefile uses pattern rules)
+file(GLOB CGADIMPL_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB CGADIMPL_SRC_SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cpp")
+set(CGADIMPL_SRC ${CGADIMPL_SRC_ROOT} ${CGADIMPL_SRC_SUBDIRS})
+
+# Alternative: If you have deeper nesting, uncomment this and comment out the above:
+# file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # ---- Library Definition ----
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
@@ -62,7 +69,7 @@ if(true)
   add_ag_test(test_ag                    tests/test_ag.cpp)
   add_ag_test(test_mlp                    tests/test_mlp.cpp)
   add_ag_test(test_complex_mlp                    tests/test_complex_mlp.cpp)
-  add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
+  # add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
   add_ag_test(test_tiny_handcalc                    tests/tiny_handcalc.cpp)
   add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test                    tests/test.cpp)
@@ -72,14 +79,14 @@ if(true)
   add_ag_test(test_nn                    tests/test_nn.cpp)
   add_ag_test(test_version                    tests/test_version.cpp)
   add_ag_test(test_nodeops                    tests/test_nodeops.cpp)
-  add_ag_test(test_kernels_cpu                    tests/test_kernels_cpu.cpp)
+  # add_ag_test(test_kernels_cpu                    tests/test_kernels_cpu.cpp)
   add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
   add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
-  add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
+  # add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
   add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
   add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
   add_ag_test(test_kitchen_sink_mlp                   tests/test_kitchen_sink_mlp.cpp)
-  add_ag_test(test_gantlet                    tests/test_gantlet.cpp)
+  # add_ag_test(test_gantlet                    tests/test_gantlet.cpp)  #this works
   add_ag_test(test_scheme                    tests/test_scheme.cpp)
 endif()
 

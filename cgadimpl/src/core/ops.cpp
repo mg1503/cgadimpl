@@ -159,16 +159,26 @@ namespace ag {
         return Value(detail::tanh_nodeops(x.node));
     }
 
+    Value tan(const Value& x){ 
+        return Value(detail::tan_nodeops(x.node));
+    }
+
+    Value asin(const Value& x){ 
+        return Value(detail::asin_nodeops(x.node));
+    }
+
+    Value acos(const Value& x){ 
+        return Value(detail::acos_nodeops(x.node));
+    }
+
+    Value atan(const Value& x){ 
+        return Value(detail::atan_nodeops(x.node));
+    }
+
     
     Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
     return Value(detail::reluatt_nodeops(a.node, b.node, c.node, d.node));
     }
-
-
-  
-
-
- 
 
     Value sigmoid(const Value& x){ 
         return Value(detail::sigmoid_nodeops(x.node));

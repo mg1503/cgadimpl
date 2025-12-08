@@ -105,7 +105,12 @@ bool run_test(const std::string& name, std::function<void()> test_func) {
 // ==========================================================
 
 void test_all_ops() {
-    Device dev = Device::CUDA;
+    // --- FIX: This is a GPU test file, so we must use the CUDA device. ---
+    #ifdef WITH_CUDA
+        Device dev = Device::CUDA;
+    #else
+        Device dev = Device::CPU; // Fallback for non-CUDA builds
+    #endif
     auto opts = TensorOptions().with_device(dev).with_req_grad(true);
 
     // --- Unary Ops ---
@@ -145,6 +150,36 @@ void test_all_ops() {
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f), 1e-2)); // GELU is an approx
     });
+    run_test("Tan", [&](){
+        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        auto f = [&](){ return tan(a); };
+        backward(sum(f()));
+        assert(check_grad(a.grad(), numerical_gradient(a, f)));
+    });
+    run_test("Asin", [&](){
+        // Input must be in [-1, 1]. Use rand which is [0,1], then scale to [-0.9, 0.9]
+        // to avoid gradient issues at the boundaries.
+        Value a = make_tensor((Tensor::rand(Shape{{4, 5}}, opts) * 1.8f) - 0.9f);
+        auto f = [&](){ return asin(a); };
+        backward(sum(f()));
+        assert(check_grad(a.grad(), numerical_gradient(a, f)));
+    });
+    run_test("Acos", [&](){
+        // Input must be in [-1, 1].
+        Value a = make_tensor((Tensor::rand(Shape{{4, 5}}, opts) * 1.8f) - 0.9f);
+        auto f = [&](){ return acos(a); };
+        backward(sum(f()));
+        assert(check_grad(a.grad(), numerical_gradient(a, f)));
+    });
+    run_test("Atan", [&](){
+        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        auto f = [&](){ return atan(a); };
+        backward(sum(f()));
+        assert(check_grad(a.grad(), numerical_gradient(a, f)));
+    });
+
+
+
 
     // --- Binary Ops with Broadcasting ---
     run_test("Add (Broadcast)", [&](){
