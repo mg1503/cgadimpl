@@ -9,24 +9,24 @@
 using namespace mlir;
 using namespace nova;
 
-string input = "path/to/file/test.ir";
+std::string input = "path/to/file/test.ir";
 
 
 void to_mlir( std::string& input ){
   std::ifstream file(input);
   if(!file.is_open() ){
     std::cout<< "file is missing!!"<<std::endl;
+    return;
   }
 
-  std::cout<<"file found!!"<<std::endll;
-  file.close();
+  std::cout<<"file found!!"<<std::endl;
 
   std::string line;
-  while (std::getline(input, line)) {
-    std::cout << line << endl;
+  while (std::getline(file, line)) {
+    std::cout << line << std::endl;
   }
 
-  input.close();
+  file.close();
 }
 
 
