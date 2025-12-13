@@ -23,7 +23,7 @@ struct Value {
 
 struct Node : std::enable_shared_from_this<Node> {
     Tensor value;
-    Tensor grad;    
+    Tensor grad;
     std::vector<std::shared_ptr<Node>> inputs;
     std::vector<Value> saved_inputs;
     std::vector<std::shared_ptr<Tensor>> tape;
@@ -61,6 +61,9 @@ struct Compiled {
     bool run(const std::vector<Tensor*>& inputs,
              const std::vector<Tensor*>& params,
              Tensor& out) const;
+    
+    // Emit MLIR Nova dialect representation of the compiled plan
+    std::string toMLIR(const std::string& function_name = "jit_function") const;
 };
 
 // Build a compiled plan from a finished forward Value (dynamic graph).

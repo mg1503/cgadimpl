@@ -2,6 +2,8 @@
 // file: cgadimpl/src/graph.cpp
 // =====================
 #include "ad/graph.hpp"
+#include "ad/mlir_emitter.hpp"
+#include <sstream>
 #include <unordered_set>
 #include <functional>
 #include <cassert>
@@ -294,9 +296,14 @@ Compiled compile(const Value& output,
                  const std::vector<Value>& inputs,
                  const std::vector<Value>& params,
                  const CompileOptions&) {
-    // Map externals (no changes needed here)
+    // Map externals
     std::unordered_map<Node*,int> in_ix, par_ix;
-    // ...
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        in_ix[inputs[i].node.get()] = static_cast<int>(i);
+    }
+    for (size_t i = 0; i < params.size(); ++i) {
+        par_ix[params[i].node.get()] = static_cast<int>(i);
+    }
 
     // Build plan
     Plan plan;
@@ -479,4 +486,148 @@ bool Compiled::run(const std::vector<Tensor*>& inputs,
     return p->run(inputs, params, out);
 }
 
+std::string Compiled::toMLIR(const std::string& function_name) const {
+    return mlir_emit::emitNovaDialect(p->plan, function_name);
+}
+
+// ===================================================================
+// MLIR Nova Dialect Emission Implementation
+// ===================================================================
+namespace mlir_emit {
+
+std::string emitNovaDialect(const Plan& plan, const std::string& function_name) {
+    std::ostringstream mlir;
+    
+    // Assume Float32 for now - in a real implementation, you'd track actual dtypes
+    const OwnTensor::Dtype default_dtype = OwnTensor::Dtype::Float32;
+    
+    // Build function signature
+    mlir << "func.func @" << function_name << "(";
+    
+    // Emit input arguments
+    for (size_t i = 0; i < plan.sig.in_meta.size(); ++i) {
+        if (i > 0) mlir << ", ";
+        mlir << "'%'arg" << i << ": " 
+             << ag::jit::mlir_emit::shapeToMLIRType(plan.sig.in_meta[i].shape, plan.sig.in_meta[i].dtype);
+    }
+    
+    // Emit parameter arguments
+    for (size_t i = 0; i < plan.sig.param_meta.size(); ++i) {
+        if (plan.sig.in_meta.size() > 0 || i > 0) mlir << ", ";
+        mlir << "'%'arg" << (plan.sig.in_meta.size() + i) << ": "
+             << ag::jit::mlir_emit::shapeToMLIRType(plan.sig.param_meta[i].shape, plan.sig.param_meta[i].dtype);
+    }
+    
+    mlir << ") -> ";
+    
+    // Emit return type (output shape from final slot)
+    if (plan.out_slot >= 0 && plan.out_slot < plan.num_slots) {
+        // Find the step that writes to out_slot to get its metadata
+        std::vector<int64_t> out_shape;
+        Dtype out_dtype = default_dtype;
+        for (const auto& step : plan.steps) {
+            if (step.out_slot == plan.out_slot) {
+                out_shape = step.out_meta.shape;
+                out_dtype = step.out_meta.dtype;
+                break;
+            }
+        }
+        mlir << ag::jit::mlir_emit::shapeToMLIRType(out_shape, out_dtype);
+    } else {
+        mlir << "tensor<f32>"; // fallback
+    }
+    
+    mlir << " {\n";
+    
+    // Track SSA value names for slots
+    std::unordered_map<int, std::string> slot_to_ssa;
+    int ssa_counter = 0;
+    
+    // Emit operations
+    for (const auto& step : plan.steps) {
+        mlir << "  ";
+        
+        // Emit result SSA value
+        std::string result_ssa = "%" + std::to_string(ssa_counter++);
+        slot_to_ssa[step.out_slot] = result_ssa;
+        mlir << result_ssa << " = ";
+        
+        // Emit operation
+        if (isReductionOp(step.op)) {
+            // Special handling for reduction operations
+            mlir << "nova.reduce<" << getReductionKind(step.op) << "> ";
+            
+            // Emit input operand
+            assert(step.args.size() >= 1);
+            const Arg& arg = step.args[0];
+            
+            if (std::holds_alternative<ArgInput>(arg)) {
+                mlir << "'%'arg" << std::get<ArgInput>(arg).idx;
+            } else if (std::holds_alternative<ArgParam>(arg)) {
+                int param_idx = std::get<ArgParam>(arg).idx + plan.sig.in_meta.size();
+                mlir << "'%'arg" << param_idx;
+            } else if (std::holds_alternative<ArgSlot>(arg)) {
+                mlir << slot_to_ssa.at(std::get<ArgSlot>(arg).slot);
+            }
+            
+            // Add dimension attribute if needed
+            if (needsDimensionAttr(step.op)) {
+                mlir << " dimension=[1] keepdims=true";
+            }
+            
+            mlir << " : " << ag::jit::mlir_emit::shapeToMLIRType(step.out_meta.shape, step.out_meta.dtype);
+            
+        } else {
+            // Regular operations
+            mlir << opToNovaOp(step.op) << " ";
+            
+            // Emit operands
+            for (size_t i = 0; i < step.args.size(); ++i) {
+                if (i > 0) mlir << ", ";
+                
+                const Arg& arg = step.args[i];
+                
+                if (std::holds_alternative<ArgInput>(arg)) {
+                    mlir << "'%'arg" << std::get<ArgInput>(arg).idx;
+                } else if (std::holds_alternative<ArgParam>(arg)) {
+                    int param_idx = std::get<ArgParam>(arg).idx + plan.sig.in_meta.size();
+                    mlir << "'%'arg" << param_idx;
+                } else if (std::holds_alternative<ArgSlot>(arg)) {
+                    mlir << slot_to_ssa.at(std::get<ArgSlot>(arg).slot);
+                } else if (std::holds_alternative<ArgLit>(arg)) {
+                    // For literals, we'd need to emit a constant op first
+                    // For now, emit a placeholder
+                    mlir << "'%'lit_" << i;
+                }
+            }
+            
+            // Emit type signature
+            mlir << " : ";
+            
+            // For binary ops, emit both operand types
+            if (step.args.size() == 2) {
+                // Simplified: assume same type for both operands
+                mlir << ag::jit::mlir_emit::shapeToMLIRType(step.out_meta.shape, step.out_meta.dtype) << ", "
+                     << ag::jit::mlir_emit::shapeToMLIRType(step.out_meta.shape, step.out_meta.dtype);
+            } else if (step.args.size() == 1) {
+                // Unary op
+                mlir << ag::jit::mlir_emit::shapeToMLIRType(step.out_meta.shape, step.out_meta.dtype);
+            }
+        }
+        
+        mlir << "\n";
+    }
+    
+    // Emit return statement
+    mlir << "  return " << slot_to_ssa.at(plan.out_slot) 
+         << " : " << ag::jit::mlir_emit::shapeToMLIRType(plan.steps.back().out_meta.shape, plan.steps.back().out_meta.dtype) << "\n";
+    
+    mlir << "}\n";
+    
+    return mlir.str();
+}
+
+} // namespace mlir_emit
+
 } // namespace ag::jit
+
