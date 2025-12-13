@@ -116,69 +116,11 @@ std::vector<Node*> topo_from(Node* root){
 #include <unordered_map>
 #include <variant>
 #include <ad/runtime.hpp>
+#include <ad/mlir_emitter.hpp>
+#include "mlir/IR/BuiltinOps.h"  // For ModuleOp definition
 
 namespace ag::jit {
-// ===================================================================
-// JIT Compiler Signature (Rewritten for N-Dimensional Tensors)
-// ===================================================================
-struct TensorMetadata {
-    std::vector<int64_t> shape;
-    Dtype dtype;
-    DeviceIndex device;
-};
-
-struct Signature {
-    std::vector<TensorMetadata> in_meta;
-    std::vector<TensorMetadata> param_meta;
-
-    bool matches(const std::vector<Tensor*>& inputs,
-                 const std::vector<Tensor*>& params) const {
-        if (inputs.size() != in_meta.size() || params.size() != param_meta.size()) {
-            return false;
-        }
-
-        for (size_t i = 0; i < inputs.size(); ++i) {
-            if (inputs[i]->shape().dims != in_meta[i].shape ||
-                inputs[i]->dtype() != in_meta[i].dtype ||
-                inputs[i]->device().device != in_meta[i].device.device ||
-                inputs[i]->device().index != in_meta[i].device.index) {
-                return false;
-            }
-        }
-        for (size_t i = 0; i < params.size(); ++i) {
-            if (params[i]->shape().dims != param_meta[i].shape ||
-                params[i]->dtype() != param_meta[i].dtype ||
-                params[i]->device().device != param_meta[i].device.device ||
-                params[i]->device().index != param_meta[i].device.index) {
-                return false;
-            }
-        }
-        return true;
-    }
-};
-// Arg sources for a Step
-struct ArgInput  { int idx; };   // external input[i]
-struct ArgParam  { int idx; };   // external param[i]
-struct ArgSlot   { int slot; };  // prior computed slot
-struct ArgLit    { Tensor t{OwnTensor::Shape{}, OwnTensor::Dtype::Float32}; };  // embedded literal
-
-using Arg = std::variant<ArgInput,ArgParam,ArgSlot,ArgLit>;
-
-struct Step {
-    Op op;
-    std::vector<Arg> args;
-    int out_slot{};
-    TensorMetadata out_meta;
-};
-
-struct Plan {
-    Signature sig;
-    std::vector<Step> steps;
-    int num_slots{0};
-    int out_slot{-1};
-};
-
-
+// Use definitions from mlir_emitter.hpp
 
 struct Compiled::Impl {
     Plan plan;
@@ -328,9 +270,7 @@ static std::string opToNovaOp(Op op) {
         case Op::Add:       return "nova.add";
         case Op::Mul:       return "nova.mul";
         case Op::MatMul:    return "nova.matmul"; 
-        // case Op::Sum:       return "nova.sum";
-        // Add other mappings as needed
-        // default:            return "nova.unknown_op";
+        default:            return "nova.unknown_op";
     }
 }
 
@@ -496,14 +436,42 @@ Compiled compile(const Value& output,
 
     // Final slot
     plan.out_slot = slot_of.at(output.node.get());
-// --- Generate MLIR source and store it ---
-    std::string generated_mlir = emitMLIR(plan);
-    std::cout << "\nGenerated MLIR Source:\n" << generated_mlir << std::endl;
+
+    // --- Generate MLIR using the new C++ API approach ---
+    std::string generated_mlir_opbuilder;
+    mlir::OwningOpRef<mlir::ModuleOp> in_memory_module;
+    
+    try {
+        MLIREmitter emitter;
+        auto [module, mlirStr] = emitter.emitModule(plan);
+        generated_mlir_opbuilder = mlirStr;
+        in_memory_module = std::move(module);  // Store in-memory module!
+        std::cout << "\n=== MLIR Generated via OpBuilder ===\n" << generated_mlir_opbuilder << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Warning: MLIR OpBuilder emission failed: " << e.what() << "\n";
+        std::cerr << "Falling back to string-based emission\n";
+    }
+
+    // --- Fallback: Generate MLIR source using string-based approach ---
+    std::string generated_mlir_string = emitMLIR(plan);
+    if (generated_mlir_opbuilder.empty()) {
+        std::cout << "\n=== MLIR Generated via String (Fallback) ===\n" << generated_mlir_string << std::endl;
+    }
 
     Compiled c;
     c.p = std::make_shared<Compiled::Impl>();
     c.p->plan = std::move(plan);
-    c.mlir_source = std::move(generated_mlir); // Store the generated string
+    c.mlir_source = std::move(generated_mlir_string);  // Legacy string-based
+    c.mlir_module_str = std::move(generated_mlir_opbuilder);  // OpBuilder-generated string
+    
+    // Store in-memory MLIR module (wrap in shared_ptr with custom deleter)
+    if (in_memory_module) {
+        auto* module_ptr = new mlir::OwningOpRef<mlir::ModuleOp>(std::move(in_memory_module));
+        c.mlir_module = std::shared_ptr<void>(module_ptr, [](void* p) {
+            delete static_cast<mlir::OwningOpRef<mlir::ModuleOp>*>(p);
+        });
+    }
+    
     return c;
 
     //     // Helper to print shape
@@ -585,6 +553,16 @@ bool Compiled::run(const std::vector<Tensor*>& inputs,
 
 const std::string& Compiled::getMLIRSource() const {
     return mlir_source;
+}
+
+void* Compiled::getMLIRModule() const {
+    if (mlir_module) {
+        auto* module_ptr = static_cast<mlir::OwningOpRef<mlir::ModuleOp>*>(mlir_module.get());
+        if (module_ptr && module_ptr->get()) {
+            return module_ptr->get();
+        }
+    }
+    return nullptr;
 }
 
 

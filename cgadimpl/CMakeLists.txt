@@ -10,6 +10,12 @@ project(cgadimpl LANGUAGES CXX CUDA)
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
 
+# --- MLIR Setup ---
+find_package(MLIR REQUIRED CONFIG)
+find_package(mlir-compiler REQUIRED CONFIG 
+    PATHS /tmp/mlir-compiler-install/lib/cmake/mlir-compiler
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
@@ -50,8 +56,21 @@ add_library(cgadimpl STATIC ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
-target_include_directories(cgadimpl PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
+target_include_directories(cgadimpl PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${LLVM_INCLUDE_DIRS}
+    ${MLIR_INCLUDE_DIRS}
+    /tmp/mlir-compiler-install/include
+)
+target_link_libraries(cgadimpl PUBLIC 
+    OwnTensor::tensor 
+    dl
+    MlirCompiler::MLIRNova
+    MLIRIR
+    MLIRFuncDialect
+    MLIRSupport
+    LLVMSupport
+)
 
 # ---- Tests ----
 if(true)

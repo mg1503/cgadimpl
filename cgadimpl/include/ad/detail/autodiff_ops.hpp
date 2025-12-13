@@ -10,6 +10,9 @@
 namespace ag {
 
 // VJP: given node n and its output upstream grad gy, accumulate grads into parents.
+
+/// @brief look up table which maps the op to its respective backward function call and gives a computed result. 
+/// this function gives the accumulated gradient tobkcwrd op to continue the chain derivation 
 using VjpFn = void(*)(Node* n, const Tensor& gy);
 
 // JVP: compute tangent for node n given a way to read parent tangents.

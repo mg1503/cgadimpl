@@ -54,10 +54,20 @@ struct CompileOptions {
 
 struct Compiled {
     const std::string& getMLIRSource() const;
+    
+    // Get the in-memory MLIR module (can be null if emission failed)
+    // Returns mlir::ModuleOp* - cast to use
+    void* getMLIRModule() const;
+    
     // Opaque impl; created by compile()
     struct Impl;
     std::shared_ptr<Impl> p;
-    std::string mlir_source;
+    std::string mlir_source;  // String-based MLIR (legacy/fallback)
+    std::string mlir_module_str;  // MLIR from OpBuilder emission (serialized)
+    
+    // In-memory MLIR module (use this for passes/lowering)
+    // Stored as void* to avoid MLIR header dependencies in this header
+    std::shared_ptr<void> mlir_module;
 
     // Run with external inputs/params. Returns false if shape guard fails.
     bool run(const std::vector<Tensor*>& inputs,

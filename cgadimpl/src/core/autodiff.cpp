@@ -28,7 +28,7 @@ void zero_grad(const Value& root){
 }
 
 void backward(const Value& root, const Tensor* grad_seed){
-    auto order = topo_from(root.node.get());
+    auto order = topo_from(root.node.get()); // the .get() is a shared_pointer classes built in function which we can use to get the details of the node we want at present
 
     // for (Node* n : order) {
         
@@ -42,7 +42,7 @@ void backward(const Value& root, const Tensor* grad_seed){
         if (grad_seed) {
             root.node->grad = *grad_seed;
         } else {
-            // Use the new factories and get options from the value tensor
+            // Use the new factories and get options from the value tensor to initialize the gradients to its respective shapes and sizes.
             auto opts = ag::options(root.node->value);
             if (root.node->value.numel() == 1) {
                 root.node->grad.fill(1.0f);
@@ -53,16 +53,20 @@ void backward(const Value& root, const Tensor* grad_seed){
     }
 
     // reverse topo
+    // the actual gradient calculation starting point
+    // we take the seeded topo sorted node named order which contains the order of operations and all the tensor saving policies applied (not fully implemented yet) 
+    // the .rbegin() and .rend() functions are frm the stl iterators library.
+    // we initialize a pointer n whcih points to the address of the root node named it which is also a pointer pointing to the actual node.
+    // we check if the node we are curently dealing with requires grad if yes then we continue else we break
+    // if continue then we then take the value from the node->grad and store it in the tensor& gy which is the reference to existing tensor.
+    // we then use the 'n' and 'gy' and check which op maps to its respective backward operation/function and that function is called and the maths/calculatioin of gradients is now done.
+    // this is the backward algorithm written so far for a simple sequential, non queued, non concurrent backpropagation.
+    
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         Node* n = *it;
         // The requires_grad() check is now a function call
         if (!n->requires_grad()) continue;
-         std::cout << "  [Backward Step] Op: " << op_name(n->op) 
-                  << " (Node @" << n << ", Name: " << n->debug_name << ")" << std::endl;
-        std::cout << "    > Incoming Grad (dL/d" << n->debug_name << ") has shape: [" 
-                  << n->grad.shape().dims[0] << "x" << n->grad.shape().dims[1] << "]" << std::endl;
-        std::cout << "    > Calling VJP function: vjp_" << op_name(n->op) << "()" << std::endl;
-        // --- END PRINTING ---
+        
         const Tensor& gy = n->grad;
 
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
@@ -102,6 +106,7 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
 
         ag::debug::on_jvp_step(n);
 
+        //  this part calculates and accumulates gradients
         JvpFn fn = jvp_lookup(n->op);
         if (fn) t = fn(n, tangent_of);
 
