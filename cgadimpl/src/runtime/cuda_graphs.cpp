@@ -1,8 +1,8 @@
 // ===================================================
 // In file: cgadimpl/src/runtime/cuda_graphs.cpp
 // ===================================================
-#include "ad/cuda_graphs.hpp"
-#include "ad/runtime.hpp" 
+#include "ad/runtime/cuda_graphs.hpp"
+#include "ad/runtime/runtime.hpp" 
 #include "ad/ag_all.hpp"
 #include "tensor.hpp"
 #include <iostream>

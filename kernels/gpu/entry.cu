@@ -1,7 +1,7 @@
 // ==================================
 // FILE: kernels/gpu/entry.cu
 // ==================================
-#include "ad/kernels_api.hpp"
+#include "ad/ops/kernels_api.hpp"
 #include <cstdint>
 
 // Forward declarations with external linkage

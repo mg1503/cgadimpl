@@ -3,7 +3,7 @@
 // ====================================================================
 #include "ad/detail/autodiff_ops.hpp"
 #include <stdexcept> // Required for std::runtime_error
-#include "ad/runtime.hpp"
+#include "ad/runtime/runtime.hpp"
 
 namespace ag {
 namespace detail{

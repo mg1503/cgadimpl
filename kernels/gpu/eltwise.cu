@@ -1,7 +1,7 @@
 // kernels/gpu/eltwise.cu
 #include <cuda_runtime.h>
 #include <cstdint>
-#include "ad/kernels_api.hpp"
+#include "ad/ops/kernels_api.hpp"
 
 __global__ void k_relu(const float* __restrict__ x, float* __restrict__ y, int64_t n) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;

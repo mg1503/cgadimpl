@@ -3,9 +3,9 @@
 // =============================================
 #pragma once
 #include <functional>
-#include "ad/graph.hpp"
-#include "ad/schema.hpp"
-#include "ad/kernels_api.hpp"
+#include "ad/core/graph.hpp"
+#include "ad/core/schema.hpp"
+#include "ad/ops/kernels_api.hpp"
 
 namespace ag {
 
