@@ -1,3 +1,6 @@
 [submodule "tensor"]
 	path = tensor
 	url = https://github.com/kathir-23s/Tensor-Implementations
+[submodule "NovaCompiler"]
+	path = NovaCompiler
+	url = https://github.com/AdwaidSuresh123/Nova-Compiler.git
