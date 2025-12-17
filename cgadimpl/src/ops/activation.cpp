@@ -1,172 +1,3 @@
-// #include "ad/ops/nodeops.hpp"
-// #include "ad/runtime/runtime.hpp"
-// #include <cuda_runtime.h>
-// #include "TensorLib.h" 
-// #include <unordered_map>
-// #include <cmath> 
-// #include <iostream>
-
-// namespace ag::detail {
-
-// std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x){
-//     const Tensor& X = x->value;
-//     Tensor Y = (X + OwnTensor::abs(X, ag::current_stream())) * 0.5f;
-//     auto n = std::make_shared<Node>(Y, Op::Relu, x->requires_grad(), "relu");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = 1.0f / (1.0f + OwnTensor::exp(x->value * -1.0f));
-//     auto n = std::make_shared<Node>(y, Op::Sigmoid, x->requires_grad(), "sigmoid"); 
-//     n->inputs={x}; 
-//     ag::debug::on_node_created(n);  
-//     return n;
-// }
-
-// std::shared_ptr<Node> tanh_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = OwnTensor::tanh(x->value);
-//     auto n = std::make_shared<Node>(y, Op::Tanh, x->requires_grad(), "tanh");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = OwnTensor::exp(x->value);
-//     auto n = std::make_shared<Node>(y, Op::Exp, x->requires_grad(), "exp");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> log_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = OwnTensor::log(x->value);
-//     auto n = std::make_shared<Node>(y, Op::Log, x->requires_grad(), "log");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
-//     const float threshold = 20.0f;
-//     const Tensor& x_val = x->value;
-//     Tensor y = OwnTensor::Tensor::zeros(x_val.shape(), ag::options(x_val));
-    
-//     dispatch_by_dtype(x_val.dtype(), [&](auto dummy){
-//         using T = decltype(dummy);
-//         const T* x_data = x_val.data<T>();
-//         T* y_data = y.data<T>();
-//         int64_t n = x_val.numel();
-//         for (int64_t i = 0; i < n; ++i) {
-//             T val = x_data[i];
-//             if (val > T(threshold)) {
-//                 y_data[i] = val; 
-//             } else {
-//                 y_data[i] = std::log(T(1.0) + std::exp(val));
-//             }
-//         }
-//     });
-
-//     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
-//     const float c1 = 0.7978845608f; 
-//     const float c2 = 0.044715f;
-//     Tensor x3 = x->value * x->value * x->value;
-//     Tensor u = (x->value + x3 * c2) * c1;
-//     Tensor y = x->value * (1.0f + OwnTensor::tanh(u)) * 0.5f;
-    
-//     auto n = std::make_shared<Node>(y, Op::GELU, x->requires_grad(), "gelu");
-//     n->inputs={x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(x->value * -1.0f));
-//     Tensor y = x->value * sig_x;
-//     auto n = std::make_shared<Node>(y, Op::SiLU, x->requires_grad(), "silu");
-//     n->inputs={x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(x->value));
-//     Tensor y = x->value * OwnTensor::tanh(sp);
-//     auto n = std::make_shared<Node>(y, Op::Mish, x->requires_grad(), "mish");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d){ 
-//     Tensor y = OwnTensor::matmul(x->value, a->value.t()) + b->value; 
-//     Tensor q = y * (1.0f / (1.0f + OwnTensor::exp(y * -1.0f)));
-//     Tensor w = q * (OwnTensor::matmul(x->value, c->value.t()) + d->value);
-    
-//     auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
-//     n->inputs={x, a, b, c, d};
-//     ag::debug::on_node_created(n); 
-//     return n;
-// }
-
-// std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
-//     const Tensor& xin = x->value;
-//     Tensor y = OwnTensor::Tensor::zeros(xin.shape(), ag::options(xin));
-//     if (xin.is_cpu()) {
-//         dispatch_by_dtype(xin.dtype(), [&](auto dummy){
-//             using T = decltype(dummy);
-//             const T* x_data = xin.data<T>();
-//             T* y_data = y.data<T>();
-//             for (int64_t i = 0; i < xin.numel(); ++i) x_data[i] > T(0) ? y_data[i] = T(1) : y_data[i] = T(0); // slightly simplified from original but same logic 
-//         });
-//     } else {
-//         throw std::runtime_error("relumask_nodeops not implemented for CUDA yet.");
-//     }
-//     auto n = std::make_shared<Node>(y, Op::Relumask, x->requires_grad(), "relumask");
-//     n->inputs = {x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float alpha){ 
-//     Tensor pos_part = (x->value + OwnTensor::abs(x->value, ag::current_stream())) * 0.5f;
-//     Tensor neg_part = (x->value - OwnTensor::abs(x->value, ag::current_stream())) * 0.5f;
-//     Tensor Y = pos_part + (neg_part * alpha);
-
-//     Tensor aT = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), alpha);
-//     auto aC = make_tensor(aT, "alpha"); 
-    
-//     auto n = std::make_shared<Node>(Y, Op::LeakyRelu, x->requires_grad(), "leakyrelu");
-//     n->inputs = {x, aC.node}; 
-//     ag::debug::on_node_created(n);  
-//     return n;
-// }
-
-// std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = x->value * OwnTensor::tanh(x->value);
-//     auto n = std::make_shared<Node>(y, Op::LiSHT, x->requires_grad(), "lisht"); 
-//     n->inputs={x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = x->value * (2.0f - x->value);
-//     auto n = std::make_shared<Node>(y, Op::Parcon, x->requires_grad(), "parcon");
-//     n->inputs={x};
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
-
-// } // namespace ag::detail
 // =====================
 // file: cgadimpl/src/nodeops.cpp
 // =====================
@@ -188,6 +19,11 @@ std::shared_ptr<Node> add_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // FIX: Use the new 3-argument Node constructor
     auto n = std::make_shared<Node>(Y, Op::Add, (a->requires_grad() || b->requires_grad()), "+");
     n->inputs = {a, b};
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -198,6 +34,11 @@ std::shared_ptr<Node> sub_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // FIX: Use the new 3-argument Node constructor
     auto n = std::make_shared<Node>(Y, Op::Sub, (a->requires_grad() || b->requires_grad()), "-");
     n->inputs = {a, b};
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+    
     ag::debug::on_node_created(n);
     return n;
 }
@@ -208,6 +49,11 @@ std::shared_ptr<Node> mul_nodeops(const std::shared_ptr<Node>& a, const std::sha
     // FIX: Use the new 3-argument Node constructor
     auto n = std::make_shared<Node>(y, Op::Mul, (a->requires_grad() || b->requires_grad()), "*"); 
     n->inputs = {a, b}; 
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+
     ag::debug::on_node_created(n); 
     return n; 
 }
@@ -217,6 +63,11 @@ std::shared_ptr<Node> div_nodeops(const std::shared_ptr<Node>& a, const std::sha
 
     auto n = std::make_shared<Node>(C, Op::Div, (a->requires_grad() || b->requires_grad()), "/");
     n->inputs = { a, b };
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -341,6 +192,13 @@ std::shared_ptr<Node> attention_nodeops(const std::shared_ptr<Node>& a, const st
     n->tape.push_back(std::make_shared<Tensor>(k));
     n->tape.push_back(std::make_shared<Tensor>(v));
     n->tape.push_back(std::make_shared<Tensor>(s));
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+    if(c) c->child_grad_count++;
+    if(d) d->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -378,6 +236,12 @@ std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a,
     n->tape.push_back(std::make_shared<Tensor>(k));
     n->tape.push_back(std::make_shared<Tensor>(v));
     n->tape.push_back(std::make_shared<Tensor>(s));
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+    if(c) c->child_grad_count++;
+    if(d) d->child_grad_count++;
 
     ag::debug::on_node_created(n);
     return n;
@@ -422,6 +286,13 @@ std::shared_ptr<Node> reluatt_nodeops(const std::shared_ptr<Node>& a,
     n->tape.push_back(std::make_shared<Tensor>(k));
     n->tape.push_back(std::make_shared<Tensor>(v));
     n->tape.push_back(std::make_shared<Tensor>(s));
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    if(b) b->child_grad_count++;
+    if(c) c->child_grad_count++;
+    if(d) d->child_grad_count++;
+
     ag::debug::on_node_created(n); 
     return n; 
 }
@@ -447,6 +318,12 @@ std::shared_ptr<Node> moewe_nodeops(const std::shared_ptr<Node>& x,
     // --- Step 3: Create the graph node ---
     auto n = std::make_shared<Node>(y, Op::MOE, (x->requires_grad() || w->requires_grad() || b->requires_grad()), "moe");
     n->inputs = {x, w, b}; 
+
+    // new code lines--> dependency counter
+    if(x) x->child_grad_count++;
+    if(w) w->child_grad_count++;
+    if(b) b->child_grad_count++;
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -462,6 +339,10 @@ std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a) {
     // Use the new 3-argument Node constructor.
     auto n = std::make_shared<Node>(y, Op::Reciprocal, a->requires_grad(),"reciprocal");
     n->inputs = {a};
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -491,6 +372,10 @@ std::shared_ptr<Node> flodiv_nodeops(float b, const std::shared_ptr<Node>& a) {
     // --- Step 3: Create the Node ---
     auto n = std::make_shared<Node>(y, Op::Div, a->requires_grad(), "/");
     n->inputs = {c, a}; // Note the order: c is the numerator, a is the denominator
+
+    // new code lines--> dependency counter
+    if(a) a->child_grad_count++;
+    
     ag::debug::on_node_created(n);
     return n;
 }
@@ -520,6 +405,10 @@ std::shared_ptr<Node> floadd_nodeops(float b, const std::shared_ptr<Node>& a) {
     auto n = std::make_shared<Node>(y, Op::Add, a->requires_grad(), "+");
     n->inputs = {c, a}; // Order matches the operation
     ag::debug::on_node_created(n);
+
+    // new code lines --> dependency counter
+    if(a) a->child_grad_count++;
+
     return n;
 }
 // ===================================================================
@@ -554,6 +443,10 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
     // FIX: Use the new Node constructor
     auto n = std::make_shared<Node>(y, Op::Relumask, x->requires_grad(), "relumask");
     n->inputs = {x};
+
+    // new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -574,6 +467,12 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
 
     auto n = std::make_shared<Node>(y, Op::Linear, (a->requires_grad() || b->requires_grad() || c->requires_grad()), "linear");
     n->inputs = {a, b, c};
+
+    // NEW CODE LINES--> DEPENDENCY COUNTER
+    if (a) a->child_grad_count++;
+    if (b) b->child_grad_count++;
+    if (c) c->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -585,6 +484,10 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
         Tensor y = cosh(x->value);
         auto n=std::make_shared<Node>(y, Op::Cosh, x->requires_grad(), "cosh");
         n->inputs={x};
+
+        // NEW CODE LINES--> DEPENDENCY COUNTER
+        if (x) x->child_grad_count++;
+
         ag::debug::on_node_created(n);
         return n;
     }
@@ -597,6 +500,10 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
         Tensor y = sinh(x->value);
         auto n=std::make_shared<Node>(y, Op::Sinh, x->requires_grad(), "sinh");
         n->inputs={x};
+
+        // NEW CODE LINES--> DEPENDENCY COUNTER
+        if (x) x->child_grad_count++;
+
         ag::debug::on_node_created(n);
         return n;
     }
@@ -610,6 +517,10 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
         Tensor y = cos(x->value);
         auto n=std::make_shared<Node>(y, Op::Cos, x->requires_grad(), "cosh");
         n->inputs={x};
+
+        // NEW CODE LINES--> DEPENDENCY COUNTER
+        if (x) x->child_grad_count++;
+
         ag::debug::on_node_created(n);
         return n;
     }
@@ -622,6 +533,10 @@ std::shared_ptr<Node> linear_nodeops(const std::shared_ptr<Node>& a, // Input X
         Tensor y = sin(x->value);
         auto n=std::make_shared<Node>(y, Op::Sin, x->requires_grad(), "sinh");
         n->inputs={x};
+
+        // NEW CODE LINES--> DEPENDENCY COUNTER
+        if(x) x->child_grad_count++;
+
         ag::debug::on_node_created(n);
         return n;
     }
@@ -637,6 +552,10 @@ std::shared_ptr<Node> sign_nodeops(const std::shared_ptr<Node>& x){
     // Use the new 3-argument Node constructor
     auto n = std::make_shared<Node>(y, Op::Sign, x->requires_grad(), "sign");
     n->inputs={x};
+
+    // new code lines--> dependency counter
+    if (x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -653,6 +572,10 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
     // 2. Wrap the result in a new Node using the correct constructor.
     auto n = std::make_shared<Node>(y, Op::Sqrt, x->requires_grad(), "sqrt");
     n->inputs = {x};
+
+    //new copde lines --> dependency counter
+    if (x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -707,6 +630,13 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
     n->inputs = {a, b, c, d};
     n->tape = {std::make_shared<Tensor>(q), std::make_shared<Tensor>(k), 
                std::make_shared<Tensor>(v), std::make_shared<Tensor>(s)};
+
+    // new code lines--> dependency counter
+    if (a) a->child_grad_count++;
+    if (b) b->child_grad_count++;
+    if (c) c->child_grad_count++;
+    if (d) d->child_grad_count++;
+
     ag::debug::on_node_created(n); 
     return n; 
 }
@@ -726,6 +656,14 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
     
     auto n = std::make_shared<Node>(w, Op::SWIGLU, (x->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d-> requires_grad()) , "swiglu"); 
     n->inputs={x, a, b, c, d};
+
+    // new code lines--> dependency counter
+    if (x) x->child_grad_count++;
+    if (a) a->child_grad_count++;
+    if (b) b->child_grad_count++;
+    if (c) c->child_grad_count++;
+    if (d) d->child_grad_count++;
+
     ag::debug::on_node_created(n); 
     return n;
 }
@@ -738,6 +676,10 @@ std::shared_ptr<Node> sum_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::reduce_sum(x->value, {}, false);
     auto n = std::make_shared<Node>(y, Op::Sum, x->requires_grad(), "sum");
     n->inputs = {x};
+
+    // new code lines--> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -755,6 +697,10 @@ std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x){
     // FIX: Use the correct Op and name, and the correct constructor.
     auto n = std::make_shared<Node>(y, Op::Transpose, x->requires_grad(), "transpose");
     n->inputs = {x};
+
+    // ne code lines--> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -770,6 +716,10 @@ std::shared_ptr<Node> exp_nodeops(const std::shared_ptr<Node>& x){
     // 3. Use the correct Node constructor.
     auto n = std::make_shared<Node>(y, Op::Exp, x->requires_grad(), "exp");
     n->inputs = {x};
+
+    // new code lines--> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -782,6 +732,10 @@ std::shared_ptr<Node> log_nodeops(const std::shared_ptr<Node>& x){
     
     auto n = std::make_shared<Node>(y, Op::Log, x->requires_grad(), "log");
     n->inputs = {x};
+
+    // new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -802,6 +756,10 @@ std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){
     
     auto n = std::make_shared<Node>(y, Op::Mish, x->requires_grad(), "mish");
     n->inputs = {x};
+
+    //new code lines--> dependency counter
+    if (x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -821,6 +779,10 @@ std::shared_ptr<Node> mish_nodeops(const std::shared_ptr<Node>& x){
     // 2. Wrap the result in a new Node using the correct constructor.
     auto n = std::make_shared<Node>(y, Op::Tanh, x->requires_grad(), "tanh");
     n->inputs = {x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -835,6 +797,10 @@ std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::Sigmoid, x->requires_grad(), "sigmoid"); 
     n->inputs={x}; 
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -848,6 +814,10 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
     n->inputs = {x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -861,6 +831,10 @@ std::shared_ptr<Node> gaus_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::Gaus, x->requires_grad(), "gaus");
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -887,6 +861,10 @@ std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
     
     auto n = std::make_shared<Node>(y, Op::GELU, x->requires_grad(), "gelu");
     n->inputs={x};
+    
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -898,6 +876,10 @@ std::shared_ptr<Node> gcu_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::GCU, x->requires_grad(), "gcu");
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -916,6 +898,10 @@ std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x){
     
     auto n = std::make_shared<Node>(y, Op::SiLU, x->requires_grad(), "silu");
     n->inputs={x};
+    
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -929,6 +915,10 @@ std::shared_ptr<Node> parcon_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::Parcon, x->requires_grad(), "parcon");
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -944,6 +934,10 @@ std::shared_ptr<Node> lisht_nodeops(const std::shared_ptr<Node>& x){
     // FIX: The Op type was incorrect in your original code.
     auto n = std::make_shared<Node>(y, Op::LiSHT, x->requires_grad(), "lisht"); 
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -975,6 +969,11 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     
     auto n = std::make_shared<Node>(Y, Op::LeakyRelu, x->requires_grad(), "leakyrelu");
     n->inputs = {x, aC.node}; 
+
+    //????????????
+    if(x) x->child_grad_count++;
+    if(aC.node) aC.node->child_grad_count++;
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -986,6 +985,10 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     Tensor y = OwnTensor::reduce_sum(x->value, {1}, true);
     auto n = std::make_shared<Node>(y, Op::RowSum, x->requires_grad(), "rowsum");
     n->inputs = {x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -998,6 +1001,10 @@ std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::reduce_max(x->value, {1}, true);
     auto n = std::make_shared<Node>(y, Op::RowMax, x->requires_grad(), "rowmax");
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1029,6 +1036,10 @@ std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x){
     n->tape.push_back(std::make_shared<Tensor>(y));         // Correctly save the normalized output y
     // --- FIX END ---
     n->inputs = {x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1063,6 +1074,11 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
     n->tape.push_back(std::make_shared<Tensor>(rsqrt_var));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
     n->inputs = {x, G};
+
+    //new code lines --> dependency counter >???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    if(x) x->child_grad_count++;
+    if(G) G->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1085,6 +1101,10 @@ std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x){
     n->tape.push_back(std::make_shared<Tensor>(variance));
     n->tape.push_back(std::make_shared<Tensor>(mean));
     n->inputs = {x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1123,6 +1143,12 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     n->tape.push_back(std::make_shared<Tensor>(mean));
     n->tape.push_back(std::make_shared<Tensor>(y_normalized));
     n->inputs = {x, G, B};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+    if(G) G->child_grad_count++;
+    if(B) B->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1135,6 +1161,10 @@ std::shared_ptr<Node> mean_all_nodeops(const std::shared_ptr<Node>& x){
     Tensor y = OwnTensor::reduce_mean(x->value);
     auto n = std::make_shared<Node>(y, Op::MeanAll, x->requires_grad(), "meanall");
     n->inputs={x};
+
+    //new code lines --> dependency counter
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1159,6 +1189,13 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     auto n = std::make_shared<Node>(y, Op::Dyntanh, x->requires_grad(), "dyntanh");
     n->inputs={x, A, B, G};
     n->tape.push_back(std::make_shared<Tensor>(h));
+
+    //new code lines --> dependency counter              ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    if(x) x->child_grad_count++;
+    if(A) A->child_grad_count++;
+    if(B) B->child_grad_count++;
+    if(G) G->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1183,6 +1220,11 @@ std::shared_ptr<Node> softmax_row_nodeops(const std::shared_ptr<Node>& z){
     
     auto n = std::make_shared<Node>(y, Op::SoftmaxRow, z->requires_grad(), "softmax_row"); 
     n->inputs = {z}; 
+
+    // new code lines--> dependency counter
+    if (z) z->child_grad_count++;
+
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -1207,6 +1249,10 @@ std::shared_ptr<Node> logsumexp_row_nodeops(const std::shared_ptr<Node>& z){
     
     auto n = std::make_shared<Node>(y, Op::LogSumExpRow, z->requires_grad(), "logsumexp_row"); 
     n->inputs = {z}; 
+
+    // new code lines--> dependency counter
+    if (z) z->child_grad_count++;
+
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -1291,6 +1337,10 @@ std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<No
 
     auto n = std::make_shared<Node>(loss, Op::CeWithLogits, (logits->requires_grad() || onehot->requires_grad()), "ce_with_logits");
     n->inputs = {logits, onehot};
+    
+    if (logits) logits->child_grad_count++;
+    if (onehot) onehot->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1322,6 +1372,10 @@ std::shared_ptr<Node> kldivergence_nodeops(const std::shared_ptr<Node>& logits, 
 
     auto n = std::make_shared<Node>(loss, Op::KLDivergence, (logits->requires_grad() || onehot->requires_grad()), "kldivergence");
     n->inputs = {logits, onehot};
+
+    if (logits) logits->child_grad_count++;
+    if (onehot) onehot->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1342,6 +1396,10 @@ std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const 
 
     auto n = std::make_shared<Node>(loss, Op::MSELoss, (pred->requires_grad()), "mseloss");
     n->inputs = {pred, target};
+
+    if (pred) pred->child_grad_count++;
+    if (target) target->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }
@@ -1358,6 +1416,10 @@ std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const 
 
     auto n = std::make_shared<Node>(loss, Op::MAELoss, (pred->requires_grad() || target->requires_grad()), "maeloss");
     n->inputs = {pred, target};
+
+    if (pred) pred->child_grad_count++;
+    if (target) target->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 }

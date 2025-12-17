@@ -4,6 +4,9 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <atomic>
+#include <mutex>
+
 #include "tensor.hpp"
 #include "ad/core/schema.hpp"
 #include "ad/runtime/runtime.hpp"
@@ -41,10 +44,14 @@ struct Node : std::enable_shared_from_this<Node> {
     const char* debug_name{""};
     Op op{Op::Leaf};
     
-    // Phase 1 additions: Critical metadata
+    // Critical metadata
     bool is_leaf{false};                    // Distinguishes parameters from computed values
     std::vector<int> input_versions;        // Version tracking for in-place safety
     
+    // For Dependency Counter
+    std::atomic<int> child_grad_count{0};
+    std::mutex grad_mutex;
+
     struct ExecutionContext {
         ag_cuda_stream_t stream{nullptr};
         DeviceIndex device;

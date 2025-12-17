@@ -75,20 +75,24 @@ static std::vector<Node*> build_topo_order_impl(Node* root) {
 }
 
 // A cache for memoizing topological sorts of graphs.
-static std::unordered_map<Node*, std::vector<Node*>> topo_cache;
+// static std::unordered_map<Node*, std::vector<Node*>> topo_cache;
 
 // --- Graph Traversal ---
 std::vector<Node*> topo_from(Node* root){
+    // UNSAFE CACHE: Node addresses are reused, leading to collisions!
+    // Disabling cache to prevent std::length_error and segfaults.
+    /*
     // Check if the graph order is already cached
     auto it = topo_cache.find(root);
     if (it != topo_cache.end()) {
         return it->second; // Cache hit
     }
+    */
 
     // Cache miss: build the order, cache it, and return it
-    std::cout << "--- Building and Caching Computational Graph ---" << std::endl;
+    // std::cout << "--- Building and Caching Computational Graph ---" << std::endl;
     std::vector<Node*> order = build_topo_order_impl(root);
-    topo_cache[root] = order;
+    // topo_cache[root] = order;
     return order;
 }
 
