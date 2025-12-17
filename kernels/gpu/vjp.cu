@@ -3,7 +3,7 @@
 // ====================================================================
 #include <cuda_runtime.h>
 #include <cstdint>
-#include "ad/kernels_api.hpp"
+#include "ad/ops/kernels_api.hpp"
 
 __global__ void k_vjp_add_accum(float* gA, float* gB, const float* gy, int64_t n) {
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;

@@ -36,7 +36,7 @@
 # #   CUDA::cublasLt
 # # )
 
-# # # Header path to ad/kernels_api.hpp
+# # # Header path to ad/ops/kernels_api.hpp
 # # target_include_directories(agkernels_cuda PUBLIC
 # #   "${CGADIMPL_INCLUDE_DIR}"
 # # )

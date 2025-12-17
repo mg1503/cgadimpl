@@ -1,0 +1,36 @@
+// =============================================================================
+// FILE: ops/linalg.def
+// PURPOSE: Linear algebra operations (matrix operations)
+// =============================================================================
+//
+// These are the workhorses of neural networks - most computation time is spent
+// in matrix multiplications. Every linear layer, attention mechanism, and 
+// convolution reduces to matmul operations.
+//
+// Operations:
+//   - MatMul: Core matrix multiplication C = A @ B
+//   - Linear: Fused affine transform Y = X @ W.T + b (single kernel, faster)
+//   - FMA: Fused multiply-add A @ B + C
+//   - Transpose: Swap last two dimensions
+//
+// VJP patterns (critical for understanding backprop!):
+//   - MatMul(A, B):
+//       ∂L/∂A = gy @ B.T
+//       ∂L/∂B = A.T @ gy
+//   - Linear(X, W, b):
+//       ∂L/∂X = gy @ W
+//       ∂L/∂W = gy.T @ X
+//       ∂L/∂b = sum(gy, axis=0)
+//   - Transpose:
+//       ∂L/∂X = gy.T
+//
+// Performance note: These operations benefit most from GPU acceleration!
+// =============================================================================
+
+// --- Core Matrix Operations ---
+OP(MatMul,    2,    "matmul")      // A @ B, matrix multiplication
+OP(Transpose, 1,    "transpose")   // X.T, swap last two dimensions
+
+// --- Fused Operations (better performance, fewer memory accesses) ---
+OP(Linear,    3,    "linear")      // X @ W.T + b, full linear layer (arity=3: input, weight, bias)
+OP(FMA,       3,    "fmab")        // A @ B + C, fused multiply-add

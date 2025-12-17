@@ -16,10 +16,11 @@
 // =============================================
 #include <unordered_map>
 #include <stdexcept>
-#include "ad/autodiff.hpp"
+#include "ad/autodiff/autodiff.hpp"
 #include "ad/detail/autodiff_ops.hpp"
-#include "ad/debug.hpp"
-#include <ad/checkpoint.hpp>
+#include "ad/utils/debug.hpp"
+#include <ad/autodiff/checkpoint.hpp>
+#include <ad/core/ReadyQueue.hpp>
 namespace ag {
 
 void zero_grad(const Value& root){
@@ -66,9 +67,14 @@ void backward(const Value& root, const Tensor* grad_seed){
             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
         }
         }
-        //  this part calculates and accumulates gradients into parent nodes
-        VjpFn fn = vjp_lookup(n->op);
-        if (fn) fn(n, gy); // handler accumulates into parents
+        
+        // Phase 1.1: is_leaf handling
+        // Only compute VJP for non-leaf nodes (leaf nodes only accumulate, no backward op)
+        if (!n->is_leaf) {
+            //  this part calculates and accumulates gradients into parent nodes
+            VjpFn fn = vjp_lookup(n->op);
+            if (fn) fn(n, gy); // handler accumulates into parents
+        }
     }
 }
 

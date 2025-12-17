@@ -5,7 +5,7 @@
 // // #include <random>
 
 // // // This include will work once we configure the CMakeLists.txt correctly
-// // #include "ad/kernels_api.hpp"
+// // #include "ad/ops/kernels_api.hpp"
 
 // // // Use Eigen for a highly optimized reference implementation
 // // #include <Eigen/Dense>
@@ -102,7 +102,7 @@
 // #include <random>
 
 // // This include will work because of the CMake configuration
-// #include "ad/kernels_api.hpp"
+// #include "ad/ops/kernels_api.hpp"
 
 // // Use Eigen for a highly optimized reference implementation
 // #include <Eigen/Dense>
