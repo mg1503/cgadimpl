@@ -86,7 +86,7 @@ if(true)
   add_ag_test(test_graph_cuda                    Tests/test_graph_gpu.cpp)
   add_ag_test(test_core_ops_gpu                    Tests/test_core_ops_gpu.cpp)
   add_ag_test(test_kitchen_sink_mlp                   Tests/test_kitchen_sink_mlp.cpp)
-  # add_ag_test(test_gantlet                    Tests/test_gantlet.cpp)  #this works
+  add_ag_test(test_gantlet                    Tests/test_gantlet.cpp)  #this works
   add_ag_test(test_scheme                    Tests/test_scheme.cpp)
   add_ag_test(test_phase1_metadata            Tests/test_phase1_metadata.cpp)  # Phase 1 critical metadata
   add_ag_test(test_phase1_advanced            Tests/test_phase1_advanced.cpp)  # Phase 1 advanced edge cases
