@@ -17,9 +17,10 @@ class readyqueue{
     std::queue<ag::Node*> q;
     std::mutex m;
     std::condition_variable cv;
-    bool finished;
+    bool finished = false;
 
     public:
+    // readyqueue() : finished(false) {}
 
     //pushes the element that is ready into the readyqueue if its ready to compute its gradients
     void push(Node* node){

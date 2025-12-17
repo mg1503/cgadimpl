@@ -45,32 +45,57 @@ static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_v
 void vjp_Add(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get(); 
     Node* B = n->inputs[1].get();
-    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy, A->value);
-    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy, B->value);
+    if (A->requires_grad())
+    { 
+        std::lock_guard<std::mutex> lock(A->grad_mutex);
+        A->grad += reduce_for_broadcast(gy, A->value);
+    }
+    if (B->requires_grad())
+    { 
+        std::lock_guard<std::mutex> lock(B->grad_mutex);
+        B->grad += reduce_for_broadcast(gy, B->value);
+    }
 }
 
 void vjp_Sub(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
-    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy, A->value);
-    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy * -1.0f, B->value);
+    if (A->requires_grad()) 
+    {
+        std::lock_guard<std::mutex> lock(A->grad_mutex);
+        A->grad += reduce_for_broadcast(gy, A->value);}
+    if (B->requires_grad()) 
+    {
+        std::lock_guard<std::mutex> lock(B->grad_mutex);
+        B->grad += reduce_for_broadcast(gy * -1.0f, B->value);}
 }
 
 void vjp_Mul(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
-    if (A->requires_grad()) A->grad += reduce_for_broadcast(gy * B->value, A->value);
-    if (B->requires_grad()) B->grad += reduce_for_broadcast(gy * A->value, B->value);
+    if (A->requires_grad()) 
+    {
+        std::lock_guard<std::mutex> lock(A->grad_mutex);
+        A->grad += reduce_for_broadcast(gy * B->value, A->value);}
+    if (B->requires_grad()) 
+    {
+        std::lock_guard<std::mutex> lock(B->grad_mutex);
+        B->grad += reduce_for_broadcast(gy * A->value, B->value);}
 }
 void vjp_Div(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
 
     // VJP for A: dL/dA = gy * (1/B)
-    if (A->requires_grad())  A->grad += reduce_for_broadcast(gy / B->value, A->value);
+    if (A->requires_grad()) 
+    { 
+        std::lock_guard<std::mutex> lock(A->grad_mutex);            
+        A->grad += reduce_for_broadcast(gy / B->value, A->value);
+    }
     
     // VJP for B: dL/dB = gy * (-A / (B*B))
     if (B->requires_grad()) {
+        std::lock_guard<std::mutex> lock(B->grad_mutex);
         Tensor grad_B = gy * -1.0f * A->value / (B->value * B->value);
         B->grad += reduce_for_broadcast(grad_B, B->value);
     }
@@ -90,12 +115,15 @@ void vjp_FMA(Node* n, const Tensor& gy){
 
     // The OwnTensor operators handle device, stream, and broadcasting automatically.
     if (A->requires_grad()){
+        std::lock_guard<std::mutex> lock(A->grad_mutex);
         A->grad += OwnTensor::matmul(gy, Bt.t());
     }
     if (B->requires_grad()){
+        std::lock_guard<std::mutex> lock(B->grad_mutex);
         B->grad += OwnTensor::matmul(At.t(), gy);
     }
     if (C->requires_grad()) {
+        std::lock_guard<std::mutex> lock(C->grad_mutex);
         C->grad += gy;
     }
 }
