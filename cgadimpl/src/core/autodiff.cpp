@@ -132,7 +132,6 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
                     rq.push(parent);
                 }
             }
-
             pending_tasks--;
         }
     };
@@ -154,6 +153,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     for (auto& worker : workers){
         worker.join();
     }
+
 
 
     // // for (Node* n : order) {
