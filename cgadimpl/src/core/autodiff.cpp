@@ -28,7 +28,7 @@ void zero_grad(const Value& root){
     for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
-void backward(const Value& root, const Tensor* grad_seed){
+void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     auto order = topo_from(root.node.get());
 
     // Initialize dependency counters
@@ -59,14 +59,37 @@ void backward(const Value& root, const Tensor* grad_seed){
         }
     }
 
-    // Count how many nodes will actually be processed
-    // Only non-leaf nodes with requires_grad execute VJP functions
-    std::atomic<int> pending_tasks{0};
+    // Dependency tracking for correctness (always needed)
+    // Count how many nodes will be processed
+    int num_compute_nodes = 0;
     for (Node* n : order) {
         if (n->requires_grad() && !n->is_leaf) {
-            pending_tasks++;
+            num_compute_nodes++;
         }
     }
+
+    // User chose sequential execution
+    if (!enable_parallel) {
+        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+            Node* n = *it;
+            if (!n->requires_grad()) continue;
+            
+            const Tensor& gy = n->grad;
+            
+            if (n->is_checkpoint && n->value.numel() == 0) {
+                if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
+                    throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+                }
+            }
+            
+            VjpFn fn = vjp_lookup(n->op);
+            if (fn) fn(n, gy);
+        }
+        return;
+    }
+
+    // PARALLEL EXECUTION (user opted-in via enable_parallel=true)
+    std::atomic<int> pending_tasks{num_compute_nodes};
 
     readyqueue rq;
     // Push all nodes that are initially ready (no children waiting to send gradients)
