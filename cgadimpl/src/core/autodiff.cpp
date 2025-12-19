@@ -27,6 +27,8 @@ void zero_grad(const Value& root){
     for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
+#pragma omp parallel for
+
 void backward(const Value& root, const Tensor* grad_seed){
     auto order = topo_from(root.node.get()); // the .get() is a shared_pointer classes built in function which we can use to get the details of the node we want at present
 
