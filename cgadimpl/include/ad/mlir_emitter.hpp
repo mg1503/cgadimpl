@@ -97,10 +97,10 @@ public:
     emitModule(const Plan& plan);
 
     /// Get the MLIR context
-    mlir::MLIRContext* getContext() { return context_.get(); }
+    std::shared_ptr<mlir::MLIRContext> getContext() { return context_; }
 
 private:
-    std::unique_ptr<mlir::MLIRContext> context_;
+    std::shared_ptr<mlir::MLIRContext> context_;
 
     /// Convert ag::Dtype to MLIR Type
     mlir::Type dtypeToMLIRType(mlir::OpBuilder& builder, OwnTensor::Dtype dtype);

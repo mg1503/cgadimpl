@@ -117,6 +117,7 @@ std::vector<Node*> topo_from(Node* root){
 #include <variant>
 #include <ad/runtime.hpp>
 #include <ad/mlir_emitter.hpp>
+#include "Compiler/API/NovaCompilerAPI.h"
 #include "mlir/IR/BuiltinOps.h"  // For ModuleOp definition
 
 namespace ag::jit {
@@ -270,6 +271,8 @@ static std::string opToNovaOp(Op op) {
         case Op::Add:       return "nova.add";
         case Op::Mul:       return "nova.mul";
         case Op::MatMul:    return "nova.matmul"; 
+        case Op::Sum:       return "nova.reduce<sum>";
+        case Op::MeanAll:   return "nova.reduce<mean>";
         default:            return "nova.unknown_op";
     }
 }
@@ -339,7 +342,8 @@ static std::string emitMLIR(const Plan& plan) {
                     const auto& meta = slot_to_meta.at(a.slot);
                     arg_types.push_back("tensor<" + shapeToMLIR(meta.shape) + dtypeToMLIR(meta.dtype) + ">");
                 } else if constexpr (std::is_same_v<T, ArgLit>) {
-                    throw std::runtime_error("Literal handling in JIT emitMLIR not implemented for standard format.");
+                    arg_names.push_back("const_lit"); 
+                    arg_types.push_back("tensor<f32>"); // Placeholder for literals in fallback
                 }
             }, arg);
         }
@@ -362,11 +366,17 @@ static std::string emitMLIR(const Plan& plan) {
 
     // --- Return Statement ---
     std::string return_var = slot_to_var_name.at(plan.out_slot);
-    // Get return type meta from the final step's output meta
     const auto& return_meta = plan.steps.back().out_meta;
+    auto return_shape = return_meta.shape;
+    
+    // Total reduction rank adjustment for fallback
+    if ((plan.steps.back().op == Op::Sum || plan.steps.back().op == Op::MeanAll) && 
+        return_shape.size() == 1 && return_shape[0] == 1) {
+        return_shape = {};
+    }
 
     ss << "  return " << return_var << " : tensor<"
-       << shapeToMLIR(return_meta.shape) 
+       << shapeToMLIR(return_shape) 
        << dtypeToMLIR(return_meta.dtype) << ">\n";
        
     ss << "}\n";
@@ -440,9 +450,11 @@ Compiled compile(const Value& output,
     // --- Generate MLIR using the new C++ API approach ---
     std::string generated_mlir_opbuilder;
     mlir::OwningOpRef<mlir::ModuleOp> in_memory_module;
+    std::shared_ptr<mlir::MLIRContext> context;
     
     try {
         MLIREmitter emitter;
+        context = emitter.getContext();
         auto [module, mlirStr] = emitter.emitModule(plan);
         generated_mlir_opbuilder = mlirStr;
         in_memory_module = std::move(module);  // Store in-memory module!
@@ -461,88 +473,37 @@ Compiled compile(const Value& output,
     Compiled c;
     c.p = std::make_shared<Compiled::Impl>();
     c.p->plan = std::move(plan);
-    c.mlir_source = std::move(generated_mlir_string);  // Legacy string-based
-    c.mlir_module_str = std::move(generated_mlir_opbuilder);  // OpBuilder-generated string
+    c.mlir_source = std::move(generated_mlir_string);
     
     // Store in-memory MLIR module (wrap in shared_ptr with custom deleter)
     if (in_memory_module) {
+        // --- Run Nova Optimization Pipeline ---
+        try {
+            mlir::nova::NovaCompilerAPI compiler;
+            mlir::nova::CompilerOptions options;
+            options.runFullPipeline = true;
+            
+            // We use the string output from MLIREmitter to avoid context mismatch issues
+            auto compileResult = compiler.compileString(generated_mlir_opbuilder, "", options);
+            if (compileResult.success) {
+                generated_mlir_opbuilder = compileResult.output;
+                std::cout << "\n=== Optimized MLIR Generated via NovaCompilerAPI ===\n" << generated_mlir_opbuilder << std::endl;
+            } else {
+                std::cerr << "Warning: NovaCompilerAPI pipeline failed: " << compileResult.errorMessage << "\n";
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: NovaCompilerAPI integration failed: " << e.what() << "\n";
+        }
+
         auto* module_ptr = new mlir::OwningOpRef<mlir::ModuleOp>(std::move(in_memory_module));
-        c.mlir_module = std::shared_ptr<void>(module_ptr, [](void* p) {
+        c.mlir_module = std::shared_ptr<void>(module_ptr, [context](void* p) {
             delete static_cast<mlir::OwningOpRef<mlir::ModuleOp>*>(p);
         });
     }
+
+    c.mlir_module_str = std::move(generated_mlir_opbuilder);  // Final (potentially optimized) string
     
     return c;
-
-    //     // Helper to print shape
-    //     auto print_shape_vec = [](const std::vector<int64_t>& shape) {
-    //         std::cout << "[";
-    //         for (size_t k = 0; k < shape.size(); ++k) {
-    //             std::cout << shape[k] << (k == shape.size() - 1 ? "" : ", ");
-    //         }
-    //         std::cout << "]";
-    //     };
-
-    //     // Helper to print dtype
-    //     auto get_dtype_str = [](Dtype dt) -> std::string {
-    //         switch(dt) {
-    //             case Dtype::Float32: return "fp32";
-    //             case Dtype::Float16: return "fp16";
-    //             case Dtype::Bfloat16: return "bf16";
-    //             case Dtype::Int32: return "i32";
-    //             case Dtype::Int64: return "i64";
-    //             default: return "unknown";
-    //         }
-    //     };
-
-    //     for (size_t i = 0; i < plan.steps.size(); ++i) {
-    //         const auto& st = plan.steps[i];
-    //         std::cout << "Step " << i << ": slot[" << st.out_slot << "] = " << op_name(st.op) << "(";
-     
-    //         // Print arguments
-    //         for (size_t j = 0; j < st.args.size(); ++j) {
-    //             std::visit([&](auto&& arg) {
-    //                 using T = std::decay_t<decltype(arg)>;
-    //                 if constexpr (std::is_same_v<T, ArgInput>) {
-    //                     const auto& m = plan.sig.in_meta[arg.idx];
-    //                     std::cout << get_dtype_str(m.dtype);
-    //                     print_shape_vec(m.shape);
-    //                 } else if constexpr (std::is_same_v<T, ArgParam>) {
-    //                     const auto& m = plan.sig.param_meta[arg.idx];
-    //                     std::cout << get_dtype_str(m.dtype);
-    //                     print_shape_vec(m.shape);
-    //                 } else if constexpr (std::is_same_v<T, ArgSlot>) {
-    //                     // Find the step that produced this slot to get its shape
-    //                     bool found = false;
-    //                     for (size_t prev_i = 0; prev_i < i; ++prev_i) {
-    //                         if (plan.steps[prev_i].out_slot == arg.slot) {
-    //                             const auto& m = plan.steps[prev_i].out_meta;
-    //                             std::cout << get_dtype_str(m.dtype);
-    //                             print_shape_vec(m.shape);
-    //                             found = true;
-    //                             break;
-    //                         }
-    //                     }
-    //                     if (!found) std::cout << "slot[" << arg.slot << "]";
-    //                 } else if constexpr (std::is_same_v<T, ArgLit>) {
-    //                     std::cout << get_dtype_str(arg.t.dtype());
-    //                     print_shape_vec(arg.t.shape().dims);
-    //                 }
-    //             }, st.args[j]);
-    
-    //             if (j < st.args.size() - 1) std::cout << ", ";
-    //         }
-    
-    //         std::cout << ") -> shape ";
-    //         print_shape_vec(st.out_meta.shape);
-            
-    //         std::cout << " -> Device [" << (st.out_meta.device.is_cpu() ? "CPU" : "CUDA") << "]\n";
-    //     }
-    // std::cout << "\\n";
-    // Compiled c;
-    // c.p = std::make_shared<Compiled::Impl>();
-    // c.p->plan = std::move(plan);
-    // return c;
 }
 
 bool Compiled::run(const std::vector<Tensor*>& inputs,

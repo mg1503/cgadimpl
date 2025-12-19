@@ -12,9 +12,7 @@ find_package(OpenMP REQUIRED)
 
 # --- MLIR Setup ---
 find_package(MLIR REQUIRED CONFIG)
-find_package(mlir-compiler REQUIRED CONFIG 
-    PATHS /tmp/mlir-compiler-install/lib/cmake/mlir-compiler
-)
+find_package(mlir-compiler REQUIRED CONFIG)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -60,14 +58,52 @@ target_include_directories(cgadimpl PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${LLVM_INCLUDE_DIRS}
     ${MLIR_INCLUDE_DIRS}
-    /tmp/mlir-compiler-install/include
 )
 target_link_libraries(cgadimpl PUBLIC 
     OwnTensor::tensor 
     dl
+    
+    # Nova libraries (higher level first)
+    MlirCompiler::NovaCompilerAPI
+    MlirCompiler::NovaPipelines
+    MlirCompiler::CompilerTransforms
     MlirCompiler::MLIRNova
-    MLIRIR
+    MlirCompiler::AffineTransforms
+    
+    # MLIR Conversion/Transforms
+    MLIRReconcileUnrealizedCasts
+    MLIRTosaToTensor
+    MLIRTosaToLinalg
+    MLIRTosaTransforms
+    MLIRLinalgTransforms
+    MLIRBufferizationTransforms
+    MLIRBufferizationToMemRef
+    MLIRBufferizationPipelines
+    MLIRArithTransforms
+    MLIRTensorTransforms
+    MLIRSCFTransforms
+    MLIRVectorTransforms
+    MLIRMemRefTransforms
+    
+    # MLIR Dialects
+    MLIRLinalgDialect
+    MLIRBufferizationDialect
+    MLIRTosaDialect
+    MLIRArithDialect
+    MLIRMathDialect
+    MLIRMemRefDialect
+    MLIRSCFDialect
+    MLIRControlFlowDialect
+    MLIRTensorDialect
+    MLIRAffineDialect
     MLIRFuncDialect
+    MLIRLLVMDialect
+    MLIRUBDialect
+    MLIRVectorDialect
+    
+    # Core Infrastructure
+    MLIRIR
+    MLIRPass
     MLIRSupport
     LLVMSupport
 )

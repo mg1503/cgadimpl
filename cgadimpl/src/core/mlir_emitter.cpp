@@ -6,24 +6,58 @@
 #include "ad/graph.hpp"
 #include "ad/schema.hpp"
 #include "mlir/IR/Verifier.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/Support/raw_ostream.h"
 #include <sstream>
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+
+#include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/SCF/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
+
 namespace ag::jit {
 
-MLIREmitter::MLIREmitter() 
-    : context_(std::make_unique<mlir::MLIRContext>()) {
+MLIREmitter::MLIREmitter() {
+    context_ = std::make_shared<mlir::MLIRContext>();
     registerDialects();
 }
 
 MLIREmitter::~MLIREmitter() = default;
 
 void MLIREmitter::registerDialects() {
-    // Register Nova dialect
+    mlir::DialectRegistry registry;
+    registry.insert<mlir::nova::NovaDialect,
+                   mlir::func::FuncDialect,
+                   mlir::arith::ArithDialect,
+                   mlir::tensor::TensorDialect,
+                   mlir::linalg::LinalgDialect,
+                   mlir::scf::SCFDialect,
+                   mlir::memref::MemRefDialect,
+                   mlir::vector::VectorDialect,
+                   mlir::bufferization::BufferizationDialect>();
+    
+    // Register BufferizableOpInterface external models
+    mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
+    mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
+    mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
+    mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
+    mlir::vector::registerBufferizableOpInterfaceExternalModels(registry);
+    
+    context_->appendDialectRegistry(registry);
+    // Note: We don't call loadAllAvailableDialects() here because 
+    // we want to load them lazily or specifically as needed.
+    // But for the emitter, we should at least load Nova and Func.
     context_->getOrLoadDialect<mlir::nova::NovaDialect>();
-    // Register Func dialect
     context_->getOrLoadDialect<mlir::func::FuncDialect>();
-    // Register Builtin dialect (always loaded by default)
 }
 
 mlir::Type MLIREmitter::dtypeToMLIRType(mlir::OpBuilder& builder, OwnTensor::Dtype dtype) {
@@ -77,7 +111,15 @@ MLIREmitter::emitModule(const Plan& plan) {
     }
 
     const auto& output_meta = plan.steps.back().out_meta;
-    auto outputType = createTensorType(builder, output_meta.shape, output_meta.dtype);
+    auto output_shape = output_meta.shape;
+    
+    // Total reduction rank adjustment: if it's a total reduction (Sum/MeanAll), it returns rank 0
+    if ((plan.steps.back().op == Op::Sum || plan.steps.back().op == Op::MeanAll) && 
+        output_shape.size() == 1 && output_shape[0] == 1) {
+        output_shape = {};
+    }
+    
+    auto outputType = createTensorType(builder, output_shape, output_meta.dtype);
 
     // Create function type
     auto funcType = builder.getFunctionType(inputTypes, outputType);
@@ -116,10 +158,20 @@ MLIREmitter::emitModule(const Plan& plan) {
             } else if constexpr (std::is_same_v<T, ArgSlot>) {
                 return slotMap[a.slot];
             } else if constexpr (std::is_same_v<T, ArgLit>) {
-                // For literals, we need to create a constant op
-                // For now, throw error - literals need special handling
-                llvm::errs() << "Error: Literal args not yet supported in MLIR emission\n";
-                return mlir::Value();
+                // For literals, we create a nova.constant op
+                const auto& t = a.t;
+                auto shape = t.shape().dims;
+                auto type = createTensorType(builder, shape, t.dtype());
+                
+                // For now, support float32 literals
+                if (t.dtype() == OwnTensor::Dtype::Float32) {
+                    auto data = t.to_cpu();
+                    auto attr = mlir::DenseElementsAttr::get(type, llvm::ArrayRef<float>(static_cast<const float*>(data.data()), t.numel()));
+                    return builder.create<mlir::nova::ConstantOp>(loc, type, attr).getResult();
+                } else {
+                    llvm::errs() << "Error: Unsupported literal dtype in MLIR emission\n";
+                    return mlir::Value();
+                }
             }
         }, arg);
     };
@@ -142,27 +194,54 @@ MLIREmitter::emitModule(const Plan& plan) {
         mlir::Value result;
         auto resultType = createTensorType(builder, step.out_meta.shape, step.out_meta.dtype);
 
+        auto ensureBroadcast = [&](mlir::Value val, mlir::RankedTensorType targetType) -> mlir::Value {
+            auto valType = mlir::cast<mlir::RankedTensorType>(val.getType());
+            if (valType == targetType) return val;
+            
+            auto valShape = valType.getShape();
+            auto targetShape = targetType.getShape();
+            
+            // Simplistic broadcasting for now: align from the right
+            std::vector<int64_t> broadcastDims;
+            int valRank = valType.getRank();
+            int targetRank = targetType.getRank();
+            
+            for (int i = 0; i < valRank; ++i) {
+                broadcastDims.push_back(targetRank - valRank + i);
+            }
+            
+            return builder.create<mlir::nova::BroadcastInDimOp>(
+                loc, targetType, val, builder.getI64ArrayAttr(broadcastDims)
+            ).getResult();
+        };
+
         switch (step.op) {
             case Op::Add:
                 if (operands.size() == 2) {
+                    auto lhs = ensureBroadcast(operands[0], resultType);
+                    auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::AddOp>(
-                        loc, resultType, operands[0], operands[1]
+                        loc, resultType, lhs, rhs
                     ).getResult();
                 }
                 break;
 
             case Op::Sub:
                 if (operands.size() == 2) {
+                    auto lhs = ensureBroadcast(operands[0], resultType);
+                    auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::SubOp>(
-                        loc, resultType, operands[0], operands[1]
+                        loc, resultType, lhs, rhs
                     ).getResult();
                 }
                 break;
 
             case Op::Mul:
                 if (operands.size() == 2) {
+                    auto lhs = ensureBroadcast(operands[0], resultType);
+                        auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::MulOp>(
-                        loc, resultType, operands[0], operands[1]
+                        loc, resultType, lhs, rhs
                     ).getResult();
                 }
                 break;
@@ -209,15 +288,16 @@ MLIREmitter::emitModule(const Plan& plan) {
 
             case Op::Sum:
                 if (operands.size() == 1) {
-                    // Sum all dimensions - dimension is empty array
+                    // Sum all dimensions - Nova expects rank-0 for total reduction if keepdims=false
+                    auto scalarType = mlir::RankedTensorType::get({}, resultType.getElementType());
                     result = builder.create<mlir::nova::ReduceOp>(
                         loc,
                         mlir::nova::ReductionKind::SUM,
                         operands[0],
-                        /*dimension=*/llvm::ArrayRef<int64_t>{},
+                        scalarType,
                         /*keepdims=*/false,
-                        /*ignore_nan=*/false,
-                        resultType
+                        /*dimension=*/llvm::ArrayRef<int64_t>{},
+                        /*ignore_nan=*/false
                     ).getResult();
                 }
                 break;
@@ -229,10 +309,10 @@ MLIREmitter::emitModule(const Plan& plan) {
                         loc,
                         mlir::nova::ReductionKind::SUM,
                         operands[0],
-                        llvm::ArrayRef<int64_t>{1},
+                        resultType,
                         /*keepdims=*/true,
-                        /*ignore_nan=*/false,
-                        resultType
+                        llvm::ArrayRef<int64_t>{1},
+                        /*ignore_nan=*/false
                     ).getResult();
                 }
                 break;
@@ -244,24 +324,25 @@ MLIREmitter::emitModule(const Plan& plan) {
                         loc,
                         mlir::nova::ReductionKind::MAX,
                         operands[0],
-                        llvm::ArrayRef<int64_t>{1},
+                        resultType,
                         /*keepdims=*/true,
-                        /*ignore_nan=*/false,
-                        resultType
+                        llvm::ArrayRef<int64_t>{1},
+                        /*ignore_nan=*/false
                     ).getResult();
                 }
                 break;
 
             case Op::MeanAll:
                 if (operands.size() == 1) {
+                    auto scalarType = mlir::RankedTensorType::get({}, resultType.getElementType());
                     result = builder.create<mlir::nova::ReduceOp>(
                         loc,
                         mlir::nova::ReductionKind::MEAN,
                         operands[0],
-                        llvm::ArrayRef<int64_t>{},
+                        scalarType,
                         /*keepdims=*/false,
-                        /*ignore_nan=*/false,
-                        resultType
+                        llvm::ArrayRef<int64_t>{},
+                        /*ignore_nan=*/false
                     ).getResult();
                 }
                 break;
