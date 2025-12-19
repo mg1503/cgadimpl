@@ -10,20 +10,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <sstream>
 
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-
-#include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
-#include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
-#include "mlir/Dialect/SCF/Transforms/BufferizableOpInterfaceImpl.h"
-#include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
-
 namespace ag::jit {
 
 MLIREmitter::MLIREmitter() {
@@ -34,28 +20,8 @@ MLIREmitter::MLIREmitter() {
 MLIREmitter::~MLIREmitter() = default;
 
 void MLIREmitter::registerDialects() {
-    mlir::DialectRegistry registry;
-    registry.insert<mlir::nova::NovaDialect,
-                   mlir::func::FuncDialect,
-                   mlir::arith::ArithDialect,
-                   mlir::tensor::TensorDialect,
-                   mlir::linalg::LinalgDialect,
-                   mlir::scf::SCFDialect,
-                   mlir::memref::MemRefDialect,
-                   mlir::vector::VectorDialect,
-                   mlir::bufferization::BufferizationDialect>();
-    
-    // Register BufferizableOpInterface external models
-    mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
-    mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
-    mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
-    mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
-    mlir::vector::registerBufferizableOpInterfaceExternalModels(registry);
-    
-    context_->appendDialectRegistry(registry);
-    // Note: We don't call loadAllAvailableDialects() here because 
-    // we want to load them lazily or specifically as needed.
-    // But for the emitter, we should at least load Nova and Func.
+    // The emitter only needs Nova and Func dialects to build the initial IR.
+    // Optimization and bufferization are now handled within NovaCompilerAPI.
     context_->getOrLoadDialect<mlir::nova::NovaDialect>();
     context_->getOrLoadDialect<mlir::func::FuncDialect>();
 }
@@ -194,54 +160,27 @@ MLIREmitter::emitModule(const Plan& plan) {
         mlir::Value result;
         auto resultType = createTensorType(builder, step.out_meta.shape, step.out_meta.dtype);
 
-        auto ensureBroadcast = [&](mlir::Value val, mlir::RankedTensorType targetType) -> mlir::Value {
-            auto valType = mlir::cast<mlir::RankedTensorType>(val.getType());
-            if (valType == targetType) return val;
-            
-            auto valShape = valType.getShape();
-            auto targetShape = targetType.getShape();
-            
-            // Simplistic broadcasting for now: align from the right
-            std::vector<int64_t> broadcastDims;
-            int valRank = valType.getRank();
-            int targetRank = targetType.getRank();
-            
-            for (int i = 0; i < valRank; ++i) {
-                broadcastDims.push_back(targetRank - valRank + i);
-            }
-            
-            return builder.create<mlir::nova::BroadcastInDimOp>(
-                loc, targetType, val, builder.getI64ArrayAttr(broadcastDims)
-            ).getResult();
-        };
-
         switch (step.op) {
             case Op::Add:
                 if (operands.size() == 2) {
-                    auto lhs = ensureBroadcast(operands[0], resultType);
-                    auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::AddOp>(
-                        loc, resultType, lhs, rhs
+                        loc, resultType, operands[0], operands[1]
                     ).getResult();
                 }
                 break;
 
             case Op::Sub:
                 if (operands.size() == 2) {
-                    auto lhs = ensureBroadcast(operands[0], resultType);
-                    auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::SubOp>(
-                        loc, resultType, lhs, rhs
+                        loc, resultType, operands[0], operands[1]
                     ).getResult();
                 }
                 break;
 
             case Op::Mul:
                 if (operands.size() == 2) {
-                    auto lhs = ensureBroadcast(operands[0], resultType);
-                        auto rhs = ensureBroadcast(operands[1], resultType);
                     result = builder.create<mlir::nova::MulOp>(
-                        loc, resultType, lhs, rhs
+                        loc, resultType, operands[0], operands[1]
                     ).getResult();
                 }
                 break;
