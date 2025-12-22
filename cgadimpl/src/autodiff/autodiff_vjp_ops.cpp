@@ -322,8 +322,11 @@ void vjp_Relu(Node* n, const Tensor& gy){
     // 2. Create the mask where output > 0
     Tensor mask = (sign_output + OwnTensor::abs(sign_output, ag::current_stream())) * 0.5f;
 
-    // 3. Apply the mask
-    X->grad += gy * mask;
+    if (X->requires_grad())
+    { 
+        std::lock_guard<std::mutex> lock(X->grad_mutex);
+        X->grad += reduce_for_broadcast(gy, X->value);
+    }
     // --- END FIX ---
 }
 // ===================================================================
@@ -777,18 +780,21 @@ void vjp_Linear(Node* n, const Tensor& gy){
     // VJP for input X: dX = dY @ W. Correct.
     // [B, Out] @ [Out, In] -> [B, In]
     if (X_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(X_node->grad_mutex);
         X_node->grad += OwnTensor::matmul(gy, W);
     }
 
     // VJP for weight W: dW = dY.T @ X. Correct math for Y = X @ W.T + b
     // [Out, B] @ [B, In] -> [Out, In]
     if (W_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(W_node->grad_mutex);
         W_node->grad += OwnTensor::matmul(gy.t(), X);
     }
 
     // VJP for bias b: sum(dY) over batch dimension, keeping rank. Correct.
     // [B, Out] -> reduce(axis=0) -> [1, Out]
     if (b_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(b_node->grad_mutex);
         // Change keepdim from 'false' to 'true'.
         // This makes the result [1, Out] instead of [Out].
         b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
@@ -1039,9 +1045,11 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
     const float scale = 2.0f / static_cast<float>(Z_node->value.numel());
     Tensor diff = Z_node->value - Y_node->value;
     if (Z_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(Z_node->grad_mutex);
         Z_node->grad += (diff * (gy_scalar * scale));
     }
     if (Y_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(Y_node->grad_mutex);
         Y_node->grad += (diff * (-1.0f * gy_scalar * scale));
     }
 }
