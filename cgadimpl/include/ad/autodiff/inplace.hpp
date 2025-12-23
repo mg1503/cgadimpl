@@ -191,6 +191,25 @@ bool recompute_inplace(const std::shared_ptr<Node>& node);
  */
 void clear_inplace_checkpoints();
 
+/*
+ *  get_snapshot_memory_usage():
+ *  ----------------------------
+ *  Returns the total memory used by all snapshots (in bytes).
+ *  Useful for monitoring memory overhead of checkpointing.
+ */
+size_t get_snapshot_memory_usage();
+
+/*
+ *  cleanup_stale_snapshots():
+ *  --------------------------
+ *  Removes snapshots for nodes that already have their values present.
+ *  This frees memory from unnecessary snapshots.
+ *
+ *  Returns:
+ *      Number of bytes freed.
+ */
+size_t cleanup_stale_snapshots();
+
 // -----------------------------------------------------------------------------
 // Versioning and Alias Tracking API
 // -----------------------------------------------------------------------------

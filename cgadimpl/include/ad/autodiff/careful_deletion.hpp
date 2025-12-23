@@ -60,6 +60,9 @@ enum class DeletePolicy {
     Aggressive,  // Forcefully delete tensors when not explicitly protected.
                  // Higher risk of recomputation errors if used carelessly,
                  // but saves more memory in long training runs.
+    ForwardPass, // Special mode for Gradient Checkpointing.
+                 // Allows deleting nodes even if gradients are needed,
+                 // assuming they can be recomputed from checkpoints.
 };
 
 // ------------------------------------------------------------
@@ -110,7 +113,7 @@ struct DeletionGuard {
  *  This function helps reclaim unused intermediate tensors 
  *  during forward/backward passes without corrupting graph state.
  */
-bool try_delete_node(Node* node, DeletePolicy policy = DeletePolicy::AlwaysSafe);
+bool try_delete_node(Node* node, DeletePolicy policy = DeletePolicy::AlwaysSafe, const std::unordered_set<Node*>* protected_nodes = nullptr);
 
 // ------------------------------------------------------------
 // sweep_safe_nodes()
@@ -138,7 +141,8 @@ bool try_delete_node(Node* node, DeletePolicy policy = DeletePolicy::AlwaysSafe)
  *
  *  This helps perform bulk cleanup after forward or backward passes.
  */
-void sweep_safe_nodes(const Value& root, DeletePolicy policy = DeletePolicy::AlwaysSafe);
+void sweep_safe_nodes(const Value& root, DeletePolicy policy = DeletePolicy::AlwaysSafe, const std::unordered_set<Node*>& protected_nodes = {});
+void sweep_with_checkpoint_priority(const Value& root, size_t target_memory_mb);
 
 // ------------------------------------------------------------
 // debug_deletion_state()
@@ -159,6 +163,7 @@ void sweep_safe_nodes(const Value& root, DeletePolicy policy = DeletePolicy::Alw
  *  in complex models (like large transformers).
  */
 void debug_deletion_state();
+void reset_deletion_stats();
 
 } // namespace memory
 } // namespace ag

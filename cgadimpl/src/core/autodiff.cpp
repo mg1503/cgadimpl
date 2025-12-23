@@ -62,7 +62,7 @@ void backward(const Value& root, const Tensor* grad_seed){
 
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
-        if (n->is_checkpoint && n->value.numel() == 0) {
+        if (n->is_checkpoint && (n->value.numel() == 0 || n->value.allocated_bytes() == 0)) {
         if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
         }

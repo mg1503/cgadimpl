@@ -2,6 +2,7 @@
 // cgadimpl/src/tools/debug.cpp
 // =========================================
 #include "ad/utils/debug.hpp"
+#include <ad/autodiff/checkpoint.hpp>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -144,6 +145,24 @@ void enable_grad_tracing(bool on) { g_trace_bp = on; }
 
 // --- backprop step hook ---
 void on_backprop_step(Node* n, const Tensor& gy) {
+    // HOOK: Ensure inputs are present before VJP
+    // This is critical when we delete intermediate checkpoints.
+    // The current node 'n' might be an Anchor (preserved), but its inputs
+    // might be deleted checkpoints. We must recompute them now.
+    for (auto& input : n->inputs) {
+        if (input && input->is_checkpoint) {
+            // Check if value is missing (numel == 0)
+            if (input->value.numel() == 0) {
+                ag::checkpoint_impl::recompute_subgraph(input);
+            }
+        }
+    }
+
+    // Also ensure 'n' itself is present (though usually it is if we are here)
+    if (n->is_checkpoint && n->value.numel() == 0) {
+        ag::checkpoint_impl::recompute_subgraph(n->shared_from_this());
+    }
+
     if (!g_trace_bp) return;
     auto shp = n->value.shape();
     std::cout << "[VJP] node @" << n << " op=" << op_name(n->op)

@@ -5,241 +5,291 @@
 // Implements safe memory cleanup logic for autodiff nodes,
 // respecting checkpointing, alias tracking, and gradient dependencies.
 //
-// The functions in this file are part of the `ag::memory` subsystem
-// and are designed to help reclaim memory safely during or after
-// forward/backward computations without breaking the computational graph.
-//
-// They ensure that tensors are only freed when they are no longer needed
-// for gradient computation, recomputation, or alias/view consistency.
-//
+// Enhanced with checkpoint integration and memory pressure detection.
 
 #include "ad/autodiff/careful_deletion.hpp"
 #include "ad/autodiff/inplace.hpp"
+#include "ad/autodiff/checkpoint.hpp"
 #include "ad/utils/debug.hpp"
 #include <iostream>
 #include <mutex>
+#include <algorithm>
 
 namespace ag {
 namespace memory {
 
 using namespace ag::inplace;
 
-/*
- * =============================================================
- * Overview
- * =============================================================
- * 
- * The goal of this file is to manage **safe tensor deletion** for graph nodes
- * while maintaining correctness in automatic differentiation (autodiff).
- * 
- * In deep learning frameworks, each operation (node) holds:
- *     - a `value` tensor (its output),
- *     - a `grad` tensor (for accumulated gradient),
- *     - connections to its input nodes (parents).
- *
- * After a backward pass, many of these tensors are no longer needed.
- * However, we cannot simply free them immediately, because:
- *     - Some nodes are part of **checkpoints** (will be recomputed later).
- *     - Some tensors share memory with other tensors (aliases/views).
- *     - Some nodes’ gradients have not yet been fully propagated.
- *
- * To handle this safely, this file defines rules to determine when
- * a node’s data can be safely freed.
- *
- * The main functions are:
- *      `try_delete_node()` – checks and frees a single node safely.
- *      `sweep_safe_nodes()` – performs a global cleanup pass.
- *      `debug_deletion_state()` – prints the current deletion summary.
- */
+// ============================================================================
+// Statistics and Monitoring
+// ============================================================================
 
-// -----------------------------------------------------------------------------
-// Internal helper functions (not exposed to users)
-// -----------------------------------------------------------------------------
+struct DeletionStats {
+    size_t nodes_deleted = 0;
+    size_t nodes_skipped = 0;
+    size_t memory_freed = 0;
+    
+    void reset() {
+        nodes_deleted = 0;
+        nodes_skipped = 0;
+        memory_freed = 0;
+    }
+    
+    void print() const {
+        std::cout << "=== Memory Deletion Statistics ===\n";
+        std::cout << "Nodes deleted: " << nodes_deleted << "\n";
+        std::cout << "Nodes skipped: " << nodes_skipped << "\n";
+        std::cout << "Memory freed: " << (memory_freed / 1024.0 / 1024.0) << " MB\n";
+        std::cout << "==================================\n";
+    }
+};
 
-/*
- *  has_active_alias():
- *  -------------------
- *  Checks whether the given node participates in an alias group.
- *  Inplace or view operations can cause multiple tensors to share
- *  the same underlying data storage (e.g., slicing, transpose, etc.).
- *
- *  If such aliasing exists, deleting one tensor may accidentally
- *  invalidate others, so deletion must be skipped.
- *
- *  Uses `inplace::detail::has_alias()` — an internal helper that
- *  tracks alias groups created by in-place operations.
- *
- *  Parameters:
- *      n : pointer to a Node in the computational graph
- *
- *  Returns:
- *      true  — if this node’s tensor storage is shared with others
- *      false — if the tensor has exclusive ownership
- */
+static DeletionStats g_deletion_stats;
+
+// ============================================================================
+// Memory Estimation
+// ============================================================================
+
+static size_t estimate_node_memory(Node* node) {
+    if (!node) return 0;
+    size_t total = 0;
+    if (node->value.numel() > 0) {
+        total += node->value.numel() * sizeof(float);
+    }
+    if (node->grad.numel() > 0) {
+        total += node->grad.numel() * sizeof(float);
+    }
+    return total;
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
 static bool has_active_alias(Node* n) {
     if (!n) return false;
     return inplace::detail::has_alias(n);
 }
 
-/*
- *  gradients_done():
- *  -----------------
- *  Checks whether all gradient dependencies for a node have been resolved.
- *  In autodiff, nodes accumulate gradients from their children.
- *  We must not delete a node until all its parents’ gradient computations
- *  are finished, or it could break the gradient chain.
- *
- *  This simple check iterates over the node’s input edges and ensures
- *  that no parent still requires gradient updates.
- *
- *  Parameters:
- *      n : pointer to a Node
- *
- *  Returns:
- *      true  — if no parent node still requires gradients
- *      false — if gradient propagation is still ongoing
- */
 static bool gradients_done(Node* n) {
     if (!n) return false;
     for (auto& p : n->inputs) {
         if (p && p->requires_grad())
-            return false;  // at least one parent still needs its gradient
+            return false;
     }
     return true;
 }
 
-// -----------------------------------------------------------------------------
-// Public API: Core Safe Deletion Logic
-// -----------------------------------------------------------------------------
+// ============================================================================
+// Enhanced Deletion Logic
+// ============================================================================
 
-/*
- *  try_delete_node():
- *  -------------------
- *  Safely attempts to free a single node’s tensor data (`value` and `grad`)
- *  based on several safety checks and a user-specified deletion policy.
- *
- *  This function performs a series of ordered checks to decide
- *  whether the node can be safely deleted:
- *
- *    1 Skip leaf nodes (`Op::Leaf`) — these are constants or parameters.
- *    2 Skip checkpointed nodes — their activations are needed for recomputation.
- *    3 Skip aliased tensors — shared buffers cannot be safely deleted.
- *    4 Skip nodes whose gradients are not yet fully propagated.
- *    5 If all checks pass → delete value and gradient tensors.
- *
- *  Parameters:
- *      node   : pointer to target Node to check and delete
- *      policy : deletion behavior
- *               - `AlwaysSafe` → only delete when 100% safe.
- *               - `Aggressive` → delete eagerly, even if risky.
- *
- *  Returns:
- *      true  — if the node’s data was safely freed.
- *      false — if the node was skipped for safety.
- *
- *  Notes:
- *      - This is designed to be called repeatedly after backward().
- *      - Aggressive deletion optionally erases in-place metadata via
- *        `inplace::detail::erase_snapshot(node)` to free alias info too.
- */
-bool try_delete_node(Node* node, DeletePolicy policy) {
+bool try_delete_node(Node* node, DeletePolicy policy, const std::unordered_set<Node*>* protected_nodes) {
     if (!node) return false;
 
-    // 1 Skip parameter or constant leaf nodes (never delete their tensors)
-    if (node->op == Op::Leaf) return false;
+    // 0. Check explicit protection
+    if (protected_nodes && protected_nodes->count(node)) {
+        g_deletion_stats.nodes_skipped++;
+        return false;
+    }
 
-    // 2  Skip checkpoint nodes — these must remain for recomputation
-    if (node->is_checkpoint) return false;
+    // 1. Skip leaf nodes
+    if (node->op == Op::Leaf) {
+        g_deletion_stats.nodes_skipped++;
+        return false;
+    }
 
-    // 3  Skip nodes with active alias relationships
-    if (has_active_alias(node)) return false;
+    // 2. Skip checkpoint nodes (unless aggressive policy or forward pass)
+    // For ForwardPass, we allow deleting checkpoints because we use explicit protection
+    // for the ones we want to keep (anchors).
+    if (node->is_checkpoint && policy != DeletePolicy::Aggressive && policy != DeletePolicy::ForwardPass) {
+        g_deletion_stats.nodes_skipped++;
+        return false;
+    }
 
-    // 4  Skip if gradients are still required by parent nodes
-    if (!gradients_done(node)) return false;
+    // 3. Skip nodes with active aliases
+    if (has_active_alias(node)) {
+        g_deletion_stats.nodes_skipped++;
+        return false;
+    }
 
-    // 5 Otherwise, it is safe to free this node’s memory
-    // node->value = Tensor(OwnTensor::Shape{}, ag::options(node->value)); // release the tensor’s data buffer
-    // node->grad  = Tensor(OwnTensor::Shape{}, ag::options(node->grad));  // release gradient memory as well
+    // 4. Skip if gradients still required
+    // Exception: If policy is ForwardPass, we assume recomputation is possible,
+    // so we can delete even if gradients are needed (as long as it's not a checkpoint).
+    if (policy != DeletePolicy::ForwardPass && !gradients_done(node)) {
+        g_deletion_stats.nodes_skipped++;
+        return false;
+    }
+
+    // 5. Estimate memory to be freed
+    size_t mem_freed = estimate_node_memory(node);
+
+    // 6. Free memory
+    // Explicitly assign empty tensor to ensure numel() == 0.
+    node->value = Tensor();
     
-    node->value.reset(); // release the tensor’s data buffer
-    node->grad.reset();  // release gradient memory as well
+    // Only delete gradient if NOT in ForwardPass mode.
+    // In ForwardPass (checkpointing), we need the gradient tensor to remain valid (allocated by zero_grad)
+    // because autodiff expects it to have correct shape for accumulation and VJP.
+    if (policy != DeletePolicy::ForwardPass) {
+        node->grad = Tensor();
+    }
 
-
-    // Optional: if aggressive policy, clear alias or metadata info completely
+    // 7. Optional: aggressive cleanup
     if (policy == DeletePolicy::Aggressive) {
         inplace::detail::erase_snapshot(node);
     }
 
-    // Debug message — logs every node freed
-    std::cout << "[careful_delete] Freed node@" << node
-              << " op=" << op_name(node->op)
-              << " policy=" << (policy == DeletePolicy::AlwaysSafe ? "Safe" : "Aggressive")
-              << "\n";
+    // 8. Update statistics
+    g_deletion_stats.nodes_deleted++;
+    g_deletion_stats.memory_freed += mem_freed;
+
+    // std::cout << "[careful_delete] Freed node@" << node
+    //           << " op=" << op_name(node->op)
+    //           << " mem=" << (mem_freed / 1024.0) << "KB"
+    //           << " policy=" << (policy == DeletePolicy::AlwaysSafe ? "Safe" : "Aggressive")
+    //           << "\n";
     return true;
 }
 
-// -----------------------------------------------------------------------------
-// sweep_safe_nodes()
-// -----------------------------------------------------------------------------
+// ============================================================================
+// Smart Memory Pressure Detection
+// ============================================================================
 
-/*
- *  sweep_safe_nodes():
- *  --------------------
- *  Traverses the entire computation graph starting from the given `root`
- *  and attempts to delete all nodes that can be safely freed according to
- *  the current policy.
- *
- *  Process:
- *      - Performs a topological traversal of all reachable nodes.
- *      - For each node, calls `try_delete_node(node, policy)`.
- *      - Tracks how many nodes were successfully freed.
- *
- *  Parameters:
- *      root   : The Value object (typically the model output or loss)
- *      policy : Deletion policy (Safe or Aggressive)
- *
- *  Output:
- *      Prints how many nodes were deleted during this cleanup pass.
- *
- *  Typical usage:
- *      after backward():
- *          memory::sweep_safe_nodes(output, memory::DeletePolicy::AlwaysSafe);
- */
-void sweep_safe_nodes(const Value& root, DeletePolicy policy) {
-    auto order = topo_from(root.node.get()); // Get nodes in topological order
+enum class MemoryPressure {
+    LOW,     // < 50% of snapshots used
+    MEDIUM,  // 50-80% of snapshots used
+    HIGH     // > 80% of snapshots used
+};
+
+static MemoryPressure detect_memory_pressure() {
+    size_t snapshot_mem = inplace::get_snapshot_memory_usage();
+    // Simple heuristic: if snapshot memory is high, pressure is high
+    // In production, this would check against available system memory
+    
+    if (snapshot_mem > 1024 * 1024 * 1024) {  // > 1GB
+        return MemoryPressure::HIGH;
+    } else if (snapshot_mem > 512 * 1024 * 1024) {  // > 512MB
+        return MemoryPressure::MEDIUM;
+    }
+    return MemoryPressure::LOW;
+}
+
+// ============================================================================
+// Sweep with Memory Pressure Awareness
+// ============================================================================
+
+void sweep_safe_nodes(const Value& root, DeletePolicy policy, const std::unordered_set<Node*>& protected_nodes) {
+    if (!root.node) return;
+    
+    auto order = topo_from(root.node.get());
     int freed = 0;
+    
+    // First, try to cleanup stale snapshots
+    size_t snapshot_freed = inplace::cleanup_stale_snapshots();
+    if (snapshot_freed > 0) {
+        std::cout << "[careful_delete] Cleaned up " << (snapshot_freed / 1024.0 / 1024.0) 
+                  << " MB of stale snapshots\n";
+    }
+    
+    // Detect memory pressure
+    MemoryPressure pressure = detect_memory_pressure();
+    
+    // Adjust policy based on memory pressure
+    DeletePolicy effective_policy = policy;
+    if (pressure == MemoryPressure::HIGH && policy == DeletePolicy::AlwaysSafe) {
+        std::cout << "[careful_delete] High memory pressure detected, using aggressive policy\n";
+        effective_policy = DeletePolicy::Aggressive;
+    }
+    
+    // Delete nodes
     for (Node* n : order) {
-        if (try_delete_node(n, policy))
+        // FIX: Always protect the root node (the result we are holding)
+        if (n == root.node.get()) {
+            continue;
+        }
+        
+        if (try_delete_node(n, effective_policy, &protected_nodes))
             ++freed;
     }
+    
     std::cout << "[careful_delete] Sweep complete. Freed " << freed << " nodes.\n";
 }
 
-// -----------------------------------------------------------------------------
-// debug_deletion_state()
-// -----------------------------------------------------------------------------
+// ============================================================================
+// Smart Sweep with Checkpoint Priority
+// ============================================================================
 
-/*
- *  debug_deletion_state():
- *  ------------------------
- *  Prints the current deletion system state for debugging purposes.
- *  Intended for developers to monitor how many deletions occurred
- *  and whether the policy is operating correctly.
- *
- *  Current output:
- *      - Header label
- *      - Static message (can be extended for memory stats)
- *
- *  Future extensions might include:
- *      - Number of live nodes
- *      - Number of protected (checkpointed / aliased) nodes
- *      - Approximate freed memory in bytes
- *      - Snapshot statistics from inplace::detail
- */
+void sweep_with_checkpoint_priority(const Value& root, size_t target_memory_mb) {
+    if (!root.node) return;
+    
+    auto order = topo_from(root.node.get());
+    
+    // Build list of non-checkpoint nodes sorted by memory usage
+    struct NodeMemInfo {
+        Node* node;
+        size_t memory;
+        bool is_checkpoint;
+    };
+    
+    std::vector<NodeMemInfo> candidates;
+    for (Node* n : order) {
+        if (n->op == Op::Leaf) continue;
+        if (has_active_alias(n)) continue;
+        if (!gradients_done(n)) continue;
+        
+        NodeMemInfo info;
+        info.node = n;
+        info.memory = estimate_node_memory(n);
+        info.is_checkpoint = n->is_checkpoint;
+        candidates.push_back(info);
+    }
+    
+    // Sort: non-checkpoints first, then by memory (largest first)
+    std::sort(candidates.begin(), candidates.end(), 
+              [](const NodeMemInfo& a, const NodeMemInfo& b) {
+                  if (a.is_checkpoint != b.is_checkpoint)
+                      return !a.is_checkpoint;  // non-checkpoints first
+                  return a.memory > b.memory;   // larger memory first
+              });
+    
+    // Delete until target reached
+    size_t freed_mb = 0;
+    size_t target_bytes = target_memory_mb * 1024 * 1024;
+    
+    for (const auto& info : candidates) {
+        if (freed_mb >= target_bytes) break;
+        
+        DeletePolicy policy = info.is_checkpoint ? DeletePolicy::Aggressive : DeletePolicy::AlwaysSafe;
+        if (try_delete_node(info.node, policy)) {
+            freed_mb += info.memory;
+        }
+    }
+    
+    std::cout << "[careful_delete] Priority sweep freed " << (freed_mb / 1024.0 / 1024.0) << " MB\n";
+}
+
+// ============================================================================
+// Debug and Statistics
+// ============================================================================
+
 void debug_deletion_state() {
     std::cout << "=== Careful Deletion Debug ===\n";
-    std::cout << "(This function prints only runtime-safe deletes)\n";
-    // Future work: add statistics on remaining nodes or allocated bytes
+    g_deletion_stats.print();
+    std::cout << "Snapshot memory: " << (inplace::get_snapshot_memory_usage() / 1024.0 / 1024.0) << " MB\n";
+    
+    MemoryPressure pressure = detect_memory_pressure();
+    std::cout << "Memory pressure: ";
+    switch (pressure) {
+        case MemoryPressure::LOW: std::cout << "LOW\n"; break;
+        case MemoryPressure::MEDIUM: std::cout << "MEDIUM\n"; break;
+        case MemoryPressure::HIGH: std::cout << "HIGH\n"; break;
+    }
+    std::cout << "==============================\n";
+}
+
+void reset_deletion_stats() {
+    g_deletion_stats.reset();
 }
 
 } // namespace memory
