@@ -50,6 +50,14 @@ static std::unordered_map<Node*, TensorMeta>    g_meta;
 static std::unordered_map<void*, std::unordered_set<Node*>> g_alias; 
 static std::mutex g_lock; // protects all global maps from concurrent access
 
+// Statistics for snapshot memory tracking
+static size_t g_total_snapshot_memory = 0;
+
+static size_t estimate_snapshot_memory(const Tensor& t) {
+    if (t.numel() == 0) return 0;
+    return t.numel() * sizeof(float); // Rough estimate
+}
+
 // -----------------------------------------------------------------------------
 // Internal Helper Functions
 // -----------------------------------------------------------------------------
@@ -147,12 +155,19 @@ void mark_inplace_checkpoint(const NodePtr& node, const InplaceOptions& opts) {
         node->saved_inputs.emplace_back(p ? Value(p) : Value());
 
     // Create snapshot entry
-    // Create and initialize the snapshot entry in one step
+    Tensor snapshot_copy = node->value.clone();
+    size_t snapshot_mem = estimate_snapshot_memory(snapshot_copy);
+    
     SnapshotEntry entry {
-        .snapshot = node->value.clone(),
+        .snapshot = snapshot_copy,
         .version_at_save = get_tensor_version(node.get())
     };
-    g_snapshots[node.get()] = entry;
+    
+    {
+        std::lock_guard<std::mutex> guard(g_lock);
+        g_snapshots[node.get()] = entry;
+        g_total_snapshot_memory += snapshot_mem;
+    }
 
     // Link alias tracking
     register_tensor_alias((void*)node->value.data(), node.get());
@@ -167,8 +182,9 @@ void mark_inplace_checkpoint(const NodePtr& node, const InplaceOptions& opts) {
         shape_ss << "]";
 
         std::cout << "[inplace] checkpoint @" << node.get()
-                  << " shape=" << shape_ss.str() // Use the new shape string
-                  << " version=" << entry.version_at_save << "\n";
+                  << " shape=" << shape_ss.str()
+                  << " version=" << entry.version_at_save
+                  << " mem=" << (snapshot_mem / 1024.0) << "KB\n";
     }
 }
 
@@ -267,42 +283,43 @@ bool ensure_inplace_value(const NodePtr& node) {
         return true;
     }
 
-    // Retrieve snapshot safely (without holding lock during recompute)
- // 1. Declare a POINTER to a SnapshotEntry. Initialize to null.
-    const SnapshotEntry* snap_ptr = nullptr;
+    // Retrieve snapshot safely - copy the snapshot to avoid holding lock
+    bool has_snapshot = false;
+    Tensor snapshot_copy;
+    size_t snapshot_version = 0;
+    
     {
         std::lock_guard<std::mutex> guard(g_lock);
         auto sit = g_snapshots.find(raw);
         if (sit != g_snapshots.end()) {
-            // If we find it, make our pointer point to the entry in the map.
-            snap_ptr = &sit->second;
+            has_snapshot = true;
+            snapshot_copy = sit->second.snapshot;  // Copy tensor
+            snapshot_version = sit->second.version_at_save;
         }
     }
-    // The lock is now released. 'snap_ptr' is either null or points to a valid entry.
 
     size_t meta_ver = get_tensor_version(raw);
 
-    // 2. Check if the pointer is not null (i.e., we found a snapshot).
-    if (snap_ptr) {
+    if (has_snapshot) {
         std::cerr << "[inplace] found snapshot for node@" << raw
-                  << " snap_ver=" << snap_ptr->version_at_save // Use '->' for pointers
+                  << " snap_ver=" << snapshot_version
                   << " meta_ver=" << meta_ver << "\n";
 
         // Case 1: snapshot is valid
-        if (meta_ver == 0 || snap_ptr->version_at_save == meta_ver) {
-            node->value = snap_ptr->snapshot; // Use '->' for pointers
+        if (meta_ver == 0 || snapshot_version == meta_ver) {
+            node->value = snapshot_copy;
             propagate_to_aliases(raw, node->value);
             std::cerr << "[inplace] restored snapshot for node@" << raw << "\n";
             {
                 std::lock_guard<std::mutex> guard(g_lock);
                 if (g_meta.find(raw) == g_meta.end())
-                    g_meta[raw].version = snap_ptr->version_at_save;
+                    g_meta[raw].version = snapshot_version;
             }
             return true;
         }
 
         // Case 2: snapshot is outdated → prefer recomputation
-        std::cerr << "[inplace] snapshot stale (snap=" << snap_ptr->version_at_save
+        std::cerr << "[inplace] snapshot stale (snap=" << snapshot_version
                   << " meta=" << meta_ver << ") -> recompute\n";
         bool recomputed = recompute_inplace(node);
         if (recomputed) {
@@ -311,13 +328,11 @@ bool ensure_inplace_value(const NodePtr& node) {
         }
 
         // Case 3: recompute failed → fallback to snapshot anyway
-        std::cerr << "[inplace] recompute failed; fallback to snapshot\n";
-        node->value = snap_ptr->snapshot; // Use '->'
+        std::cerr << "[inplace] recompute failed; fallback to stale snapshot\n";
+        node->value = snapshot_copy;
         propagate_to_aliases(raw, node->value);
         return true;
     }
-
-    // --- END OF THE FIX ---
 
     // Case 4: no snapshot but checkpointed → recompute
     if (node->is_checkpoint) {
@@ -367,6 +382,36 @@ void clear_inplace_checkpoints() {
     g_snapshots.clear();
     g_meta.clear();
     g_alias.clear();
+    g_total_snapshot_memory = 0;
+}
+
+// Get current snapshot memory usage
+size_t get_snapshot_memory_usage() {
+    std::lock_guard<std::mutex> guard(g_lock);
+    return g_total_snapshot_memory;
+}
+
+// Clean up stale snapshots to free memory
+size_t cleanup_stale_snapshots() {
+    std::lock_guard<std::mutex> guard(g_lock);
+    size_t freed = 0;
+    std::vector<Node*> to_remove;
+    
+    for (auto& [node_ptr, entry] : g_snapshots) {
+        // Remove snapshots for nodes that have been deleted or have current values
+        if (!node_ptr || (node_ptr->value.numel() != 0)) {
+            size_t mem = estimate_snapshot_memory(entry.snapshot);
+            freed += mem;
+            to_remove.push_back(node_ptr);
+        }
+    }
+    
+    for (Node* n : to_remove) {
+        g_snapshots.erase(n);
+    }
+    
+    g_total_snapshot_memory -= freed;
+    return freed;
 }
 
 // -----------------------------------------------------------------------------
@@ -422,7 +467,9 @@ bool erase_snapshot(Node* node) {
     std::lock_guard<std::mutex> guard(g_lock);
     auto it = g_snapshots.find(node);
     if (it != g_snapshots.end()) {
+        size_t mem = estimate_snapshot_memory(it->second.snapshot);
         g_snapshots.erase(it);
+        g_total_snapshot_memory -= mem;
         return true;
     }
     return false;

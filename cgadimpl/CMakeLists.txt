@@ -46,7 +46,7 @@ set(CGADIMPL_SRC ${CGADIMPL_SRC_ROOT} ${CGADIMPL_SRC_SUBDIRS})
 # file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # ---- Library Definition ----
-add_library(cgadimpl STATIC ${CGADIMPL_SRC})
+add_library(cgadimpl SHARED ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
@@ -58,11 +58,11 @@ if(true)
   enable_testing()
   function(add_ag_test name src)
     add_executable(${name} ${src})
-    target_link_libraries(${name} PRIVATE cgadimpl::cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
+    target_link_libraries(${name} PRIVATE cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   
-  set(CUDA_TEST_SOURCES tests/test_kernels_gpu.cpp tests/test_graph_gpu.cpp tests/test_end_to_end_gpu.cpp)
+  set(CUDA_TEST_SOURCES tests/test_kernels_gpu.cpp tests/test_graph_gpu.cpp tests/test_end_to_end_gpu.cpp tests/test_core_ops_gpu.cpp)
   set_source_files_properties(${CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
 
   add_ag_test(test_ag                    tests/test_ag.cpp)
@@ -73,6 +73,10 @@ if(true)
   add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test                    tests/test.cpp)
   add_ag_test(test_checkpoint                    tests/test_checkpoint.cpp)
+  add_ag_test(test_checkpoint_comprehensive      tests/test_checkpoint_comprehensive.cpp)
+  add_ag_test(test_checkpoint_memory_savings     tests/test_checkpoint_memory_savings.cpp)
+  add_ag_test(test_tensor_numel                  tests/test_tensor_numel.cpp)
+  add_ag_test(test_checkpoint_production         tests/test_checkpoint_production.cpp)
   add_ag_test(test_inplace                    tests/test_inplace.cpp)
   add_ag_test(test_careful_deletion                    tests/test_careful_deletion.cpp)
   add_ag_test(test_nn                    tests/test_nn.cpp)
@@ -82,10 +86,11 @@ if(true)
   add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
   add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
   # add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
-  add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
-  # add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
+  add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp) #this works
+  add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
   add_ag_test(test_kitchen_sink_mlp                   tests/test_kitchen_sink_mlp.cpp)
-  # add_ag_test(test_gantlet                    tests/test_gantlet.cpp)  #this works
+  add_ag_test(test_gantlet                    tests/test_gantlet.cpp)  #this works
+  add_ag_test(test_suite                    tests/test_suite.cpp)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

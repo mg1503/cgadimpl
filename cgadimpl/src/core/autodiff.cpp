@@ -57,17 +57,17 @@ void backward(const Value& root, const Tensor* grad_seed){
         Node* n = *it;
         // The requires_grad() check is now a function call
         if (!n->requires_grad()) continue;
-         std::cout << "  [Backward Step] Op: " << op_name(n->op) 
-                  << " (Node @" << n << ", Name: " << n->debug_name << ")" << std::endl;
-        std::cout << "    > Incoming Grad (dL/d" << n->debug_name << ") has shape: [" 
-                  << n->grad.shape().dims[0] << "x" << n->grad.shape().dims[1] << "]" << std::endl;
-        std::cout << "    > Calling VJP function: vjp_" << op_name(n->op) << "()" << std::endl;
+        //  std::cout << "  [Backward Step] Op: " << op_name(n->op) 
+        //           << " (Node @" << n << ", Name: " << n->debug_name << ")" << std::endl;
+        // std::cout << "    > Incoming Grad (dL/d" << n->debug_name << ") has shape: [" 
+        //           << n->grad.shape().dims[0] << "x" << n->grad.shape().dims[1] << "]" << std::endl;
+        // std::cout << "    > Calling VJP function: vjp_" << op_name(n->op) << "()" << std::endl;
         // --- END PRINTING ---
         const Tensor& gy = n->grad;
 
         ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
-        if (n->is_checkpoint && n->value.numel() == 0) {
+        if (n->is_checkpoint && (n->value.numel() == 0 || n->value.allocated_bytes() == 0)) {
         if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
             throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
         }

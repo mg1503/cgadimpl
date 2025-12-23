@@ -67,11 +67,11 @@ static std::vector<Node*> build_topo_order_impl(Node* root) {
     std::unordered_set<Node*> vis; vis.reserve(256);
     std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
     dfs(root);
-    std::cout << "--- Topological Sort Result (inside topo_from) ---" << std::endl;
-    for (const auto* n : order) {
-        std::cout << "  Node @" << n << " (Op: " << op_name(n->op) << ", Name: " << n->debug_name << ")" << std::endl;
-    }
-    std::cout << "----------------------------------------------------" << std::endl;
+    // std::cout << "--- Topological Sort Result (inside topo_from) ---" << std::endl;
+    // for (const auto* n : order) {
+    //     std::cout << "  Node @" << n << " (Op: " << op_name(n->op) << ", Name: " << n->debug_name << ")" << std::endl;
+    // }
+    // std::cout << "----------------------------------------------------" << std::endl;
 
 
     return order; // parents before child

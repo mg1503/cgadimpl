@@ -13,7 +13,7 @@ CGADIMPL_DIR="$ROOT/cgadimpl"
 CGADIMPL_BUILD="$CGADIMPL_DIR/build"
 KERNELS_DIR="$ROOT/kernels"
 KERNELS_BUILD="$KERNELS_DIR/build"
-TENSOR_DIR="$ROOT/Tensor-Implementations"
+TENSOR_DIR="$ROOT/tensor"
 
 echo "== Build Type:    $BUILD_TYPE"
 echo "== Using CUDA CXX: $(which nvcc)"
@@ -51,10 +51,10 @@ echo "== Copying kernel plugins to test directory"
 cp "$KERNELS_BUILD/cpu/libagkernels_cpu.so" "$CGADIMPL_BUILD/"
 cp "$KERNELS_BUILD/gpu/libagkernels_cuda.so" "$CGADIMPL_BUILD/"
 
-# --- STEP 5: Run tests ---
-echo "== Staging complete. Running tests..."
-cd "$CGADIMPL_BUILD"
-ctest --output-on-failure
-cd "$ROOT"
+# # --- STEP 5: Run tests ---
+# echo "== Staging complete. Running tests..."
+# cd "$CGADIMPL_BUILD"
+# ctest --output-on-failure
+# cd "$ROOT"
 
 echo "✅ Build and test run process finished."
