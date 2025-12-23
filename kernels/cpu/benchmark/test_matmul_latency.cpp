@@ -1,10 +1,11 @@
 // #include "benchmark_utils.hpp"
 // #include <Eigen/Dense>
 
-// extern "C" {
-//     void matmul_impl_naive(const float*, const float*, float*, int, int, int);
-//     void matmul_impl_optimized(const float*, const float*, float*, int, int, int);
-// }
+extern "C" {
+    void matmul_impl_naive(const float*, const float*, float*, int, int, int);
+    void matmul_impl_optimized(const float*, const float*, float*, int, int, int);
+    void matmul_impl_cudatile(const float*, const float*, float*, int, int, int);
+}
 
 // void benchmark_latency(int M, int K, int N, int runs) {
 //     std::cout << "\n--- Benchmarking Latency: " << M << "x" << K << "x" << N << " (" << runs << " runs) ---" << std::endl;
@@ -34,15 +35,18 @@
 //                   << (total_us / runs) << " us" << std::endl;
 //     };
 
-//     run_latency("Naive", matmul_impl_naive);
-//     run_latency("Optimized", matmul_impl_optimized);
-//     run_latency("Eigen", eigen_func);
-// }
+    run_latency("Naive", matmul_impl_naive);
+    run_latency("Optimized", matmul_impl_optimized);
+    run_latency("Eigen", eigen_func);
+    run_latency("CUDA Tiling", matmul_impl_cudatile);
+}
 
-// int main() {
-//     std::cout << "===== MatMul Latency Benchmark =====" << std::endl;
-//     benchmark_latency(8, 8, 8, 100000);
-//     benchmark_latency(16, 16, 16, 50000);
-//     benchmark_latency(32, 32, 32, 10000);
-//     return 0;
-// }
+int main() {
+    std::cout << "===== MatMul Latency Benchmark =====" << std::endl;
+    benchmark_latency(8, 8, 8, 100000);
+    benchmark_latency(16, 16, 16, 50000);
+    benchmark_latency(32, 32, 32, 10000);
+    benchmark_latency(256, 256, 256, 100);
+    benchmark_latency(1024, 1024, 1024, 10);
+    return 0;
+}

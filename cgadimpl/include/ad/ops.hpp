@@ -81,9 +81,8 @@ Value linear(const Value& a, const Value& b, const Value& c); // fused multiply-
 Value attention(const Value& a, const Value& b, const Value& c, const Value& d);
 Value mse_loss(const Value& pred, const Value& target);
 Value mae_loss(const Value& pred, const Value& target);
-
-
 Tensor forward_eval_node(Node* node);
+
 
 
 } // namespace ag

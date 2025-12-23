@@ -328,7 +328,8 @@ return Value(detail::realrms_nodeops(x.node, g));
  *      6️⃣  If unsupported, throw a runtime error.
  */
 Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
-    if (!node) throw std::runtime_error("forward_eval_node: null node");
+    if (!node)
+        throw std::runtime_error("forward_eval_node: null node");
 
     switch (node->op) {
 
@@ -338,17 +339,17 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         case Op::Add: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
-            return A + B;
+            return A + B; // elementwise addition
         }
         case Op::Sub: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
-            return A - B;
+            return A - B; // elementwise subtraction
         }
         case Op::Mul: {
             const Tensor &A = node->inputs[0]->value;
             const Tensor &B = node->inputs[1]->value;
-            return A * B;
+            return A * B; // elementwise multiplication
         }
 
         // ============================================================
@@ -477,7 +478,7 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
  *      - Uses a custom deleter `[](Node*){}` to prevent freeing.
  */
 Tensor forward_eval_node(Node* node) {
-    // Non-owning shared_ptr wrapper (no deletion)
+    // Non-owning shared_ptr wrapper — prevents deletion of node
     return forward_eval_node(std::shared_ptr<Node>(node, [](Node*){}));
 }
 
@@ -514,7 +515,7 @@ Tensor forward_eval_node(Node* node) {
  *      backward(loss);
  */
 Value checkpoint(const Value &v, const CheckpointOptions &opts) {
-    if (!v.node) return v;
+    if (!v.node) return v; // safety check: skip if Value has no node
     ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);
     return v;
 }

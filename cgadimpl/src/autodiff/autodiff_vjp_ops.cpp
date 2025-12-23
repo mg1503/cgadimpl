@@ -39,49 +39,49 @@
 //     if (B->requires_grad) B->grad.add_( rt( gy * A->value, B->value) );
 // }
 
-// // ----- elementwise trinary -----
-// void vjp_FMA(Node* n, const Tensor& gy){
-//     Node* A = n->inputs[0].get();
-//     Node* B = n->inputs[1].get();
-//     Node* C = n->inputs[2].get();
+// ----- elementwise trinary -----
+void vjp_FMA(Node* n, const Tensor& gy){
+    Node* A = n->inputs[0].get();
+    Node* B = n->inputs[1].get();
+    Node* C = n->inputs[2].get();
 
-//     // External kernel (if plugin loaded), else fallback to Tensor::matmul
-//     auto* mm = ag::kernels::cpu().matmul;
+    // External kernel (if plugin loaded), else fallback to Tensor::matmul
+    auto* mm = ag::kernels::cpu().matmul;
 
-//     // Shapes
-//     const Tensor& At = A->value;
-//     const Tensor& Bt = B->value;
-//     auto [M, K]  = At.shape();
-//     auto [K2, N] = Bt.shape();
-//     (void)K2; // assume forward already checked
+    // Shapes
+    const Tensor& At = A->value;
+    const Tensor& Bt = B->value;
+    auto [M, K]  = At.shape();
+    auto [K2, N] = Bt.shape();
+    (void)K2; // assume forward already checked
 
-//     if (A->requires_grad){
-//         Tensor BT = Tensor::transpose(Bt); // (N x K)
-//         Tensor dA(M, K);                   // temp buffer
+    if (A->requires_grad){
+        Tensor BT = Tensor::transpose(Bt); // (N x K)
+        Tensor dA(M, K);                   // temp buffer
 
-//         if (mm) {
-//             // dA = gy (MxN) * BT (NxK)
-//             mm(gy.data(), BT.data(), dA.data(), M, N, K);
-//         } else {
-//             dA = Tensor::matmul(gy, BT);
-//         }
-//         A->grad.add_(dA);
-//     }
+        if (mm) {
+            // dA = gy (MxN) * BT (NxK)
+            mm(gy.data(), BT.data(), dA.data(), M, N, K);
+        } else {
+            dA = Tensor::matmul(gy, BT);
+        }
+        A->grad.add_(dA);
+    }
 
-//     if (B->requires_grad){
-//         Tensor AT = Tensor::transpose(At); // (K x M)
-//         Tensor dB(K, N);                   // temp buffer
+    if (B->requires_grad){
+        Tensor AT = Tensor::transpose(At); // (K x M)
+        Tensor dB(K, N);                   // temp buffer
 
-//         if (mm) {
-//             // dB = AT (KxM) * gy (MxN)
-//             mm(AT.data(), gy.data(), dB.data(), K, M, N);
-//         } else {
-//             dB = Tensor::matmul(AT, gy);
-//         }
-//         B->grad.add_(dB);
-//     }
-//     if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
-// }
+        if (mm) {
+            // dB = AT (KxM) * gy (MxN)
+            mm(AT.data(), gy.data(), dB.data(), K, M, N);
+        } else {
+            dB = Tensor::matmul(AT, gy);
+        }
+        B->grad.add_(dB);
+    }
+    if (C->requires_grad) C->grad.add_( rt(gy, C->value) );
+}
 
 // void vjp_LayerNorm(Node* n, const Tensor& gy){
 
