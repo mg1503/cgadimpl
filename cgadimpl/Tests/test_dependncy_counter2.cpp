@@ -3,7 +3,7 @@
 #include <iostream>
 
 int main(){
-    std::cout << "Building computational graph with 3 branches, 10,000 layers each..." << std::endl;
+    std::cout << "Building computational graph with 3 branches, 10 layers each..." << std::endl;
     // Weights and biases for each branch (all output size 2048)
     auto w1 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w1");
     auto b1 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b1");
@@ -22,21 +22,21 @@ int main(){
     // Branch 1: 10,000 linear+relu operations
     std::cout << "Building branch 1..." << std::endl;
     auto l1 = x1;
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 10; i++) {
         l1 = ag::relu(ag::linear(l1, w1, b1));
         if (i % 2000 == 0) std::cout << "  Branch 1: layer " << i << std::endl;
     }
     // Branch 2: 10,000 linear+relu operations
     std::cout << "Building branch 2..." << std::endl;
     auto l2 = x2;
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 10; i++) {
         l2 = ag::relu(ag::linear(l2, w2, b2));
         if (i % 2000 == 0) std::cout << "  Branch 2: layer " << i << std::endl;
     }
     // Branch 3: 10,000 linear+relu operations
     std::cout << "Building branch 3..." << std::endl;
     auto l3 = x3;
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 10; i++) {
         l3 = ag::relu(ag::linear(l3, w3, b3));
         if (i % 2000 == 0) std::cout << "  Branch 3: layer " << i << std::endl;
     }

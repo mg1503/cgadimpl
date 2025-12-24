@@ -33,6 +33,31 @@ std::string shape_str(const Tensor& t) {
     return os.str();
 }
 
+// Helper to handle automatic rendering if filename ends in .png, .jpg, etc.
+void auto_render(const std::string& dot_path, const std::string& target_path) {
+    if (dot_path == target_path) return; // Nothing to do if it's already a .dot file
+
+    std::string ext = "";
+    size_t dot_pos = target_path.find_last_of('.');
+    if (dot_pos != std::string::npos) {
+        ext = target_path.substr(dot_pos + 1);
+    }
+
+    // Supported image formats for Graphviz
+    if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "pdf" || ext == "svg") {
+        std::string cmd = "dot -T" + ext + " " + dot_path + " -o " + target_path;
+        int ret = std::system(cmd.c_str());
+        if (ret == 0) {
+            std::cout << "Successfully rendered image to: " << target_path << "\n";
+            // Optionally remove the temporary .dot file
+            std::string rm_cmd = "rm " + dot_path;
+            std::system(rm_cmd.c_str());
+        } else {
+            std::cerr << "Error: 'dot' command failed to render image. DOT file preserved at: " << dot_path << "\n";
+        }
+    }
+}
+
 } // anon
 
 void enable_tracing(bool on) { g_trace = on; }
@@ -130,8 +155,25 @@ void dump_dot(const Value& root, const std::string& filepath){
 
     out << "}\n";
     out.close();
-    std::cout << "Wrote graph DOT to: " << filepath << "\n"
-                 "Render with: dot -Tpng " << filepath << " -o build/graph.png\n";    
+
+    // If the user provided an image extension, render it.
+    std::string dot_file = filepath;
+    bool is_image = false;
+    if (filepath.size() > 4) {
+        std::string ext = filepath.substr(filepath.size() - 4);
+        if (ext == ".png" || ext == ".jpg" || ext == ".svg" || ext == ".pdf") is_image = true;
+    }
+    if (filepath.size() > 5 && filepath.substr(filepath.size() - 5) == ".jpeg") is_image = true;
+
+    if (is_image) {
+        dot_file = filepath + ".dot";
+        // Rename the original file to .dot temporarily
+        std::rename(filepath.c_str(), dot_file.c_str());
+        auto_render(dot_file, filepath);
+    } else {
+        std::cout << "Wrote graph DOT to: " << filepath << "\n"
+                  "Render with: dot -Tpng " << filepath << " -o build/graph.png\n";    
+    }
 
 }
 // ======================================================================
@@ -187,8 +229,23 @@ void dump_vjp_dot(const Value& root, const std::string& filepath) {
 
     out << "}\n";
     out.close();
-    std::cout << "Wrote VJP DOT to: " << filepath << "\n"
-                 "Render with: dot -Tpng " << filepath << " -o build/graph_vjp.png\n";
+
+    std::string dot_file = filepath;
+    bool is_image = false;
+    if (filepath.size() > 4) {
+        std::string ext = filepath.substr(filepath.size() - 4);
+        if (ext == ".png" || ext == ".jpg" || ext == ".svg" || ext == ".pdf") is_image = true;
+    }
+    if (filepath.size() > 5 && filepath.substr(filepath.size() - 5) == ".jpeg") is_image = true;
+
+    if (is_image) {
+        dot_file = filepath + ".dot";
+        std::rename(filepath.c_str(), dot_file.c_str());
+        auto_render(dot_file, filepath);
+    } else {
+        std::cout << "Wrote VJP DOT to: " << filepath << "\n"
+                     "Render with: dot -Tpng " << filepath << " -o build/graph_vjp.png\n";
+    }
 }
 // ============================================================================
 // JVP graph (green arrows parent->child)
@@ -235,8 +292,23 @@ void dump_jvp_dot(const Value& root, const std::string& filepath) {
     }
     out << "}\n";
     out.close();
-    std::cout << "Wrote JVP DOT to: " << filepath
-              << "\nRender: dot -Tpng " << filepath << " -o build/graph_jvp.png\n";
+
+    std::string dot_file = filepath;
+    bool is_image = false;
+    if (filepath.size() > 4) {
+        std::string ext = filepath.substr(filepath.size() - 4);
+        if (ext == ".png" || ext == ".jpg" || ext == ".svg" || ext == ".pdf") is_image = true;
+    }
+    if (filepath.size() > 5 && filepath.substr(filepath.size() - 5) == ".jpeg") is_image = true;
+
+    if (is_image) {
+        dot_file = filepath + ".dot";
+        std::rename(filepath.c_str(), dot_file.c_str());
+        auto_render(dot_file, filepath);
+    } else {
+        std::cout << "Wrote JVP DOT to: " << filepath
+                  << "\nRender: dot -Tpng " << filepath << " -o build/graph_jvp.png\n";
+    }
 }
 
 } // namespace ag::debug

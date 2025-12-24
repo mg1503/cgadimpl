@@ -115,9 +115,11 @@ int main() {
         // --- FIX: Inspect the grad via the VALUE handle, not the TENSOR handle ---
         debug::print_grad("Grad of b (before)", b);
         debug::print_grad("Grad of bias (before)", bias);
-        
+        ag::debug::dump_dot(y, "graph.jpg");
+
         zero_grad(y);
         backward(y);
+        ag::debug::dump_vjp_dot(y, "vjp.jpg");
 
         cout << "\n--- Backward Pass Results ---\n";
         debug::print_grad("Grad of y (dL/dy)", y);

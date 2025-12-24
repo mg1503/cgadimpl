@@ -101,6 +101,8 @@ if(true)
   add_ag_test(test_dependency_performance        Tests/test_dependency_performance.cpp)
   add_ag_test(test_dependency_weight_tying       Tests/test_dependency_weight_tying.cpp)
   add_ag_test(test_dependency_deep_branching     Tests/test_dependency_deep_branching.cpp)
+  add_ag_test(time_estimation                   Tests/test_time_execution.cpp)
+
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")
