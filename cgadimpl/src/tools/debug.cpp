@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_set>
+#include <chrono>
+#include "ad/autodiff/autodiff.hpp"
 
 namespace ag::debug {
 
@@ -32,6 +34,16 @@ std::string shape_str(const Tensor& t) {
     }
     return os.str();
 }
+
+// dtype extractor
+std::string dtype_str( const Tensor& t){
+    std::ostringstream os;
+
+    std::string dtype_var = get_dtype_name(t.dtype());
+    os<<dtype_var;
+    return os.str();
+}
+
 
 // Helper to handle automatic rendering if filename ends in .png, .jpg, etc.
 void auto_render(const std::string& dot_path, const std::string& target_path) {
@@ -138,7 +150,7 @@ void dump_dot(const Value& root, const std::string& filepath){
      for (Node* n : order) {
         std::ostringstream id; id << "n" << n;
         std::ostringstream lab;
-        lab  << op_name(n->op) << "\\n" << shape_str(n->value); // Correct
+        lab  << op_name(n->op) << "\\n" << shape_str(n->value) << "\\n"<< dtype_str(n->value) ; // Correct
         std::string color = (n->op==Op::Leaf ? (n->requires_grad() ? "lightgoldenrod1" : "lightgrey")
                                              : (n->requires_grad() ? "lightblue" : "white")); // Correct
         out << "  " << id.str()
@@ -309,6 +321,121 @@ void dump_jvp_dot(const Value& root, const std::string& filepath) {
         std::cout << "Wrote JVP DOT to: " << filepath
                   << "\nRender: dot -Tpng " << filepath << " -o build/graph_jvp.png\n";
     }
+}
+
+void print_dag_summary(const Value& root) {
+    if (!root.node) {
+        std::cout << "DAG Summary: Empty graph\n";
+        return;
+    }
+    auto order = topo_from(root.node.get());
+    size_t num_nodes = order.size();
+    size_t num_leaves = 0;
+    size_t num_trainable = 0;
+    size_t total_params = 0;
+    std::unordered_map<Op, int> op_counts;
+
+    for (Node* n : order) {
+        op_counts[n->op]++;
+        if (n->is_leaf) {
+            num_leaves++;
+            if (n->requires_grad()) {
+                num_trainable++;
+                total_params += n->value.numel();
+            }
+        }
+    }
+
+    std::cout << "=== DAG Summary ===\n";
+    std::cout << "Total Nodes:      " << num_nodes << "\n";
+    std::cout << "Leaf Nodes:       " << num_leaves << " (" << num_trainable << " trainable)\n";
+    std::cout << "Trainable Params: " << total_params << "\n";
+    std::cout << "Op Breakdown:\n";
+    for (auto const& [op, count] : op_counts) {
+        std::cout << "  - " << std::left << std::setw(15) << op_name(op) << ": " << count << "\n";
+    }
+    std::cout << "===================\n";
+}
+
+bool validate_dag(const Value& root) {
+    if (!root.node) return true;
+    
+    // Cycle detection using DFS (White/Gray/Black coloring)
+    std::unordered_map<Node*, int> color; // 0=White, 1=Gray, 2=Black
+    
+    std::function<bool(Node*)> has_cycle = [&](Node* n) -> bool {
+        color[n] = 1; // Gray
+        for (auto& input : n->inputs) {
+            if (!input) continue;
+            if (color[input.get()] == 1) return true; // Found gray node -> cycle
+            if (color[input.get()] == 0) {
+                if (has_cycle(input.get())) return true;
+            }
+        }
+        color[n] = 2; // Black
+        return false;
+    };
+
+    if (has_cycle(root.node.get())) {
+        std::cerr << "DAG Validation Failed: Cycle detected in graph!\n";
+        return false;
+    }
+
+    // Check connectivity (all nodes path to root) - inherent in topo_from/traversal
+    // Check for null inputs
+    auto order = topo_from(root.node.get());
+    for (Node* n : order) {
+        for (size_t i = 0; i < n->inputs.size(); ++i) {
+            if (!n->inputs[i]) {
+                std::cerr << "DAG Validation Warning: Node " << op_name(n->op) << " @" << n 
+                          << " has null input at index " << i << "\n";
+            }
+        }
+    }
+
+    std::cout << "DAG Validation successful: No cycles found, " << order.size() << " nodes reachable.\n";
+    return true;
+}
+
+void benchmark_dag(const Value& root, int iterations) {
+    if (!root.node) return;
+    
+    std::cout << "=== Starting DAG Benchmark (" << iterations << " iterations) ===\n";
+    
+    // 1. Measure Forward (approx by topo + dummy traverse if we don't have a clean 'forward' handle)
+    // Actually, 'root' is already the result of forward. 
+    // To bench forward properly, we'd need a closure. 
+    // Let's bench topo vs total.
+    
+    auto start_topo = std::chrono::high_resolution_clock::now();
+    for(int i=0; i<iterations; ++i) {
+        auto order = topo_from(root.node.get());
+    }
+    auto end_topo = std::chrono::high_resolution_clock::now();
+    
+    // 2. Measure Backward
+    auto start_bw = std::chrono::high_resolution_clock::now();
+    for(int i=0; i<iterations; ++i) {
+        backward(root, nullptr, false); // sequential
+    }
+    auto end_bw = std::chrono::high_resolution_clock::now();
+    
+    auto start_bw_p = std::chrono::high_resolution_clock::now();
+    for(int i=0; i<iterations; ++i) {
+        backward(root, nullptr, true); // parallel
+    }
+    auto end_bw_p = std::chrono::high_resolution_clock::now();
+    
+    auto topo_ms = std::chrono::duration_cast<std::chrono::microseconds>(end_topo - start_topo).count() / (float)iterations;
+    auto bw_ms = std::chrono::duration_cast<std::chrono::microseconds>(end_bw - start_bw).count() / (float)iterations;
+    auto bw_p_ms = std::chrono::duration_cast<std::chrono::microseconds>(end_bw_p - start_bw_p).count() / (float)iterations;
+    
+    std::cout << "Topo Sort:        " << std::fixed << std::setprecision(2) << topo_ms << " us\n";
+    std::cout << "Backward (seq):   " << bw_ms << " us\n";
+    std::cout << "Backward (par):   " << bw_p_ms << " us\n";
+    if (bw_ms > 0)
+        std::cout << "Parallel Speedup: " << (float)bw_ms / bw_p_ms << "x\n";
+    std::cout << "===========================================\n";
 }
 
 } // namespace ag::debug

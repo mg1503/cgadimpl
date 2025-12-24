@@ -23,6 +23,11 @@ void print_all_values(const Value& root);               // topo-ordered values
 void print_all_grads (const Value& root);               // topo-ordered grads
 void dump_dot(const Value& root, const std::string& filepath); // GraphViz .dot
 
+// ---- DAG Analysis ----
+void print_dag_summary(const Value& root);              // Print node counts, param counts, etc.
+bool validate_dag(const Value& root);                   // Check for cycles and connectivity
+void benchmark_dag(const Value& root, int iterations = 10); // Measure performance
+
 // ---- internal: called by ops after creating a node ----
 void on_node_created(const std::shared_ptr<Node>& n);
 
