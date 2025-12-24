@@ -86,9 +86,11 @@ int main() {
     Value logits = ag::linear(L3, W4, b4);
     debug::print_value("logits = linear(L3, W4, b4)", logits);
 
+
     // --- 4. Loss and Backward Pass ---
     Value loss = ag::mse_loss(logits, Y);
 
+    ag::debug::dump_dot(loss, "graph_mlp.jpg");
     backward(loss);
     ag::hlo::dump_stablehlo(loss,  "build/mlp_test_hlo.mlir");
     // --- 5. Print All Gradients ---

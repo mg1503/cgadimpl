@@ -25,6 +25,7 @@ int main(){
 
         ag::debug::print_value("Loss (l)", l);
         ag::zero_grad(l);
+        ag::debug::dump_dot(l, "graph_jgrvk.jpg");
         ag::backward(l, nullptr, true);
     
         ag::debug::print_grad("Grad of j",j);
