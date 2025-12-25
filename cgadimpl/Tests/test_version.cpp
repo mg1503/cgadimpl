@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
 #include "ad/ag_all.hpp"
-#include "ad/inplace.hpp"
-#include "ad/debug.hpp" // --- FIX: Include for printing ---
+#include "ad/autodiff/inplace.hpp"
+#include "ad/utils/debug.hpp" // --- FIX: Include for printing ---
 
 using namespace ag;
 using namespace OwnTensor; // For Shape, TensorOptions

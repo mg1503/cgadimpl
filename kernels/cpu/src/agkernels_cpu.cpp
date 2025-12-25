@@ -2,7 +2,7 @@
 // kernels/cpu/src/agkernels_cpu.cpp
 // =============================================
 
-#include "ad/kernels_api.hpp"
+#include "ad/ops/kernels_api.hpp"
 #include <cstdint>
 #include <cmath>
 // Headers for CPU intrinsics (AVX/FMA) and OpenMP

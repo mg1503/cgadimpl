@@ -1,0 +1,37 @@
+// =============================================================================
+// FILE: ops/normalization.def
+// PURPOSE: Normalization layers for stabilizing training
+// =============================================================================
+//
+// Normalization is CRITICAL for training deep networks. Without it:
+//   - Gradients explode or vanish
+//   - Training is unstable
+//   - Learning rates must be tiny
+//
+// Types implemented:
+//   - LayerNorm: Normalizes across features (used in Transformers)
+//   - RMSNorm: Simpler, faster variant (used in LLaMA, Gemma)
+//   - DynTanh: Dynamic tanh-based normalization
+//
+// Forward formula (LayerNorm):
+//   y = (x - mean(x)) / sqrt(var(x) + ε) * γ + β
+//
+// VJP is complex because mean/var depend on all elements:
+//   ∂L/∂x = (1/σ) * (gy - mean(gy) - x̂ * mean(gy * x̂))
+//   where x̂ = normalized x, σ = std dev
+//
+// These operations SAVE intermediates on the tape for backward!
+// =============================================================================
+
+// --- Layer Normalization ---
+OP(LayerNorm,     1, "layernorm")      // Basic LayerNorm (no learnable params)
+OP(RealLayerNorm, 4, "reallayernorm")  // LayerNorm with γ (gain) and β (bias)
+                                       // Arity=4: [input, gamma, beta, epsilon_placeholder]
+
+// --- RMS Normalization (faster, used in modern LLMs) ---
+OP(RMSNorm,       1, "rmsnorm")        // x / sqrt(mean(x²) + ε)
+OP(RealRMSNorm,   1, "realrmsnorm")    // RMSNorm with learnable scale
+
+// --- Dynamic Normalization ---
+OP(Dyntanh,       4, "dyntanh")        // Dynamic tanh: b + g * tanh(a * x)
+                                       // Arity=4: [x, a, b, g] where a,b,g are scalars

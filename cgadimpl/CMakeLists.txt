@@ -1,5 +1,11 @@
 
+
 cmake_minimum_required(VERSION 3.20)
+
+# --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
+set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
+
+project(cgadimpl LANGUAGES CXX CUDA)
 
 # --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
 set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
@@ -53,6 +59,10 @@ set(CGADIMPL_SRC ${CGADIMPL_SRC_ROOT} ${CGADIMPL_SRC_SUBDIRS})
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
 add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 
+# target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
+# target_include_directories(cgadimpl PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_include_directories(cgadimpl PRIVATE /usr/local/cuda/include)
+# target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
 target_include_directories(cgadimpl PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -117,30 +127,48 @@ if(true)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   
-  set(CUDA_TEST_SOURCES tests/test_kernels_gpu.cpp tests/test_graph_gpu.cpp tests/test_end_to_end_gpu.cpp)
+  set(CUDA_TEST_SOURCES Tests/test_kernels_gpu.cpp Tests/test_graph_gpu.cpp Tests/test_end_to_end_gpu.cpp)
   set_source_files_properties(${CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
 
-  add_ag_test(test_ag                    tests/test_ag.cpp)
-  add_ag_test(test_mlp                    tests/test_mlp.cpp)
-  add_ag_test(test_complex_mlp                    tests/test_complex_mlp.cpp)
-  # add_ag_test(test_bench_relu                    tests/bench_relu.cpp)
-  add_ag_test(test_tiny_handcalc                    tests/tiny_handcalc.cpp)
-  add_ag_test(test_graph_compile                    tests/test_graph_compile.cpp)
-  add_ag_test(ag_core_test                    tests/test.cpp)
-  add_ag_test(test_checkpoint                    tests/test_checkpoint.cpp)
-  add_ag_test(test_inplace                    tests/test_inplace.cpp)
-  add_ag_test(test_careful_deletion                    tests/test_careful_deletion.cpp)
-  add_ag_test(test_nn                    tests/test_nn.cpp)
-  add_ag_test(test_version                    tests/test_version.cpp)
-  add_ag_test(test_nodeops                    tests/test_nodeops.cpp)
-  # add_ag_test(test_kernels_cpu                    tests/test_kernels_cpu.cpp)
-  add_ag_test(test_vjp_kernels                    tests/test_end_to_end_gpu.cpp)
-  add_ag_test(test_nn_mlp                    tests/test_mlp_training.cpp)
-  # add_ag_test(test_kernels_gpu                    tests/test_kernels_gpu.cpp)
-  add_ag_test(test_graph_cuda                    tests/test_graph_gpu.cpp)
-  # add_ag_test(test_core_ops_gpu                    tests/test_core_ops_gpu.cpp)
-  add_ag_test(test_kitchen_sink_mlp                   tests/test_kitchen_sink_mlp.cpp)
-  # add_ag_test(test_gantlet                    tests/test_gantlet.cpp)  #this works
+  add_ag_test(test_ag                    Tests/test_ag.cpp)
+  add_ag_test(test_mlp                    Tests/test_mlp.cpp)
+  add_ag_test(test_complex_mlp                    Tests/test_complex_mlp.cpp)
+  # add_ag_test(test_bench_relu                    Tests/bench_relu.cpp)
+  add_ag_test(test_tiny_handcalc                    Tests/tiny_handcalc.cpp)
+  add_ag_test(test_graph_compile                    Tests/test_graph_compile.cpp)
+  add_ag_test(ag_core_test                    Tests/test.cpp)
+  add_ag_test(test_checkpoint                    Tests/test_checkpoint.cpp)
+  add_ag_test(test_inplace                    Tests/test_inplace.cpp)
+  # add_ag_test(test_careful_deletion                    Tests/test_careful_deletion.cpp)
+  add_ag_test(test_nn                    Tests/test_nn.cpp)
+  # add_ag_test(test_version                    Tests/test_version.cpp)
+  add_ag_test(test_nodeops                    Tests/test_nodeops.cpp)
+  # add_ag_test(test_kernels_cpu                    Tests/test_kernels_cpu.cpp)
+  add_ag_test(test_vjp_kernels                    Tests/test_end_to_end_gpu.cpp)
+  add_ag_test(test_nn_mlp                    Tests/test_mlp_training.cpp)
+  # add_ag_test(test_kernels_gpu                    Tests/test_kernels_gpu.cpp)
+  add_ag_test(test_graph_cuda                    Tests/test_graph_gpu.cpp)
+  add_ag_test(test_core_ops_gpu                    Tests/test_core_ops_gpu.cpp)
+  add_ag_test(test_kitchen_sink_mlp                   Tests/test_kitchen_sink_mlp.cpp)
+  # add_ag_test(test_gantlet                    Tests/test_gantlet.cpp)  #this works
+  add_ag_test(test_scheme                    Tests/test_scheme.cpp)
+  add_ag_test(test_phase1_metadata            Tests/test_phase1_metadata.cpp)  # Phase 1 critical metadata
+  add_ag_test(test_phase1_advanced            Tests/test_phase1_advanced.cpp)  # Phase 1 advanced edge cases
+  add_ag_test(test_dependency_counter                         Tests/test_dependency_counter.cpp )
+  add_ag_test(test_dependncy_counter2                        Tests/test_dependncy_counter2.cpp)
+  
+  # Comprehensive dependency counter test suite
+  add_ag_test(test_dependency_diamond            Tests/test_dependency_diamond.cpp)
+  add_ag_test(test_dependency_wide_fanout        Tests/test_dependency_wide_fanout.cpp)
+  add_ag_test(test_dependency_multi_join         Tests/test_dependency_multi_join.cpp)
+  add_ag_test(test_dependency_correctness        Tests/test_dependency_correctness.cpp)
+  add_ag_test(test_dependency_performance        Tests/test_dependency_performance.cpp)
+  add_ag_test(test_dependency_weight_tying       Tests/test_dependency_weight_tying.cpp)
+  add_ag_test(test_dependency_deep_branching     Tests/test_dependency_deep_branching.cpp)
+  add_ag_test(time_estimation                   Tests/test_time_execution.cpp)
+  add_ag_test(test_dag_analysis                Tests/test_dag_analysis.cpp)
+  add_ag_test(test_warmup                      Tests/test_warmup.cpp)
+
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

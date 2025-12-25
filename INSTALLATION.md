@@ -24,7 +24,6 @@ tensor/src/core/Tensor.cpp: ( 2 updates)
         }
 
     2) copy_
-    
 
     Tensor& Tensor::copy_(const Tensor& src)
         {

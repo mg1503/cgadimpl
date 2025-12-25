@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 #include "tensor.hpp"
-#include "ad/schema.hpp"
+#include "ad/core/schema.hpp"
 
 namespace ag {
 struct Node;

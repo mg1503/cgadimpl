@@ -15,7 +15,7 @@
 #include <string>
 #include <variant>
 #include "tensor.hpp"
-#include "ad/schema.hpp"  // For Op enum and op_name
+#include "ad/core/schema.hpp"  // For Op enum and op_name
 
 namespace ag {
 

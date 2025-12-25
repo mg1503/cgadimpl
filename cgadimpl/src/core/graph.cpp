@@ -1,7 +1,7 @@
 // =====================
 // file: cgadimpl/src/graph.cpp
 // =====================
-#include "ad/graph.hpp"
+#include "ad/core/graph.hpp"
 #include <unordered_set>
 #include <functional>
 #include <cassert>
@@ -17,8 +17,13 @@ Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm)
     : op(op_), 
       value(v),
       requires_grad_flag_(req_grad),
-      debug_name(nm) 
+      debug_name(nm),
+      is_leaf(op_ == Op::Leaf)  // Phase 1.1: Mark leaf nodes
 {
+    // Phase 1.3: Capture execution context
+    creation_context.stream = current_stream();
+    creation_context.device = v.device();
+    
     if (requires_grad_flag_) {
         // CORRECT WAY:
         // 1. Create a TensorOptions object with the correct properties.
@@ -30,7 +35,7 @@ Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm)
         grad = OwnTensor::Tensor::zeros(v.shape(), ag::options(v));
     }/*else {
         // If no grad is required, grad can be an empty tensor.
-        grad = Tensor(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device()));
+        // grad = Tensor(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device()));
     }*/
 }
 
@@ -67,13 +72,6 @@ static std::vector<Node*> build_topo_order_impl(Node* root) {
     std::unordered_set<Node*> vis; vis.reserve(256);
     std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
     dfs(root);
-    std::cout << "--- Topological Sort Result (inside topo_from) ---" << std::endl;
-    for (const auto* n : order) {
-        std::cout << "  Node @" << n << " (Op: " << op_name(n->op) << ", Name: " << n->debug_name << ")" << std::endl;
-    }
-    std::cout << "----------------------------------------------------" << std::endl;
-
-
     return order; // parents before child
 }
 
@@ -115,7 +113,7 @@ std::vector<Node*> topo_from(Node* root){
 // ===================================================================  
 #include <unordered_map>
 #include <variant>
-#include <ad/runtime.hpp>
+#include <ad/runtime/runtime.hpp>
 #include <ad/mlir_emitter.hpp>
 #include "Compiler/API/NovaCompilerAPI.h"
 #include "mlir/IR/BuiltinOps.h"  // For ModuleOp definition

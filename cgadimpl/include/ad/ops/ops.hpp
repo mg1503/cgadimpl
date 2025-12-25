@@ -2,9 +2,9 @@
 // file: cgadimpl/include/ag/ops.hpp (declarations only)
 // =====================
 #pragma once
-#include "ad/graph.hpp"
-#include "ad/nodeops.hpp"
-#include "ad/checkpoint.hpp"
+#include "ad/core/graph.hpp"
+#include "ad/ops/nodeops.hpp"
+#include "ad/autodiff/checkpoint.hpp"
 
 
 namespace ag {
@@ -44,11 +44,15 @@ Value mish (const Value& x);
 Value gaus (const Value& x);
 Value parcon(const Value& x);
 Value sigmoid(const Value& x);
+Value tan(const Value& x);
+Value asin(const Value& x);
+Value acos(const Value& x);
+Value atan(const Value& x);
 Value softplus(const Value& x);
 Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d); 
 Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d); 
 
-
+Value sin(const Value& a, const Value& b);
 Value gelu (const Value& x); // tanh approx
 Value silu (const Value& x); // x * sigmoid(x)
 Value leaky_relu(const Value& x, float alpha=0.01f); // alpha via const input

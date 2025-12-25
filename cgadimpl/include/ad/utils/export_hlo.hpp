@@ -3,7 +3,7 @@
 // =============================================
 #pragma once
 #include <string>
-#include "ad/graph.hpp"
+#include "ad/core/graph.hpp"
 
 namespace ag::hlo {
 

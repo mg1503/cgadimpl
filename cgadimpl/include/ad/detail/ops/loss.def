@@ -1,0 +1,40 @@
+// =============================================================================
+// FILE: ops/loss.def
+// PURPOSE: Loss functions for training neural networks
+// =============================================================================
+//
+// Loss functions measure how wrong our predictions are. Training = minimizing loss.
+//
+// Categories:
+//   1. Classification losses: CrossEntropy, KL Divergence
+//   2. Regression losses: MSE, MAE
+//
+// IMPORTANT: These are typically the ROOT of the backward pass!
+//   backward(loss) starts here and propagates gradients to all parameters.
+//
+// VJP patterns:
+//   - MSELoss:  ∂L/∂pred = 2(pred - target) / N
+//   - MAELoss:  ∂L/∂pred = sign(pred - target) / N
+//   - CE:       ∂L/∂logits = (softmax(logits) - onehot) / N
+//   - KL:       ∂L/∂P = log(P/Q) + 1
+//
+// Note: Cross entropy uses log-softmax internally for numerical stability!
+// =============================================================================
+
+// --- Classification Losses ---
+OP(CeWithLogits,  2, "ce_with_logits")   // Cross-entropy from raw logits
+                                          // Arity=2: (logits, one_hot_targets)
+                                          // Internally: -sum(target * log_softmax(logits))
+
+OP(KLDivergence,  2, "kldivergence")     // KL(P || Q) divergence
+                                          // Arity=2: (P, Q) distributions
+                                          // Formula: sum(P * log(P/Q))
+
+// --- Regression Losses ---
+OP(MSELoss,       2, "mseloss")          // Mean Squared Error
+                                          // Formula: mean((pred - target)²)
+                                          // Good for: regression, reconstruction
+
+OP(MAELoss,       2, "maeloss")          // Mean Absolute Error (L1 Loss)
+                                          // Formula: mean(|pred - target|)
+                                          // More robust to outliers than MSE

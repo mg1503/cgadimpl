@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ad/graph.hpp"
-#include "ad/ops.hpp"
+#include "ad/core/graph.hpp"
+#include "ad/ops/ops.hpp"
 #include <vector>
 
 namespace ag::nn {
