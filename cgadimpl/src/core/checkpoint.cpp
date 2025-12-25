@@ -2,14 +2,14 @@
 // file: cgadimpl/src/core/checkpoint.cpp
 //============================================================
 
-#include "ad/checkpoint.hpp"
+#include "ad/autodiff/checkpoint.hpp"
 #include <unordered_set>
 #include <stdexcept>
 #include <iostream>
 #include <deque>
 #include <queue>
-#include "ad/inplace.hpp"
-#include "ad/ops.hpp" // Required for forward_eval_node
+#include "ad/autodiff/inplace.hpp"
+#include "ad/ops/ops.hpp" // Required for forward_eval_node
 
 namespace ag {
 namespace checkpoint_impl {

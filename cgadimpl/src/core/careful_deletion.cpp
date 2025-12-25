@@ -13,9 +13,9 @@
 // for gradient computation, recomputation, or alias/view consistency.
 //
 
-#include "ad/careful_deletion.hpp"
-#include "ad/inplace.hpp"
-#include "ad/debug.hpp"
+#include "ad/autodiff/careful_deletion.hpp"
+#include "ad/autodiff/inplace.hpp"
+#include "ad/utils/debug.hpp"
 #include <iostream>
 #include <mutex>
 

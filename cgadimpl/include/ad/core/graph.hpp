@@ -71,31 +71,4 @@ inline Value make_tensor(const Tensor& v, const char* name = "") {
 
 std::vector<Node*> topo_from(Node* root);
     
-// ---- Lightweight trace→compile→replay (CPU) ----
-// namespace jit {
-
-// struct CompileOptions {
-//     bool use_cuda_graph = false; // ignored for now (no CUDA)
-// };
-
-// struct Compiled {
-//     // Opaque impl; created by compile()
-//     struct Impl;
-//     std::shared_ptr<Impl> p;
-
-//     // Run with external inputs/params. Returns false if shape guard fails.
-//     bool run(const std::vector<Tensor*>& inputs,
-//              const std::vector<Tensor*>& params,
-//              Tensor& out) const;
-// };
-
-// // Build a compiled plan from a finished forward Value (dynamic graph).
-// // 'inputs' and 'params' enumerate leaf Values whose storage is provided at run().
-// Compiled compile(const Value& output,
-//                  const std::vector<Value>& inputs,
-//                  const std::vector<Value>& params,
-//                  const CompileOptions& opts = {});
-
-// } // namespace jit
-
 } // namespace ag

@@ -4,11 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <iomanip>
-<<<<<<< HEAD:cgadimpl/tests/test_core_ops_gpu.cpp
-
-=======
 #include <functional>
->>>>>>> refactored:cgadimpl/Tests/test_core_ops_gpu.cpp
 using namespace ag;
 using namespace OwnTensor;
 
@@ -109,16 +105,12 @@ bool run_test(const std::string& name, std::function<void()> test_func) {
 // ==========================================================
 
 void test_all_ops() {
-<<<<<<< HEAD:cgadimpl/tests/test_core_ops_gpu.cpp
-    Device dev = Device::CUDA;
-=======
     // --- FIX: This is a GPU test file, so we must use the CUDA device. ---
     #ifdef WITH_CUDA
         Device dev = Device::CUDA;
     #else
         Device dev = Device::CPU; // Fallback for non-CUDA builds
     #endif
->>>>>>> refactored:cgadimpl/Tests/test_core_ops_gpu.cpp
     auto opts = TensorOptions().with_device(dev).with_req_grad(true);
 
     // --- Unary Ops ---
@@ -158,8 +150,6 @@ void test_all_ops() {
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f), 1e-2)); // GELU is an approx
     });
-<<<<<<< HEAD:cgadimpl/tests/test_core_ops_gpu.cpp
-=======
     // run_test("Tan", [&](){
     //     Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
     //     auto f = [&](){ return tan(a); };
@@ -187,10 +177,6 @@ void test_all_ops() {
     //     backward(sum(f()));
     //     assert(check_grad(a.grad(), numerical_gradient(a, f)));
     // });
-
-
-
->>>>>>> refactored:cgadimpl/Tests/test_core_ops_gpu.cpp
 
     // --- Binary Ops with Broadcasting ---
     run_test("Add (Broadcast)", [&](){

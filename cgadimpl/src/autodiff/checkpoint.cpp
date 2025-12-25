@@ -1,13 +1,13 @@
 //============================================================
 // file: cgadimpl/src/core/checkpoint.cpp
 //============================================================
-
-#include "ad/autodiff/checkpoint.hpp"
 #include <unordered_set>
 #include <stdexcept>
 #include <iostream>
 #include <deque>
 #include <queue>
+
+#include "ad/autodiff/checkpoint.hpp"
 #include "ad/autodiff/inplace.hpp"
 #include "ad/ops/ops.hpp" // Required for forward_eval_node
 

@@ -1,17 +1,13 @@
 #pragma once
 #include "ad/core/graph.hpp"
 #include "ad/runtime/runtime.hpp"
+#include "ad/core/mlir_emitter.hpp"
 #include <vector>
 #include <variant>
 #include <memory>
-// #include "TensorLib.h" // Assuming needed for some types, or just forward declare if possible
+#include <string>
 
 namespace ag::jit {
-
-// Forward declarations
-struct Signature;
-struct Step;
-struct Plan;
 
 // ===================================================================
 // JIT Compiler Interface
@@ -20,11 +16,19 @@ struct Plan;
 struct Compiled {
     struct Impl;
     std::shared_ptr<Impl> p;
+
+    // MLIR data
+    std::string mlir_source;
+    std::shared_ptr<void> mlir_module;
+    std::string mlir_module_str;
     
     // Execute the compiled plan
     bool run(const std::vector<Tensor*>& inputs,
              const std::vector<Tensor*>& params,
              Tensor& out) const;
+
+    const std::string& getMLIRSource() const;
+    void* getMLIRModule() const;
 };
 
 struct CompileOptions {

@@ -1,8 +1,8 @@
 // =====================
 // file: cgadimpl/src/nodeops.cpp
 // =====================
-#include "ad/nodeops.hpp"
-#include "ad/runtime.hpp"
+#include "ad/ops/nodeops.hpp"
+#include "ad/runtime/runtime.hpp"
 // #include "ad/kernels_api.hpp"
 #include <cuda_runtime.h>
 #include "TensorLib.h" 
@@ -76,7 +76,7 @@ std::shared_ptr<Node> flomul_nodeops(const std::shared_ptr<Node>& a, float b) {
         // The multiplication op will automatically handle broadcasting.
         Tensor scalar_tensor = Tensor::full(Shape({1,1}), TensorOptions().with_req_grad(false), b);
 
-        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, "leaf_scalar");
+        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, false, "leaf_scalar");
 
         // Store the new node in the cache for next time.
         scalar_cache[b] = c;
@@ -311,7 +311,7 @@ std::shared_ptr<Node> flodiv_nodeops(float b, const std::shared_ptr<Node>& a) {
         c = it->second;
     } else {
         Tensor scalar_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), b);
-        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, "leaf_scalar");
+        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, false, "leaf_scalar");
         scalar_cache[b] = c;
     }
 
@@ -339,7 +339,7 @@ std::shared_ptr<Node> floadd_nodeops(float b, const std::shared_ptr<Node>& a) {
         c = it->second;
     } else {
         Tensor scalar_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), b);
-        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, "leaf_scalar");
+        c = std::make_shared<Node>(scalar_tensor, Op::Leaf, false, "leaf_scalar");
         scalar_cache[b] = c;
     }
 
@@ -906,7 +906,7 @@ std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g_v
         G = it->second;
     } else {
         Tensor g_tensor = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(true), g_val); // Assume gain is trainable
-        G = std::make_shared<Node>(g_tensor, Op::Leaf, "rms_gain");
+        G = std::make_shared<Node>(g_tensor, Op::Leaf, g_tensor.requires_grad(), "rms_gain");
         scalar_cache[g_val] = G;
     }
 
@@ -959,12 +959,14 @@ std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b_
     std::shared_ptr<Node> G, B;
     if (cache.count(g_val)) G = cache[g_val];
     else {
-        G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "ln_gain");
+        Tensor g_tensor = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val);
+        G = std::make_shared<Node>(g_tensor, Op::Leaf, true, "ln_gain");
         cache[g_val] = G;
     }
     if (cache.count(b_val)) B = cache[b_val];
     else {
-        B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "ln_bias");
+        Tensor b_tensor = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val);
+        B = std::make_shared<Node>(b_tensor, Op::Leaf, true, "ln_bias");
         cache[b_val] = B;
     }
 
@@ -1001,9 +1003,12 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     std::shared_ptr<Node> A, B, G;
     // ... (code to create/cache A, B, and G nodes from a_val, b_val, g_val, similar to relaynor) ...
     // For brevity, assuming they are created and require_grad=true.
-    A = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), a_val), Op::Leaf, "dyn_a");
-    B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "dyn_b");
-    G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "dyn_g");
+    Tensor a_tensor = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), a_val);
+    A = std::make_shared<Node>(a_tensor, Op::Leaf, true, "dyn_a");
+    Tensor b_t = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val);
+    B = std::make_shared<Node>(b_t, Op::Leaf, true, "dyn_b");
+    Tensor g_t = Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val);
+    G = std::make_shared<Node>(g_t, Op::Leaf, true, "dyn_g");
     
     Tensor h = x->value * A->value;
     Tensor y = OwnTensor::tanh(h) * G->value + B->value;
@@ -1078,11 +1083,11 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
         Tensor y = (z->value * d->value) + q;
 
         // Create a new leaf node for the initial state 'w'. It is not a parameter.
-        auto W = std::make_shared<Node>(w, Op::Leaf, "ssm_state");
+        auto W = std::make_shared<Node>(w, Op::Leaf, false, "ssm_state");
         
         // The Op was wrong here, let's assume it should be a custom 'MambaSSM' Op
         // Use a generic but existing Op as a placeholder. The final operation is an addition.
-        auto n = std::make_shared<Node>(y, Op::Add, "mambassm");
+        auto n = std::make_shared<Node>(y, Op::Add, (z->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "mambassm");
         
         // The inputs to this step are the original inputs plus the NEW state node.
         n->inputs = {z, a, b, c, d, W}; 
@@ -1104,10 +1109,10 @@ std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std
         Tensor y = (z->value * d->value) + q;
 
         // Create a new leaf node for the CURRENT state 'w'.
-        auto W = std::make_shared<Node>(w, Op::Leaf, "ssm_state");
+        auto W = std::make_shared<Node>(w, Op::Leaf, false, "ssm_state");
         
         // Use a generic but existing Op as a placeholder. The final operation is an addition.
-        auto n = std::make_shared<Node>(y, Op::Add, "mambassm");
+        auto n = std::make_shared<Node>(y, Op::Add, (z->requires_grad() || a->requires_grad() || b->requires_grad() || c->requires_grad() || d->requires_grad()), "mambassm");
         n->inputs = {z, a, b, c, d, W}; 
         
         // Update the tape of the input 'z' with the new state for the next step.

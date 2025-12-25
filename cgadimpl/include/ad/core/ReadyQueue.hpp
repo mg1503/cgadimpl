@@ -1,16 +1,12 @@
 #include <memory>
 #include <queue>
 #include <future>
-#include <condition_variable>
-
 #include <vector>
 #include <thread>
 #include <mutex>
 #include <atomic>
-
-#include <ad/core/graph.hpp>
-#include <mutex>
-
+#include <condition_variable>
+#include "ad/core/graph.hpp"
 
 namespace ag{
 class readyqueue{

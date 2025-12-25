@@ -16,11 +16,12 @@
 // =============================================
 #include <unordered_map>
 #include <stdexcept>
+
 #include "ad/autodiff/autodiff.hpp"
 #include "ad/detail/autodiff_ops.hpp"
 #include "ad/utils/debug.hpp"
-#include <ad/autodiff/checkpoint.hpp>
-#include <ad/core/ReadyQueue.hpp> // custom queue for our dependency counter algorithm to be implemented in the .backward() fucntion.
+#include "ad/autodiff/checkpoint.hpp"
+#include "ad/core/ReadyQueue.hpp" // custom queue for our dependency counter algorithm to be implemented in the .backward() fucntion.
 namespace ag {
 
 void zero_grad(const Value& root){

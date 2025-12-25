@@ -1,10 +1,10 @@
 // =====================
 // file: cgadimpl/src/ops.cpp
 // =====================
-#include "ad/ops.hpp"
-#include "ad/nodeops.hpp" // Include the new node-level declarations
-#include "ad/inplace.hpp"
-#include "ad/runtime.hpp"
+#include "ad/ops/ops.hpp"
+#include "ad/ops/nodeops.hpp" // Include the new node-level declarations
+#include "ad/autodiff/inplace.hpp"
+#include "ad/runtime/runtime.hpp"
 
 namespace ag {
     Value inplace_checkpoint(const Value& v) {
@@ -325,7 +325,7 @@ return Value(detail::realrms_nodeops(x.node, g));
  *      5️⃣  Return the computed output tensor.
  *      6️⃣  If unsupported, throw a runtime error.
  */
-#include <ad/checkpoint.hpp>
+#include <ad/autodiff/checkpoint.hpp>
 Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
     if (!node) throw std::runtime_error("forward_eval_node: null node");
 

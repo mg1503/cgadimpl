@@ -1,7 +1,7 @@
 #include <memory>
 #include <queue>
 #include <future>
-#include <ad/graph.hpp>
+#include <ad/core/graph.hpp>
 #include <mutex>
 
 

@@ -2,9 +2,9 @@
 // file: cgadimpl/src/core/mlir_emitter.cpp
 // MLIR C++ API implementation for direct graph emission
 // =====================
-#include "ad/mlir_emitter.hpp"
-#include "ad/graph.hpp"
-#include "ad/schema.hpp"
+#include "ad/core/mlir_emitter.hpp"
+#include "ad/core/graph.hpp"
+#include "ad/core/schema.hpp"
 #include "mlir/IR/Verifier.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/Support/raw_ostream.h"
