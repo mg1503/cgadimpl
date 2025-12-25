@@ -66,7 +66,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     // Count how many nodes will be processed
     int num_compute_nodes = 0;
     for (Node* n : order) {
-        if (n->requires_grad() && !n->is_leaf) {
+        if (n->requires_grad()) {
             num_compute_nodes++;
         }
     }

@@ -148,7 +148,7 @@ Tensor jvp_LeakyRelu(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X_node = n->inputs[0].get();
     Node* A_node = n->inputs[1].get();
     const Tensor& x = X_node->value;
-    float alpha = A_node->value.data<float>()[0];
+    float alpha = A_node->value.to_cpu().data<float>()[0];
 
     cudaStream_t stream = (cudaStream_t)ag::current_stream();
 

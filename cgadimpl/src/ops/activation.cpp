@@ -3,11 +3,12 @@
 // =====================
 #include "ad/ops/nodeops.hpp"
 #include "ad/runtime/runtime.hpp"
-// #include "ad/kernels_api.hpp"
+// #include "ad/ops/kernels_api.hpp"
 #include <cuda_runtime.h>
 #include "tensor.hpp" 
 #include <unordered_map>
 #include <cmath> 
+#include <type_traits> 
 
 namespace ag {
 namespace detail {
@@ -417,36 +418,36 @@ std::shared_ptr<Node> floadd_nodeops(float b, const std::shared_ptr<Node>& a) {
 
 std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
     const Tensor& xin = x->value;
-
-    // FIX: Use the new factory with options
     Tensor y = OwnTensor::Tensor::zeros(xin.shape(), ag::options(xin));
 
     if (xin.is_cpu()) {
-        // Your existing CPU implementation is fine, just needs the new API
-        // We must dispatch by dtype to get the correct pointer type.
         dispatch_by_dtype(xin.dtype(), [&](auto dummy){
             using T = decltype(dummy);
             const T* x_data = xin.data<T>();
             T* y_data = y.data<T>();
             for (int64_t i = 0; i < xin.numel(); ++i) {
-                if (x_data[i] > T(0)) {
-                    y_data[i] = T(1);
+                // FIX: Check real part for complex types as '>' is undefined for complex
+                bool is_positive;
+                if constexpr (std::is_same_v<T, OwnTensor::complex32_t> || 
+                              std::is_same_v<T, OwnTensor::complex64_t> || 
+                              std::is_same_v<T, OwnTensor::complex128_t>) {
+                    is_positive = x_data[i].real() > 0;
+                } else {
+                    is_positive = x_data[i] > static_cast<T>(0);
+                }
+
+                if (is_positive) {
+                    y_data[i] = static_cast<T>(1.0f); // FIX: Unambiguous cast
                 }
             }
         });
     } else {
-        // For now, we will add a placeholder, as you don't have a GPU kernel for this.
-        // To make this work on GPU, you would need to add a 'relumask_cuda' to your kernels plugin.
         throw std::runtime_error("relumask_nodeops not implemented for CUDA yet.");
     }
     
-    // FIX: Use the new Node constructor
     auto n = std::make_shared<Node>(y, Op::Relumask, x->requires_grad(), "relumask");
     n->inputs = {x};
-
-    // new code lines --> dependency counter
     if(x) x->child_grad_count++;
-
     ag::debug::on_node_created(n);
     return n;
 }
@@ -583,19 +584,14 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x) {
 // ===================================================================
 // alibiatt_nodeops
 // ===================================================================
-
 std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, float& m) {
-    // Step 1: Projections
+    // ... (Projections q, k, v and logits same as before) ...
     Tensor q = OwnTensor::matmul(a->value, b->value); 
     Tensor k = OwnTensor::matmul(a->value, c->value); 
     Tensor v = OwnTensor::matmul(a->value, d->value);
-    
-    // Step 2: Scaled dot-product attention
     float scale = 1.f / sqrtf(static_cast<float>(k.shape().dims.back()));
     Tensor logits = OwnTensor::matmul(q, k.t()) * scale;
 
-    
-    // Step 3: Create Alibi bias and add it in one step to initialize 'g'
     Tensor bias_cpu(logits.shape(), OwnTensor::TensorOptions().with_dtype(logits.dtype()));
     {
         int n_heads = logits.shape().dims[0];
@@ -609,13 +605,17 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
                 float slope = powf(slope_start, h + 1);
                 for (int i = 0; i < seq_len; ++i) {
                     for (int j = 0; j < seq_len; ++j) {
-                        data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<float>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
+                        // FIX: Cast both sides to T to avoid type mismatch with float infinity
+                        data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? 
+                            static_cast<T>(-std::numeric_limits<float>::infinity()) : 
+                            static_cast<T>(-(seq_len - 1 - j) * slope);
                     }
                 }
             }
         });
     }
     Tensor g = logits + bias_cpu.to(logits.device());
+    // ... (Softmax and final projection same as before) ...
  
     // Step 4: Re-implement softmax and initialize 's' in a single expression
     Tensor max_val = OwnTensor::reduce_max(g, {-1}, true);
@@ -963,8 +963,8 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     // --- End of re-implementation ---
 
     // We still need to pass alpha to the backward pass. Create a 1x1 constant node.
-    // NOTE: This now creates a NEW tensor with requires_grad=false.
-    Tensor aT = Tensor::full(Shape{{1, 1}}, TensorOptions().with_req_grad(false), alpha);
+    // CRITICAL: Create it on the same device as the input to avoid device mismatch!
+    Tensor aT = Tensor::full(Shape{{1, 1}}, ag::options(x->value).with_req_grad(false), alpha);
     auto aC = make_tensor(aT, "alpha"); 
     
     auto n = std::make_shared<Node>(Y, Op::LeakyRelu, x->requires_grad(), "leakyrelu");

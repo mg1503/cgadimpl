@@ -22,7 +22,7 @@ int main() {
     std::cout << "=== Tiny hand-checkable MLP (2x2) ===\n";
     const int B = 2, In = 2, H = 2, Out = 2;
 
-    Tensor Xt(Shape{{B, In}});
+    Tensor Xt(Shape{{B, In}}, false);
     float* x_data = Xt.data<float>();
     x_data[0*In + 0] = 1; x_data[0*In + 1] = -1;
     x_data[1*In + 0] = 0; x_data[1*In + 1] = 2;
