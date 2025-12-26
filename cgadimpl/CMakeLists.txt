@@ -7,10 +7,8 @@ set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
 project(cgadimpl LANGUAGES CXX CUDA)
 
-# --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
-set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
-
-project(cgadimpl LANGUAGES CXX CUDA)
+set(MLIR_DIR "/home/blubridge-029/Desktop/llvm-project/build/lib/cmake/mlir")
+set(mlir-compiler_DIR "/home/blubridge-029/Downloads/cgad/cgadimpl_/Nova-Compiler/install/lib/cmake/mlir-compiler")
 
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
@@ -117,7 +115,17 @@ target_link_libraries(cgadimpl PUBLIC
     MLIRSupport
     LLVMSupport
 )
+# --- FIX: Prioritize Local NovaCompiler Includes ---
+# We derive the include path from the mlir-compiler_DIR which is passed as
+# <install_prefix>/lib/cmake/mlir-compiler. We need <install_prefix>/include.
+get_filename_component(NOVA_CMAKE_DIR "${mlir-compiler_DIR}" ABSOLUTE)
+get_filename_component(NOVA_LIB_DIR "${NOVA_CMAKE_DIR}" DIRECTORY)
+get_filename_component(NOVA_LIB_DIR "${NOVA_LIB_DIR}" DIRECTORY) # up to lib
+get_filename_component(NOVA_INSTALL_PREFIX "${NOVA_LIB_DIR}" DIRECTORY) # up to install prefix
+set(NOVA_INCLUDE_DIR "${NOVA_INSTALL_PREFIX}/include")
 
+include_directories(BEFORE "${NOVA_INCLUDE_DIR}")
+message(STATUS "Forcing NovaCompiler include dir: ${NOVA_INCLUDE_DIR}")
 # ---- Tests ----
 if(true)
   enable_testing()
