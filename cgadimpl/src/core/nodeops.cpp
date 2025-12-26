@@ -371,8 +371,16 @@ std::shared_ptr<Node> relumask_nodeops(const std::shared_ptr<Node>& x) {
             const T* x_data = xin.data<T>();
             T* y_data = y.data<T>();
             for (int64_t i = 0; i < xin.numel(); ++i) {
-                if (x_data[i] > T(0)) {
-                    y_data[i] = T(1);
+                bool is_positive = false;
+                constexpr bool is_complex_type = OwnTensor::is_complex(OwnTensor::type_to_dtype<T>());
+                if constexpr (is_complex_type) {
+                    is_positive = static_cast<float>(x_data[i].real()) > 0.0f;
+                } else {
+                    is_positive = static_cast<float>(x_data[i]) > 0.0f;
+                }
+
+                if (is_positive) {
+                    y_data[i] = T(1.0f);
                 }
             }
         });
@@ -517,7 +525,7 @@ std::shared_ptr<Node> alibiatt_nodeops(const std::shared_ptr<Node>& a, const std
                 float slope = powf(slope_start, h + 1);
                 for (int i = 0; i < seq_len; ++i) {
                     for (int j = 0; j < seq_len; ++j) {
-                        data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<float>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
+                        data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? static_cast<T>(-std::numeric_limits<float>::infinity()) : static_cast<T>(-(seq_len - 1 - j) * slope);
                     }
                 }
             }
@@ -691,10 +699,24 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
         
         for (int64_t i = 0; i < n; ++i) {
             T val = x_data[i];
-            if (val > T(threshold)) {
-                y_data[i] = val;  // For large x, softplus(x) ≈ x
+            bool over_threshold = false;
+            constexpr bool is_complex_type = OwnTensor::is_complex(OwnTensor::type_to_dtype<T>());
+
+            if constexpr (is_complex_type) {
+                over_threshold = static_cast<float>(val.real()) > threshold;
             } else {
-                y_data[i] = std::log(T(1.0) + std::exp(val));
+                over_threshold = static_cast<float>(val) > threshold;
+            }
+
+            if (over_threshold) {
+                y_data[i] = val;
+            } else {
+                if constexpr (is_complex_type) {
+                    y_data[i] = OwnTensor::log(T(1.0f) + OwnTensor::exp(val));
+                } else {
+                    // For non-complex types, use standard math functions to avoid ambiguity
+                    y_data[i] = T(std::log(1.0f + std::exp(static_cast<float>(val))));
+                }
             }
         }
     });

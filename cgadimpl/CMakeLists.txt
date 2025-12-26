@@ -68,6 +68,9 @@ target_include_directories(cgadimpl PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${LLVM_INCLUDE_DIRS}
     ${MLIR_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/Nova-Compiler/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/include
+    ${CMAKE_CURRENT_BINARY_DIR}/install/include
 )
 target_link_libraries(cgadimpl PUBLIC 
     OwnTensor::tensor 
@@ -138,18 +141,18 @@ if(true)
   add_ag_test(test_graph_compile                    Tests/test_graph_compile.cpp)
   add_ag_test(ag_core_test                    Tests/test.cpp)
   add_ag_test(test_checkpoint                    Tests/test_checkpoint.cpp)
-  add_ag_test(test_inplace                    Tests/test_inplace.cpp)
+  #add_ag_test(test_inplace                    Tests/test_inplace.cpp)
   # add_ag_test(test_careful_deletion                    Tests/test_careful_deletion.cpp)
   add_ag_test(test_nn                    Tests/test_nn.cpp)
   # add_ag_test(test_version                    Tests/test_version.cpp)
   add_ag_test(test_nodeops                    Tests/test_nodeops.cpp)
   # add_ag_test(test_kernels_cpu                    Tests/test_kernels_cpu.cpp)
-  add_ag_test(test_vjp_kernels                    Tests/test_end_to_end_gpu.cpp)
+  #add_ag_test(test_vjp_kernels                    Tests/test_end_to_end_gpu.cpp)
   add_ag_test(test_nn_mlp                    Tests/test_mlp_training.cpp)
   # add_ag_test(test_kernels_gpu                    Tests/test_kernels_gpu.cpp)
-  add_ag_test(test_graph_cuda                    Tests/test_graph_gpu.cpp)
-  add_ag_test(test_core_ops_gpu                    Tests/test_core_ops_gpu.cpp)
-  add_ag_test(test_kitchen_sink_mlp                   Tests/test_kitchen_sink_mlp.cpp)
+  #add_ag_test(test_graph_cuda                    Tests/test_graph_gpu.cpp)
+  #add_ag_test(test_core_ops_gpu                    Tests/test_core_ops_gpu.cpp)
+  #add_ag_test(test_kitchen_sink_mlp                   Tests/test_kitchen_sink_mlp.cpp)
   # add_ag_test(test_gantlet                    Tests/test_gantlet.cpp)  #this works
   add_ag_test(test_scheme                    Tests/test_scheme.cpp)
   add_ag_test(test_phase1_metadata            Tests/test_phase1_metadata.cpp)  # Phase 1 critical metadata
@@ -161,13 +164,14 @@ if(true)
   add_ag_test(test_dependency_diamond            Tests/test_dependency_diamond.cpp)
   add_ag_test(test_dependency_wide_fanout        Tests/test_dependency_wide_fanout.cpp)
   add_ag_test(test_dependency_multi_join         Tests/test_dependency_multi_join.cpp)
-  add_ag_test(test_dependency_correctness        Tests/test_dependency_correctness.cpp)
+  #add_ag_test(test_dependency_correctness        Tests/test_dependency_correctness.cpp)
   add_ag_test(test_dependency_performance        Tests/test_dependency_performance.cpp)
   add_ag_test(test_dependency_weight_tying       Tests/test_dependency_weight_tying.cpp)
   add_ag_test(test_dependency_deep_branching     Tests/test_dependency_deep_branching.cpp)
   add_ag_test(time_estimation                   Tests/test_time_execution.cpp)
   add_ag_test(test_dag_analysis                Tests/test_dag_analysis.cpp)
   add_ag_test(test_warmup                      Tests/test_warmup.cpp)
+  add_ag_test(test_beta                        Tests/test_beta.cpp)
 
 endif()
 

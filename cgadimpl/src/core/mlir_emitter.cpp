@@ -250,7 +250,7 @@ MLIREmitter::emitModule(const Plan& plan) {
                         operands[0],
                         resultType,
                         /*keepdims=*/true,
-                        llvm::ArrayRef<int64_t>{1},
+                        /*dimension=*/llvm::ArrayRef<int64_t>{1},
                         /*ignore_nan=*/false
                     ).getResult();
                 }
@@ -265,7 +265,7 @@ MLIREmitter::emitModule(const Plan& plan) {
                         operands[0],
                         resultType,
                         /*keepdims=*/true,
-                        llvm::ArrayRef<int64_t>{1},
+                        /*dimension=*/llvm::ArrayRef<int64_t>{1},
                         /*ignore_nan=*/false
                     ).getResult();
                 }
@@ -280,7 +280,7 @@ MLIREmitter::emitModule(const Plan& plan) {
                         operands[0],
                         scalarType,
                         /*keepdims=*/false,
-                        llvm::ArrayRef<int64_t>{},
+                        /*dimension=*/llvm::ArrayRef<int64_t>{},
                         /*ignore_nan=*/false
                     ).getResult();
                 }
