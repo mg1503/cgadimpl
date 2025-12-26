@@ -8,6 +8,7 @@
 #include "TensorLib.h" 
 #include <unordered_map>
 #include <cmath> 
+#include <complex>
 
 namespace ag {
 namespace detail {
@@ -712,7 +713,13 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
                 y_data[i] = val;
             } else {
                 if constexpr (is_complex_type) {
-                    y_data[i] = OwnTensor::log(T(1.0f) + OwnTensor::exp(val));
+                    if constexpr (std::is_same_v<T, OwnTensor::complex128_t>) {
+                        std::complex<double> val_c = static_cast<std::complex<double>>(val);
+                        y_data[i] = T(std::log(1.0 + std::exp(val_c)));
+                    } else {
+                        std::complex<float> val_c = static_cast<std::complex<float>>(val);
+                        y_data[i] = T(std::log(1.0f + std::exp(val_c)));
+                    }
                 } else {
                     // For non-complex types, use standard math functions to avoid ambiguity
                     y_data[i] = T(std::log(1.0f + std::exp(static_cast<float>(val))));
