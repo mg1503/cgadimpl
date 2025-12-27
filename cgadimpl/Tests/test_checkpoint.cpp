@@ -64,6 +64,7 @@
 #include "ad/autodiff/autodiff.hpp"
 #include "ad/autodiff/checkpoint.hpp"
 #include "ad/autodiff/careful_deletion.hpp"
+#include "ad/autodiff/inplace.hpp"
 #include "tensor.hpp"
 #include <iostream>
 #include <vector>
@@ -120,7 +121,7 @@ struct DeepModel {
             x = relu(x);
             
             // Checkpoint every 3rd layer if enabled
-            if (use_checkpointing && (i > 0) && (i % 3 == 0) && (i < depth - 1)) {
+            if (use_checkpointing && (i > 0) && (i % 2 == 0) && (i < depth - 1)) {
                 checkpoint_impl::mark_node_checkpoint(x.node, CheckpointOptions());
             }
         }
@@ -144,9 +145,9 @@ void run_memory_savings_test() {
     std::cout << "      Checkpointing Memory Savings Demo           \n";
     std::cout << "==================================================\n\n";
     
-    int depth = 20;
-    int hidden_dim = 512;
-    int batch_size = 64;
+    int depth = 50;
+    int hidden_dim = 1024;
+    int batch_size = 128;
     
     std::cout << "Model Config:\n";
     std::cout << "  - Depth: " << depth << " layers\n";
@@ -215,6 +216,7 @@ void run_memory_savings_test() {
     
     // Step 3 & 4: Sweep with protection
     memory::sweep_safe_nodes(out_cp, memory::DeletePolicy::ForwardPass, anchors);
+    memory::debug_deletion_state();
     
     size_t mem_cp = calculate_graph_memory(out_cp);
     std::cout << "  Peak Memory (After Cleanup): " << (mem_cp / 1024.0 / 1024.0) << " MB\n";
@@ -244,6 +246,8 @@ void run_memory_savings_test() {
     try {
         Value loss = sum(out_cp);
         backward(loss);
+        print_checkpoint_stats();
+        std::cout << "  Snapshot Memory Usage: " << (inplace::get_snapshot_memory_usage() / 1024.0 / 1024.0) << " MB\n";
         std::cout << "  Backward pass completed successfully.\n";
     } catch (const std::exception& e) {
         std::cout << "  ❌ Backward pass failed: " << e.what() << "\n";
