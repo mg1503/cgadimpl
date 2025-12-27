@@ -46,9 +46,9 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
     // Count how many children will send gradients to each parent
     for (Node* n : order) {
-        for (auto& parent : n->inputs){
-            if (parent && parent->requires_grad()) {
-                parent->child_grad_count++;
+        for (auto& edge : n->next_edges){
+            if (edge.function && edge.function->requires_grad()) {
+                edge.function->child_grad_count++;
             }
         }
     }
@@ -67,10 +67,11 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     }
 
     // Dependency tracking for correctness (always needed)
-    // Count how many nodes will be processed
+    // Count only NON-LEAF nodes that will be processed by workers
+    // Leaf nodes are handled separately when they become ready (see line ~150)
     int num_compute_nodes = 0;
     for (Node* n : order) {
-        if (n->requires_grad()) {
+        if (n->requires_grad() && !n->is_leaf()) {
             num_compute_nodes++;
         }
     }
@@ -98,20 +99,43 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     // PARALLEL EXECUTION (user opted-in via enable_parallel=true)
     std::atomic<int> pending_tasks{num_compute_nodes};
 
+    std::cerr << "[DEBUG] Starting parallel backward: pending_tasks=" << pending_tasks << ", non-leaf nodes=" << num_compute_nodes << std::endl;
+
     readyqueue rq;
-    // Push all nodes that are initially ready (no children waiting to send gradients)
-    for (Node* n : order) {
-        if (n->requires_grad() && !n->is_leaf && n->child_grad_count == 0){
-            rq.push(n);
-        }
+    
+    // The root node always starts with child_grad_count == 0 (it's the output of forward pass)
+    // Push the root first to kick off the backward pass
+    int initial_ready = 0;
+    if (root.node->requires_grad() && !root.node->is_leaf()) {
+        rq.push(root.node.get());
+        initial_ready++;
+        std::cerr << "[DEBUG] Pushed root node (op=" << (int)root.node->op << ")" << std::endl;
+    } else {
+        std::cerr << "[DEBUG] Root is leaf or doesn't require grad" << std::endl;
     }
     
+    // Push all other non-leaf nodes that are initially ready (no children waiting to send gradients)
+    for (Node* n : order) {
+        if (n == root.node.get()) continue; // Skip root, already added
+        if (n->requires_grad() && !n->is_leaf() && n->child_grad_count == 0){
+            rq.push(n);
+            initial_ready++;
+        }
+    }
+    std::cerr << "[DEBUG] Initial ready queue size: " << initial_ready << std::endl;
+    
     //worker task
+    std::atomic<int> nodes_processed{0};
     auto workertask = [&](){
         while (true){
             Node* node = rq.pop();
             if ( node == nullptr ){
                 break;
+            }
+            
+            nodes_processed++;
+            if (nodes_processed % 5 == 1) {
+                std::cerr << "[DEBUG] Processing node #" << nodes_processed << " (op=" << (int)node->op << "), pending=" << pending_tasks << std::endl;
             }
             
             VjpFn vjpfn = vjp_lookup(node->op);
@@ -127,17 +151,29 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             // Execute VJP function
             if (vjpfn){
                 vjpfn(node, node->tensor.grad_view());
+            } else {
+                std::cerr << "[DEBUG] No VJP for op=" << (int)node->op << std::endl;
             }
 
             // Update parent counters
-            for (auto& parent_ptr : node->inputs){
-                Node* parent = parent_ptr.get();
+            int parents_made_ready = 0;
+            for (auto& edge : node->next_edges){
+                Node* parent = edge.function.get();
                 if (!parent || !parent->requires_grad()) continue;
 
                 // Decrement counter 
                 if (parent->child_grad_count.fetch_sub(1) == 1){
-                    rq.push(parent);
+                    // Parent is now ready (all children have sent gradients)
+                    if (!parent->is_leaf()) {
+                        // Non-leaf nodes need VJP, push to queue for processing
+                        rq.push(parent);
+                        parents_made_ready++;
+                    }
+                    // Leaf nodes are ready but don't need processing, so do nothing
                 }
+            }
+            if (parents_made_ready > 0 && nodes_processed % 5 == 1) {
+                std::cerr << "[DEBUG] Made " << parents_made_ready << " parents ready" << std::endl;
             }
             pending_tasks--;
         }
@@ -151,8 +187,17 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     }
 
     // Main thread waits for all tasks to complete
+    int wait_iterations = 0;
     while(pending_tasks > 0){
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        wait_iterations++;
+        if (wait_iterations % 10 == 0) {
+            std::cerr << "[DEBUG] Still waiting... pending=" << pending_tasks << ", processed=" << nodes_processed << std::endl;
+        }
+        if (wait_iterations > 100) {
+            std::cerr << "[ERROR] Timeout after 10 seconds! pending=" << pending_tasks << ", processed=" << nodes_processed << std::endl;
+            break;
+        }
     }
     
     // Shutdown after all tasks complete
@@ -202,7 +247,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
         
     //     // Phase 1.1: is_leaf handling
     //     // Only compute VJP for non-leaf nodes (leaf nodes only accumulate, no backward op)
-    //     if (!n->is_leaf) {
+    //     if (!n->is_leaf()) {
     //         //  this part calculates and accumulates gradients into parent nodes
     //         VjpFn fn = vjp_lookup(n->op);
     //         if (fn) fn(n, gy); // handler accumulates into parents

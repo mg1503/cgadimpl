@@ -145,7 +145,7 @@ void test_cuda_graph(Device device) {
     bool ok = runner.replay();
     
     // Synchronize to ensure replay is complete
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
     std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
     assert(ok);

@@ -156,7 +156,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
 
         // 2. The in_name helper now captures and uses this N-D shape vector.
         auto in_name = [&](size_t k)->std::string{
-            Node* p = n->inputs[k].get();
+            Node* p = n->next_edges[k].function.get();
             std::string pn = name.count(p) ? name[p] : (name[p]=newv()); // ensure parent has a name
             // Pass the full shape vector to our new maybe_broadcast function.
             return maybe_broadcast(out, pn, p->tensor, target_dims, tmpid);
@@ -283,7 +283,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             case Op::LeakyRelu: {
                 // --- FIX: Use N-D broadcast and correct API calls ---
                 std::string x = in_name(0);
-                Node* A = n->inputs[1].get();
+                Node* A = n->next_edges[1].function.get();
                 float alpha = A->tensor.data<float>()[0]; // Correct way to get scalar value
                 
                 Tensor one_by_one_tensor(Shape{{1, 1}}, false);
@@ -312,8 +312,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             // ----- Matmul -----
             case Op::MatMul: {
                 // 2D matmul: dot_general with contracting dims lhs[1], rhs[0]
-                Node* A = n->inputs[0].get();
-                Node* B = n->inputs[1].get();
+                Node* A = n->next_edges[0].function.get();
+                Node* B = n->next_edges[1].function.get();
                 std::string an = name.count(A) ? name[A] : (name[A]=newv());
                 std::string bn = name.count(B) ? name[B] : (name[B]=newv());
                 std::string v = newv();
@@ -329,7 +329,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             // ----- Reductions -----
             case Op::Sum: {
                 // Reduce over both dims with add; init 0
-                Node* X = n->inputs[0].get();
+                Node* X = n->next_edges[0].function.get();
                 std::string xn = name.count(X) ? name[X] : (name[X]=newv());
                 std::string zero = cst_scalar(0.0f);
                 std::string v = newv();
@@ -346,7 +346,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             }
             case Op::RowSum: {
                 // --- FIX: Use N-D API ---
-                Node* X = n->inputs[0].get();
+                Node* X = n->next_edges[0].function.get();
                 std::string xn = name.count(X) ? name[X] : (name[X]=newv());
                 std::string zero = cst_scalar(0.0f);
                 std::string v = newv();
@@ -362,7 +362,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 break;
             }
             case Op::RowMax: {
-                Node* X = n->inputs[0].get();
+                Node* X = n->next_edges[0].function.get();
                 std::string xn = name.count(X) ? name[X] : (name[X]=newv());
                 std::string ninf = cst_scalar(-std::numeric_limits<float>::infinity());
                 std::string v = newv();
@@ -380,7 +380,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 break;
             }
             case Op::MeanAll: {
-                Node* X = n->inputs[0].get();
+                Node* X = n->next_edges[0].function.get();
                 // --- FIX: Use .numel() for correctness with N-D tensors ---
                 std::string ones = cst_scalar(1.0f / static_cast<float>(X->tensor.numel()));
                 
@@ -417,7 +417,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             // ----- Softmax / LogSumExp -----
             case Op::SoftmaxRow:
             case Op::LogSumExpRow: {
-                Node* Z = n->inputs[0].get();
+                Node* Z = n->next_edges[0].function.get();
                 std::string zn = name.count(Z) ? name[Z] : (name[Z]=newv());
 
                 // --- FIX: Get the correct shape for the intermediate tensor 'm' ---
@@ -486,8 +486,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             // ----- Loss -----
             case Op::CeWithLogits: {
                 // Formula: CE = -mean( sum( Y * log_softmax(Z) , axis=-1) )
-                Node* Z = n->inputs[0].get();
-                Node* Y = n->inputs[1].get();
+                Node* Z = n->next_edges[0].function.get();
+                Node* Y = n->next_edges[1].function.get();
                 std::string zn = name.count(Z) ? name[Z] : (name[Z]=newv());
                 std::string yn = name.count(Y) ? name[Y] : (name[Y]=newv());
 
@@ -569,7 +569,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
 
             default: {
                 // Fallback: identity (shouldn't happen)
-                Node* X = n->inputs.empty() ? nullptr : n->inputs[0].get();
+                Node* X = n->next_edges.empty() ? nullptr : n->next_edges[0].function.get();
                 std::string xn = X ? (name.count(X)?name[X]:(name[X]=newv())) : "%UNDEF";
                 std::string v = newv();
                 // This was already corrected.

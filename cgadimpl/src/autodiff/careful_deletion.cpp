@@ -101,8 +101,8 @@ static bool has_active_alias(Node* n) {
  */
 static bool gradients_done(Node* n) {
     if (!n) return false;
-    for (auto& p : n->inputs) {
-        if (p && p->requires_grad())
+    for (const auto& edge : n->next_edges) {
+        if (edge.function && edge.function->requires_grad())
             return false;  // at least one parent still needs its gradient
     }
     return true;

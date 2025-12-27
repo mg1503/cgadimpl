@@ -248,9 +248,9 @@ Compiled compile(const Value& output,
         st.out_slot = plan.num_slots++;
         slot_of[n] = st.out_slot;
 
-        st.args.reserve(n->inputs.size());
-        for (auto& pin : n->inputs) {
-            Node* p = pin.get();
+        st.args.reserve(n->next_edges.size());
+        for (auto& edge : n->next_edges) {
+            Node* p = edge.function.get();
             if (p->op == Op::Leaf) {
                 if (is_in(in_ix, p))        st.args.push_back(ArgInput{ in_ix[p] });
                 else if (is_in(par_ix, p))  st.args.push_back(ArgParam{ par_ix[p] });

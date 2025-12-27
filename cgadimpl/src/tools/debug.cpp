@@ -99,7 +99,7 @@ void on_node_created(const std::shared_ptr<Node>& n){
           << (n->requires_grad() ? " (grad)" : "      ") // Use function call
           << "  value " << shape_str(n->tensor)          // Use new shape_str
           << "  @" << n.get();
-    if (n->debug_name && n->debug_name[0] != '\0')
+    if (!n->debug_name.empty())
         label << "  name=\"" << n->debug_name << "\"";
     
     // We can't print the full tensor here as it might be huge.
@@ -160,8 +160,9 @@ void dump_dot(const Value& root, const std::string& filepath){
     // edges
     for (Node* n : order) {
         std::ostringstream id; id << "n" << n;
-        for (auto& pin : n->inputs) {
-            out << "  n" << pin.get() << " -> " << id.str() << ";\n";
+        for (const auto& edge : n->next_edges) {
+            if(edge.function)
+                out << "  n" << edge.function.get() << " -> " << id.str() << ";\n";
         }
     }
 
@@ -203,8 +204,9 @@ void on_backprop_step(Node* n, const Tensor& gy) {
     std::cout << "[VJP] node @" << n << " op=" << op_name(n->op)
           << "  y_grad shape=" << shape_str(gy) << "\n";
 
-    for (size_t k = 0; k < n->inputs.size(); ++k) {
-        Node* p = n->inputs[k].get();
+    for (size_t k = 0; k < n->next_edges.size(); ++k) {
+        Node* p = n->next_edges[k].function.get();
+        if(!p) continue;
         // FIX: Use the new shape_str helper for N-D printing
         std::cout << "   -> parent[" << k << "] @" << p
                 << " (" << op_name(p->op) << ") receives grad shape "
@@ -233,9 +235,10 @@ void dump_vjp_dot(const Value& root, const std::string& filepath) {
     }
     // red VJP edges (child -> parent)
     for (Node* n : order) {
-        for (auto& pin : n->inputs) {
-            out << "  n" << n << " -> " << "n" << pin.get()
-                << " [color=red, penwidth=1.5, label=\"grad\"];\n";
+        for (const auto& edge : n->next_edges) {
+            if(edge.function)
+                out << "  n" << n << " -> " << "n" << edge.function.get()
+                    << " [color=red, penwidth=1.5, label=\"grad\"];\n";
         }
     }
 
@@ -271,8 +274,9 @@ void on_jvp_step(Node* n) {
     std::cout << "[JVP] node @" << n
               << " op=" << op_name(n->op)
               << "  value=" << shape_str(n->tensor) << "\n";
-    for (size_t k = 0; k < n->inputs.size(); ++k) {
-        Node* p = n->inputs[k].get();
+    for (size_t k = 0; k < n->next_edges.size(); ++k) {
+        Node* p = n->next_edges[k].function.get();
+        if(!p) continue;
         // FIX: Use the global shape_str helper
         std::cout << "    parent[" << k << "] @" << p
                   << " (" << op_name(p->op) << ")  value="
@@ -297,9 +301,10 @@ void dump_jvp_dot(const Value& root, const std::string& filepath) {
     }
     // Tangents flow forward: parent -> child (green)
     for (Node* n : order) {
-        for (auto& pin : n->inputs) {
-            out << "  n" << pin.get() << " -> n" << n
-                << " [color=green, penwidth=1.5, label=\"tangent\"];\n";
+        for (const auto& edge : n->next_edges) {
+            if(edge.function)
+                out << "  n" << edge.function.get() << " -> n" << n
+                    << " [color=green, penwidth=1.5, label=\"tangent\"];\n";
         }
     }
     out << "}\n";
@@ -337,7 +342,7 @@ void print_dag_summary(const Value& root) {
 
     for (Node* n : order) {
         op_counts[n->op]++;
-        if (n->is_leaf) {
+        if (n->is_leaf()) {
             num_leaves++;
             if (n->requires_grad()) {
                 num_trainable++;
@@ -365,11 +370,11 @@ bool validate_dag(const Value& root) {
     
     std::function<bool(Node*)> has_cycle = [&](Node* n) -> bool {
         color[n] = 1; // Gray
-        for (auto& input : n->inputs) {
-            if (!input) continue;
-            if (color[input.get()] == 1) return true; // Found gray node -> cycle
-            if (color[input.get()] == 0) {
-                if (has_cycle(input.get())) return true;
+        for (const auto& edge : n->next_edges) {
+            if (!edge.function) continue;
+            if (color[edge.function.get()] == 1) return true; // Found gray node -> cycle
+            if (color[edge.function.get()] == 0) {
+                if (has_cycle(edge.function.get())) return true;
             }
         }
         color[n] = 2; // Black
@@ -385,8 +390,8 @@ bool validate_dag(const Value& root) {
     // Check for null inputs
     auto order = topo_from(root.node.get());
     for (Node* n : order) {
-        for (size_t i = 0; i < n->inputs.size(); ++i) {
-            if (!n->inputs[i]) {
+        for (size_t i = 0; i < n->next_edges.size(); ++i) {
+            if (!n->next_edges[i].function) {
                 std::cerr << "DAG Validation Warning: Node " << op_name(n->op) << " @" << n 
                           << " has null input at index " << i << "\n";
             }

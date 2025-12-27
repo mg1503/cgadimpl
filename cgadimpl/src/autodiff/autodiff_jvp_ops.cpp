@@ -15,17 +15,17 @@ inline const Tensor& T(const std::function<const Tensor&(Node*)>& f, Node* p){ r
 
 Tensor jvp_Add(Node* n, const std::function<const Tensor&(Node*)>& t){
     // The '+' operator now handles both CPU and GPU, and is stream-aware.
-    return T(t, n->inputs[0].get()) + T(t, n->inputs[1].get());
+    return T(t, n->next_edges[0].function.get()) + T(t, n->next_edges[1].function.get());
 }
 
 Tensor jvp_Sub(Node* n, const std::function<const Tensor&(Node*)>& t){
     // The '-' operator now handles both CPU and GPU.
-    return T(t, n->inputs[0].get()) - T(t, n->inputs[1].get());
+    return T(t, n->next_edges[0].function.get()) - T(t, n->next_edges[1].function.get());
 }
 
 Tensor jvp_Mul(Node* n, const std::function<const Tensor&(Node*)>& t){ 
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
+    Node* A = n->next_edges[0].function.get();
+    Node* B = n->next_edges[1].function.get();
 
     // The '*' and '+' operators now handle both CPU and GPU.
     // The entire expression works on either device and is fully asynchronous on CUDA.
@@ -36,7 +36,7 @@ Tensor jvp_Mul(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Relu
 // ===================================================================
 Tensor jvp_Relu(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     cudaStream_t stream = (cudaStream_t)ag::current_stream();
     // Create the ReLU mask using pure arithmetic
     const float epsilon = 1e-9f;
@@ -50,7 +50,7 @@ Tensor jvp_Relu(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Exp
 // ===================================================================
 Tensor jvp_Exp(Node* n, const std::function<const Tensor&(Node*)>& t){
-Node* X = n->inputs[0].get();
+Node* X = n->next_edges[0].function.get();
 // The '*' operator is device-agnostic and stream-aware.
 return T(t, X) * n->tensor;
 }
@@ -60,7 +60,7 @@ return T(t, X) * n->tensor;
 // jvp_Log
 // ===================================================================
 Tensor jvp_Log(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     // The '/' operator is device-agnostic and stream-aware.
     return T(t, X) / X->tensor;
 }
@@ -69,7 +69,7 @@ Tensor jvp_Log(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Tanh
 // ===================================================================
 Tensor jvp_Tanh(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     const Tensor& th = n->tensor;
     
     // The operators handle broadcasting and device dispatch automatically.
@@ -80,7 +80,7 @@ Tensor jvp_Tanh(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Sigmoid
 // ===================================================================
 Tensor jvp_Sigmoid(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     const Tensor& s = n->tensor; // s is the result of sigmoid(x) from the forward pass
     
     // The operators handle broadcasting and device dispatch automatically.
@@ -91,7 +91,7 @@ Tensor jvp_Sigmoid(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Softplus
 // ===================================================================
 Tensor jvp_Softplus(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
 
     // Re-implement sigmoid using OwnTensor ops
     Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(X->tensor * -1.0f));
@@ -103,7 +103,7 @@ Tensor jvp_Softplus(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_SiLU
 // ===================================================================
 Tensor jvp_SiLU(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     const Tensor& x_val = X->tensor;
 
     // Re-implement sigmoid and its derivative
@@ -120,7 +120,7 @@ Tensor jvp_SiLU(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_GELU
 // ===================================================================
 Tensor jvp_GELU(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X_node = n->inputs[0].get();
+    Node* X_node = n->next_edges[0].function.get();
     const Tensor& x = X_node->tensor;
 
     const float c1 = 0.7978845608f; // sqrt(2.0f / M_PI)
@@ -145,8 +145,8 @@ Tensor jvp_GELU(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_LeakyRelu
 // ===================================================================
 Tensor jvp_LeakyRelu(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X_node = n->inputs[0].get();
-    Node* A_node = n->inputs[1].get();
+    Node* X_node = n->next_edges[0].function.get();
+    Node* A_node = n->next_edges[1].function.get();
     const Tensor& x = X_node->tensor;
     float alpha = A_node->tensor.to_cpu().data<float>()[0];
 
@@ -167,8 +167,8 @@ Tensor jvp_LeakyRelu(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_MatMul
 // ===================================================================
 Tensor jvp_MatMul(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
+    Node* A = n->next_edges[0].function.get();
+    Node* B = n->next_edges[1].function.get();
     return OwnTensor::matmul(T(t, A), B->tensor) + OwnTensor::matmul(A->tensor, T(t, B));
 }
 
@@ -176,9 +176,9 @@ Tensor jvp_MatMul(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_FMA
 // ===================================================================
 Tensor jvp_FMA(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
-    Node* C = n->inputs[2].get();
+    Node* A = n->next_edges[0].function.get();
+    Node* B = n->next_edges[1].function.get();
+    Node* C = n->next_edges[2].function.get();
     
     Tensor dA = OwnTensor::matmul(T(t, A), B->tensor.t());
     Tensor dB = OwnTensor::matmul(A->tensor, T(t, B).t());
@@ -190,9 +190,9 @@ Tensor jvp_FMA(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Linear
 // ===================================================================
 Tensor jvp_Linear(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* A = n->inputs[0].get();
-    Node* B = n->inputs[1].get();
-    Node* C = n->inputs[2].get();
+    Node* A = n->next_edges[0].function.get();
+    Node* B = n->next_edges[1].function.get();
+    Node* C = n->next_edges[2].function.get();
     
     Tensor dA = OwnTensor::matmul(T(t, A), B->tensor);
     Tensor dB = OwnTensor::matmul(A->tensor, T(t, B));
@@ -218,8 +218,8 @@ Tensor jvp_SigAtt(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Div
 // ===================================================================
 Tensor jvp_Div(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* A_node = n->inputs[0].get();
-    Node* B_node = n->inputs[1].get();
+    Node* A_node = n->next_edges[0].function.get();
+    Node* B_node = n->next_edges[1].function.get();
     const Tensor& A = A_node->tensor;
     const Tensor& B = B_node->tensor;
     
@@ -230,7 +230,7 @@ Tensor jvp_Div(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Reciprocal
 // ===================================================================
 Tensor jvp_Reciprocal(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X_node = n->inputs[0].get();
+    Node* X_node = n->next_edges[0].function.get();
     const Tensor& X = X_node->tensor;
     
     return (T(t, X_node) * -1.0f) / (X * X);
@@ -249,7 +249,7 @@ Tensor jvp_Sign(Node* n, const std::function<const Tensor&(Node*)>& t){
 // ===================================================================
 Tensor jvp_Sqrt(Node* n, const std::function<const Tensor&(Node*)>& t){
     // JVP is tangent(x) * (0.5 / sqrt(x)) = tangent(x) * 0.5 / y
-    return T(t, n->inputs[0].get()) * 0.5f / n->tensor;
+    return T(t, n->next_edges[0].function.get()) * 0.5f / n->tensor;
 }
 
 // ===================================================================
@@ -264,7 +264,7 @@ Tensor jvp_Relumask(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Cosh
 // ===================================================================
 Tensor jvp_Cosh(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * OwnTensor::sinh(X->tensor);
 }
 
@@ -272,7 +272,7 @@ Tensor jvp_Cosh(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Sinh
 // ===================================================================
 Tensor jvp_Sinh(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * OwnTensor::cosh(X->tensor);
 }
 
@@ -280,7 +280,7 @@ Tensor jvp_Sinh(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Cos
 // ===================================================================
 Tensor jvp_Cos(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * -1.0f * OwnTensor::sin(X->tensor);
 }
 
@@ -288,7 +288,7 @@ Tensor jvp_Cos(Node* n, const std::function<const Tensor&(Node*)>& t){
 // In file: cgadimpl/src/autodiff/jvp_ops.cpp (Corrected)
 // ===================================================================
 Tensor jvp_Sin(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * OwnTensor::cos(X->tensor);
 }
 
@@ -296,7 +296,7 @@ Tensor jvp_Sin(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Tan
 // ===================================================================
 Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     Tensor cos_x = OwnTensor::cos(X->tensor);
     // JVP is tangent(x) * (1/cos(x)^2)
     return T(t, X) * (1.0f / (cos_x * cos_x));
@@ -306,7 +306,7 @@ Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Asin
 // ===================================================================
 Tensor jvp_Asin(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     // JVP is tangent(x) * (1 / sqrt(1 - x^2))
     return T(t, X) * (1.0f / OwnTensor::sqrt(1.0f - (X->tensor * X->tensor), ag::current_stream()));
 }
@@ -315,7 +315,7 @@ Tensor jvp_Asin(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Acos
 // ===================================================================
 Tensor jvp_Acos(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     // JVP is tangent(x) * (-1 / sqrt(1 - x^2))
     return T(t, X) * (-1.0f / OwnTensor::sqrt(1.0f - (X->tensor * X->tensor), ag::current_stream()));
 }
@@ -324,7 +324,7 @@ Tensor jvp_Acos(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Atan
 // ===================================================================
 Tensor jvp_Atan(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     // JVP is tangent(x) * (1 / (1 + x^2))
     return T(t, X) * (1.0f / (1.0f + (X->tensor * X->tensor)));
 }
@@ -338,8 +338,8 @@ Tensor jvp_MOE(Node* n, const std::function<const Tensor&(Node*)>& t){
 // ===================================================================
 
 Tensor jvp_MSELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* Z_node = n->inputs[0].get(); // Predictions
-    Node* Y_node = n->inputs[1].get(); // Targets
+    Node* Z_node = n->next_edges[0].function.get();
+    Node* Y_node = n->next_edges[1].function.get();
     const Tensor& Z = Z_node->tensor;
     const Tensor& Y = Y_node->tensor;
     
@@ -366,8 +366,8 @@ Tensor jvp_MSELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_MAELoss
 // ===================================================================
 Tensor jvp_MAELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* Z_node = n->inputs[0].get();
-    Node* Y_node = n->inputs[1].get();
+    Node* Z_node = n->next_edges[0].function.get();
+    Node* Y_node = n->next_edges[1].function.get();
     const Tensor& Z = Z_node->tensor;
     const Tensor& Y = Y_node->tensor;
     
@@ -395,7 +395,7 @@ Tensor jvp_MAELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_GCU
 // ===================================================================
 Tensor jvp_GCU(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * (OwnTensor::cos(X->tensor) - X->tensor * OwnTensor::sin(X->tensor));
 }
 
@@ -403,7 +403,7 @@ Tensor jvp_GCU(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Parcon
 // ===================================================================
 Tensor jvp_Parcon(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return T(t, X) * (2.0f - 2.0f * X->tensor);
 }
 
@@ -411,7 +411,7 @@ Tensor jvp_Parcon(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_LiSHT
 // ===================================================================
 Tensor jvp_LiSHT(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     const Tensor& x_val = X->tensor;
 
     Tensor th_x = OwnTensor::tanh(x_val);
@@ -428,7 +428,7 @@ Tensor jvp_LiSHT(Node* n, const std::function<const Tensor&(Node*)>& t){
 // ===================================================================
 Tensor jvp_Transpose(Node* n, const std::function<const Tensor&(Node*)>& t){
     // Call the .t() member function on the tangent tensor.
-    return T(t, n->inputs[0].get()).t();
+    return T(t, n->next_edges[0].function.get()).t();
 }
 
 Tensor jvp_SWIGLU(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -439,7 +439,7 @@ Tensor jvp_SWIGLU(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Mish
 // ===================================================================
 Tensor jvp_Mish(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X_node = n->inputs[0].get();
+    Node* X_node = n->next_edges[0].function.get();
     const Tensor& x = X_node->tensor;
 
     // Re-calculate intermediates needed for the derivative
@@ -457,7 +457,7 @@ Tensor jvp_Mish(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Gaus
 // ===================================================================
 Tensor jvp_Gaus(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     
     // JVP is tangent(x) * (-2 * x * exp(-x^2))
     // n->tensor from the forward pass already holds exp(-x^2).
@@ -472,7 +472,7 @@ Tensor jvp_LayerNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_RMSNorm
 // ===================================================================
 Tensor jvp_RMSNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X_node = n->inputs[0].get();
+    Node* X_node = n->next_edges[0].function.get();
     const Tensor& x = X_node->tensor;
 
     const Tensor& rms = *n->tape[0];
@@ -503,7 +503,7 @@ Tensor jvp_RealRMSNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_Sum
 // ===================================================================
 Tensor jvp_Sum(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return OwnTensor::reduce_sum(t(X));
 }
 
@@ -511,7 +511,7 @@ Tensor jvp_Sum(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_RowSum
 // ===================================================================
 Tensor jvp_RowSum(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return OwnTensor::reduce_sum(t(X), {-1}, true); // Sum over the last dimension and keep it
 }
 
@@ -529,7 +529,7 @@ Tensor jvp_RowMax(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_MeanAll
 // ===================================================================
 Tensor jvp_MeanAll(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
+    Node* X = n->next_edges[0].function.get();
     return OwnTensor::reduce_mean(t(X));
 }
 
@@ -538,7 +538,7 @@ Tensor jvp_MeanAll(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_SoftmaxRow
 // ===================================================================
 Tensor jvp_SoftmaxRow(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* Z_node = n->inputs[0].get();
+    Node* Z_node = n->next_edges[0].function.get();
     const Tensor& y = n->tensor; // y = softmax(z) from forward pass
     const Tensor& tZ = t(Z_node); // tangent(z)
 
@@ -552,7 +552,7 @@ Tensor jvp_SoftmaxRow(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_LogSumExpRow
 // ===================================================================
 Tensor jvp_LogSumExpRow(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* Z_node = n->inputs[0].get();
+    Node* Z_node = n->next_edges[0].function.get();
     const Tensor& Z = Z_node->tensor;
     const Tensor& tZ = t(Z_node); // tangent(z)
     
@@ -570,8 +570,8 @@ Tensor jvp_LogSumExpRow(Node* n, const std::function<const Tensor&(Node*)>& t){
 // jvp_CeWithLogits
 // ===================================================================
 Tensor jvp_CeWithLogits(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* Z_node = n->inputs[0].get();
-    Node* Y_node = n->inputs[1].get();
+    Node* Z_node = n->next_edges[0].function.get();
+    Node* Y_node = n->next_edges[1].function.get();
     const Tensor& Z = Z_node->tensor;
     const Tensor& Y = Y_node->tensor;
     

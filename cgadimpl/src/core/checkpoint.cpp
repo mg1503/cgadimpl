@@ -24,8 +24,9 @@ void mark_node_checkpoint(const std::shared_ptr<Node> &node, const CheckpointOpt
     if (!node || node->is_checkpoint) return;
     node->is_checkpoint = true;
     node->saved_inputs.clear();
-    for (auto &p : node->inputs) {
-        node->saved_inputs.emplace_back(p ? Value(p) : Value());
+    node->saved_inputs.clear();
+    for (const auto &edge : node->next_edges) {
+        node->saved_inputs.emplace_back(edge.function ? Value(edge.function) : Value());
     }
     // ... (Your RNG saving logic can go here) ...
 }
@@ -50,8 +51,9 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
     // ... (Your RNG restore logic can go here) ...
 
     // 1. Recursively ensure all parents have their values present BEFORE we compute this node.
-    for (const auto& parent_node : node->inputs) {
-        if (!parent_node) continue;
+    for (const auto& edge : node->next_edges) {
+        if (!edge.function) continue;
+        auto parent_node = edge.function;
 
         // Check if the parent's value is missing
         if (parent_node->tensor.numel() == 0) {
@@ -104,11 +106,11 @@ void auto_checkpoint_every_n(const Value &root, int n) {
         if (!cur || visited.count(cur.get())) continue;
         visited.insert(cur.get());
         ++counter;
-        if (counter % n == 0 && !cur->inputs.empty()) {
+        if (counter % n == 0 && !cur->next_edges.empty()) {
             checkpoint_impl::mark_node_checkpoint(cur, CheckpointOptions());
         }
-        for (auto &p : cur->inputs)
-            if (p) q.push_back(p);
+        for (auto &edge : cur->next_edges)
+            if (edge.function) q.push_back(edge.function);
     }
 }
 
@@ -122,11 +124,11 @@ void auto_checkpoint_by_depth(const Value& root, int depth_threshold) {
         auto [cur, depth] = q.front(); q.pop();
         if (!cur || visited.count(cur.get())) continue;
         visited.insert(cur.get());
-        if (depth >= depth_threshold && !cur->inputs.empty()) {
+        if (depth >= depth_threshold && !cur->next_edges.empty()) {
             checkpoint_impl::mark_node_checkpoint(cur, CheckpointOptions());
         }
-        for (auto &p : cur->inputs)
-            if (p) q.push({p, depth + 1});
+        for (auto &edge : cur->next_edges)
+            if (edge.function) q.push({edge.function, depth + 1});
     }
 }
 

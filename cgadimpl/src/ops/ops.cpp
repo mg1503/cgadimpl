@@ -333,7 +333,7 @@ return Value(ag::detail::realrms_nodeops(x.node, g));
  *  Core logic:
  *      1️⃣  Validate that the node exists.
  *      2️⃣  Switch over the node’s operation (`Op` enum).
- *      3️⃣  Retrieve the node’s input tensors (`node->inputs[i]->tensor`).
+ *      3️⃣  Retrieve the node’s input tensors (`node->next_edges[i].function->tensor`).
  *      4️⃣  Perform the appropriate mathematical operation.
  *      5️⃣  Return the computed output tensor.
  *      6️⃣  If unsupported, throw a runtime error.
@@ -347,16 +347,16 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         // ============================================================
         // Basic arithmetic operations
         // ============================================================
-        case Op::Add: return node->inputs[0]->tensor + node->inputs[1]->tensor;
-        case Op::Sub: return node->inputs[0]->tensor - node->inputs[1]->tensor;
-        case Op::Mul: return node->inputs[0]->tensor * node->inputs[1]->tensor;
+        case Op::Add: return node->next_edges[0].function->tensor + node->next_edges[1].function->tensor;
+        case Op::Sub: return node->next_edges[0].function->tensor - node->next_edges[1].function->tensor;
+        case Op::Mul: return node->next_edges[0].function->tensor * node->next_edges[1].function->tensor;
 
         // ============================================================
         // Matrix multiplication (dense layer or attention block)
         // ============================================================
         case Op::MatMul: {
-            const Tensor &A = node->inputs[0]->tensor;
-            const Tensor &B = node->inputs[1]->tensor;
+            const Tensor &A = node->next_edges[0].function->tensor;
+            const Tensor &B = node->next_edges[1].function->tensor;
             // Use the named async function for clarity
             return matmul(A, B);
         }
@@ -366,31 +366,31 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         // ============================================================
         case Op::Relu: {
             // Re-implement ReLU using the tensor library's ops
-            auto& x = node->inputs[0]->tensor;
+            auto& x = node->next_edges[0].function->tensor;
             return (x + OwnTensor::abs(x, ag::current_stream())) * 0.5f;
         }
         case Op::Linear: {
-            const Tensor& input_X = node->inputs[0]->tensor;
-            const Tensor& weight_W = node->inputs[1]->tensor; // Shape is [out, in]
-            const Tensor& bias_b = node->inputs[2]->tensor;
+            const Tensor& input_X = node->next_edges[0].function->tensor;
+            const Tensor& weight_W = node->next_edges[1].function->tensor; // Shape is [out, in]
+            const Tensor& bias_b = node->next_edges[2].function->tensor;
             
             // This logic MUST match the forward logic in linear_nodeops
             return matmul(input_X, weight_W.t()) + bias_b;
         }
         // case Op::Sigmoid: {
-        //     const Tensor &X = node->inputs[0]->tensor;
+        //     const Tensor &X = node->next_edges[0].function->tensor;
         // //     return Tensor::sigmoid(X);
         // }
         case Op::Tanh: {
-            const Tensor &X = node->inputs[0]->tensor;
+            const Tensor &X = node->next_edges[0].function->tensor;
             return tanh(X);
         }
         case Op::Exp: {
-            const Tensor &X = node->inputs[0]->tensor;
+            const Tensor &X = node->next_edges[0].function->tensor;
             return exp(X);
         }
         case Op::Log: {
-            const Tensor &X = node->inputs[0]->tensor;
+            const Tensor &X = node->next_edges[0].function->tensor;
             return log(X);
         }
         
@@ -416,10 +416,10 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             // because all the OwnTensor functions called below (matmul, exp, sum, etc.)
             // are designed to get the stream from the thread-local context.
 
-            const Tensor &a = node->inputs[0]->tensor;
-            const Tensor &b = node->inputs[1]->tensor;
-            const Tensor &c = node->inputs[2]->tensor;
-            const Tensor &d = node->inputs[3]->tensor;
+            const Tensor &a = node->next_edges[0].function->tensor;
+            const Tensor &b = node->next_edges[1].function->tensor;
+            const Tensor &c = node->next_edges[2].function->tensor;
+            const Tensor &d = node->next_edges[3].function->tensor;
 
             // Step 1: compute projections using the new matmul function
             Tensor q = matmul(a, b);

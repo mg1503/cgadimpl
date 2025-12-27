@@ -143,8 +143,8 @@ void mark_inplace_checkpoint(const NodePtr& node, const InplaceOptions& opts) {
 
     // Save direct input references (like normal checkpoints)
     node->saved_inputs.clear();
-    for (auto& p : node->inputs)
-        node->saved_inputs.emplace_back(p ? Value(p) : Value());
+    for (auto& p : node->next_edges)
+        node->saved_inputs.emplace_back(p.function ? Value(p.function) : Value());
 
     // Create snapshot entry
     // Create and initialize the snapshot entry in one step

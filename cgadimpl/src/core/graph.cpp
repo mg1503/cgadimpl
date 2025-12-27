@@ -1,72 +1,82 @@
 // =====================
-// file: cgadimpl/src/graph.cpp
+// file: cgadimpl/src/core/graph.cpp
 // =====================
 #include "ad/core/graph.hpp"
+#include <stack>
 #include <unordered_set>
-#include <functional>
-#include <cassert>
-#include <sstream>
-#include <iostream> // Added for printing
-
+#include <algorithm>
 
 namespace ag {
 
-// --- Node Implementation ---
-// Node::Node() = default; 
-Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm) 
-    : tensor(v), 
-      op(op_), 
-      debug_name(nm),
-      is_leaf(op_ == Op::Leaf)  // Phase 1.1: Mark leaf nodes
-{
-    // Phase 1.3: Capture execution context
-    creation_context.stream = current_stream();
-    creation_context.device = v.device();
+// ==========================================
+// Graph Traversal (Iterative DFS)
+// ==========================================
+std::vector<Node*> topo_from(Node* root) {
+    if (!root) return {};
+
+    std::vector<Node*> order;
+    std::unordered_set<Node*> visited;
     
-   if (req_grad && !tensor.requires_grad()) {
-        tensor.set_requires_grad(true);
+    // We'll use a standard iterative approach for topological sort.
+    // We want a topological sort that respects dependencies:
+    // If A depends on B (A has input B), B must come before A in the result.
+    // This allows forward execution.
+    // However, for BACKWARD pass (which is usually what topo_order is used for in current context),
+    // we want Root first, then children?
+    // Actually, `autodiff.cpp` typically iterates the list. S
+    // Standard DFS Post-Order gives [DeepestDependency, ..., Root].
+    // If we want [Root, ..., DeepestDependency], we reverse it.
+    // Let's implement standard Post-Order first.
+    
+    struct Frame {
+        Node* node;
+        size_t next_edge_idx = 0;
+    };
+    
+    std::vector<Frame> call_stack;
+    call_stack.push_back({root, 0});
+    
+    while (!call_stack.empty()) {
+        Frame& frame = call_stack.back();
+        Node* u = frame.node;
+        
+        if (frame.next_edge_idx == 0) {
+            if (visited.count(u)) {
+                call_stack.pop_back();
+                continue;
+            }
+            visited.insert(u);
+        }
+        
+        // Process next child
+        bool pushed_child = false;
+        while (frame.next_edge_idx < u->next_edges.size()) {
+            Edge& e = u->next_edges[frame.next_edge_idx];
+            frame.next_edge_idx++;
+            
+            if (e.function && visited.find(e.function.get()) == visited.end()) {
+                call_stack.push_back({e.function.get(), 0});
+                pushed_child = true;
+                break; // Process this child first
+            }
+        }
+        
+        if (!pushed_child) {
+            // All children processed
+            order.push_back(u);
+            call_stack.pop_back();
+        }
     }
-}
-
-// --- Value Implementation ---
-// ADDED: Implement the Value helper functions
-Tensor& Value::val() { return node->tensor; }
-const Tensor& Value::val() const { return node->tensor; }
-Tensor Value::grad() { return node->tensor.grad_view(); }
-Tensor Value::grad() const { return node->tensor.grad_view(); }
-Value::Value() = default;
-Value::Value(std::shared_ptr<Node> n) : node(std::move(n)) {}
-
-// NEW: Implementation for the real shape()
-const std::vector<int64_t>& Value::shape() const {
-    return node->tensor.shape().dims;
-}
-// 2d helper
-std::pair<int, int> Value::shape_2d() const {
-    const auto& dims = node->tensor.shape().dims;
-    if (dims.size() == 0) return {0, 0};
-    if (dims.size() == 1) return {1, static_cast<int>(dims[0])};
-    // For 2D or more, return the first two dimensions.
-    return {static_cast<int>(dims[0]), static_cast<int>(dims[1])};
-}
-
-// // --- Factory Implementation ---
-// Value make_tensor(const Tensor& v, const char* name) {
-//     return Value(std::make_shared<Node>(v, Op::Leaf, name));
-// }
-
-// --- Internal implementation for graph traversal ---
-static std::vector<Node*> build_topo_order_impl(Node* root) {
-    std::vector<Node*> order; order.reserve(256);
-    std::unordered_set<Node*> vis; vis.reserve(256);
-    std::function<void(Node*)> dfs = [&](Node* n){ if(!n || vis.count(n)) return; vis.insert(n); for(auto& p : n->inputs) dfs(p.get()); order.push_back(n); };
-    dfs(root);
-    return order; // parents before child
-}
-
-// --- Graph Traversal ---
-std::vector<Node*> topo_from(Node* root){
-    return build_topo_order_impl(root);
+    
+    // Note: This returns Post-Order (Inputs -> Outputs).
+    // If the caller expects Output -> Inputs (for backward), they usually iterate in reverse
+    // OR this function should reverse it.
+    // Looking at `autodiff.cpp`:
+    // `auto order = topo_from(root.node.get());`
+    // `for (auto it = order.rbegin(); it != order.rend(); ++it)` -> Reverse of this order.
+    // So if this is Post-Order (Inputs...Root), then rbegin (Root...Inputs) is correct for Backward.
+    
+    return order;
 }
 
 } // namespace ag

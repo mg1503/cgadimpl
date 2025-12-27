@@ -101,8 +101,8 @@ static bool has_active_alias(Node* n) {
  */
 static bool gradients_done(Node* n) {
     if (!n) return false;
-    for (auto& p : n->inputs) {
-        if (p && p->requires_grad())
+    for (auto& edge : n->next_edges) {
+        if (edge.function && edge.function->requires_grad())
             return false;  // at least one parent still needs its gradient
     }
     return true;
@@ -150,7 +150,7 @@ bool try_delete_node(Node* node, DeletePolicy policy) {
 
     // 2  Skip checkpoint nodes — these must remain for recomputation
     if (node->is_checkpoint) return false;
-
+    
     // 3  Skip nodes with active alias relationships
     if (has_active_alias(node)) return false;
 
