@@ -49,8 +49,6 @@ Value asin(const Value& x);
 Value acos(const Value& x);
 Value atan(const Value& x);
 Value softplus(const Value& x);
-Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d); 
-Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d); 
 
 Value sin(const Value& a, const Value& b);
 Value gelu (const Value& x); // tanh approx
@@ -62,10 +60,8 @@ Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, con
 Value rms(const Value& x); // root mean square normalization
 Value realrms(const Value& x, float g); // with learned scale
 Value dyntanh(const Value& x, float a, float b, float g); // dynamic tanh via mean_all
-Value relaynor(const Value& x, float b, float g); // with learned scale and bias
-Value mambassm(const Value& z, const Value& a, const Value& b, const Value& c, const Value& d); // state space model
 Value sign (const Value& a, const Value& b);
-Value moewe(const Value& x, const Value& w, const Value& b);
+
 
 // rowwise reductions / softmax family
 Value rowsum (const Value& x); // [B,C] -> [B,1]
@@ -74,7 +70,7 @@ Value mean_all(const Value& x); // scalar
 Value softmax_row(const Value& z); // [B,C] -> [B,C]
 Value logsumexp_row(const Value& z); // [B,C] -> [B,1]
 Value laynor(const Value& x);
-Value alibiatt(const Value& a, const Value& b, const Value& c, const Value& d, float m); // m = max seq len
+
 
 // composite loss (one-hot targets)
 Value cross_entropy_with_logits(const Value& logits, const Value& onehot);
