@@ -235,10 +235,7 @@ void vjp_Attention(Node* n, const Tensor& gy){
     }
 }
 
-void vjp_AlibiAttention(Node* n, const Tensor& gy){
-    // Assuming same VJP as Attention for now
-    vjp_Attention(n, gy);
-}
+
 
 // ===================================================================
 // vjp_SWIGLU
@@ -819,17 +816,6 @@ void vjp_Sign(Node* n, const Tensor& gy){
 }
 
 // ===================================================================
-// vjp_Cos
-// ===================================================================
-void vjp_Cos(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (!X->requires_grad()) return;
-
-    // VJP is gy * -sin(x)
-    X->grad += gy * -1.0f * OwnTensor::sin(X->value);
-}
-
-// ===================================================================
 // vjp_Sin
 // ===================================================================
 void vjp_Sin(Node* n, const Tensor& gy){
@@ -838,6 +824,16 @@ void vjp_Sin(Node* n, const Tensor& gy){
 
     // VJP is gy * cos(x)
     X->grad += gy * OwnTensor::cos(X->value);
+}
+// ===================================================================
+// vjp_Cos
+// ===================================================================
+void vjp_Cos(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // VJP is gy * -sin(x)
+    X->grad += gy * -1.0f * OwnTensor::sin(X->value);
 }
 // ===================================================================
 // vjp_Tan
@@ -880,9 +876,50 @@ void vjp_Atan(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // VJP is gy * (1 / (1 + x^2))
-    X->grad += gy * (1.0f / (1.0f + (X->value * X->value)));
+    X->grad += gy / ((1.0f + (X->value * X->value)));
 }
 
+
+
+// ===================================================================
+// vjp_ASinh
+// ===================================================================
+void vjp_ASinh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // gy / sqt(x^2 + 1)
+    X->grad += gy / OwnTensor::sqrt((X->value * X->value) + 1.0f, ag::current_stream());
+}
+// ===================================================================
+// vjp_ASinh
+// ===================================================================
+void vjp_ACosh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // gy / sqt(x^2 - 1)
+    X->grad += gy / OwnTensor::sqrt((X->value * X->value) - 1.0f, ag::current_stream());
+}
+// ===================================================================
+// vjp_ASinh
+// ===================================================================
+void vjp_ATanh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
+
+    // gy / sqt(x^2 - 1)
+    X->grad += gy / OwnTensor::sqrt((X->value * X->value) - 1.0f, ag::current_stream());
+}
+void vjp_Abs(Node* n, const Tensor& gy){
+    Node* X = n -> inputs[0].get();
+    if(!X -> requires_grad()) return;
+
+    const float epsilon = 1e-9f;
+    Tensor sign_x = X -> value / (n -> value + epsilon);
+
+    X -> grad += gy * sign_x;
+}
 // =================================================================== 
 //  vjp_Sqrt
 // ===================================================================
@@ -894,7 +931,12 @@ void vjp_Sqrt(Node* n, const Tensor& gy){
     // n->value is the result of the forward pass, which is sqrt(x).
     X->grad += gy * 0.5f / n->value;
 }
+void vjp_Pow(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (!X->requires_grad()) return;
 
+    X->grad += gy * 0.5f / n->value;
+}
 // ===================================================================
 // vjp_Relumask
 // ===================================================================
@@ -905,42 +947,6 @@ void vjp_Relumask(Node* n, const Tensor& gy){
     // The gradient is 0. We multiply by gy to ensure correct broadcasting
     // for a zero-like tensor.
     X->grad += gy * 0.0f;
-}
-
-// ===================================================================
-// vjp_RELUAtt
-// ===================================================================
-void vjp_RELUAtt(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get(), *B = n->inputs[1].get(), *C = n->inputs[2].get(), *D = n->inputs[3].get();
-    const Tensor& q = *n->tape[0], &k = *n->tape[1], &v = *n->tape[2], &s = *n->tape[3];
-    
-    float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
-
-    // VJP for the final matmul: y = s @ v
-    Tensor dL_ds = matmul(gy, v.t());
-    Tensor dL_dv = matmul(s.t(), gy);
-    
-    // VJP for the ReLU: s = relu(g). Gradient is dL/ds * (g > 0)
-    // We get the original 'g' by inverting the relu on 's': where s is 0, g was <=0.
-    // The mask is simply where s > 0.
-    const float epsilon = 1e-9f;
-    Tensor sign_s = s / (OwnTensor::abs(s, ag::current_stream()) + epsilon);
-    Tensor relu_mask = (sign_s + OwnTensor::abs(sign_s, ag::current_stream())) * 0.5f; // relu(sign(s)) is 1 where s>0
-    Tensor dL_dg = dL_ds * relu_mask;
-    
-    // VJP for the scaled matmul: g = (q @ k.T) * scale
-    Tensor dL_dq = matmul(dL_dg, k) * scale;
-    Tensor dL_dk = matmul(dL_dg.t(), q) * scale;
-
-    // Propagate gradients to the weight matrices and the input A
-    if (B->requires_grad()) B->grad += matmul(A->value.t(), dL_dq);
-    if (C->requires_grad()) C->grad += matmul(A->value.t(), dL_dk);
-    if (D->requires_grad()) D->grad += matmul(A->value.t(), dL_dv);
-    if (A->requires_grad()) {
-        A->grad += matmul(dL_dq, B->value) + 
-                   matmul(dL_dk, C->value) + 
-                   matmul(dL_dv, D->value);
-    }
 }
 
 // ===================================================================
@@ -962,37 +968,6 @@ void vjp_MOE(Node* n, const Tensor& gy){
     // VJP for bias B: dB is the sum of gradients along the batch dimension
     if (B->requires_grad()) {
         B->grad += OwnTensor::reduce_sum(gy, {0}, false);
-    }
-}
-// ===================================================================
-// vjp_SigAtt
-// ===================================================================
-void vjp_SigAtt(Node* n, const Tensor& gy){
-    Node* A = n->inputs[0].get(), *B = n->inputs[1].get(), *C = n->inputs[2].get(), *D = n->inputs[3].get();
-    const Tensor& q = *n->tape[0], &k = *n->tape[1], &v = *n->tape[2], &s = *n->tape[3];
-
-    float scale = 1.0f / std::sqrt(static_cast<float>(k.shape().dims.back()));
-
-    // VJP for the final matmul: y = s @ v
-    Tensor dL_ds = matmul(gy, v.t());
-    Tensor dL_dv = matmul(s.t(), gy);
-    
-    // VJP for the Sigmoid activation: s = sigmoid(g)
-    // dL/dg = dL/ds * (s * (1 - s))
-    Tensor dL_dg = dL_ds * (s * (1.0f - s));
-    
-    // VJP for the scaled matmul: g = (q @ k.T) * scale
-    Tensor dL_dq = matmul(dL_dg, k) * scale;
-    Tensor dL_dk = matmul(dL_dg.t(), q) * scale;
-
-    // Propagate gradients to the weight matrices and the input A
-    if (B->requires_grad()) B->grad += matmul(A->value.t(), dL_dq);
-    if (C->requires_grad()) C->grad += matmul(A->value.t(), dL_dk);
-    if (D->requires_grad()) D->grad += matmul(A->value.t(), dL_dv);
-    if (A->requires_grad()) {
-        A->grad += matmul(dL_dq, B->value) + 
-                   matmul(dL_dk, C->value) + 
-                   matmul(dL_dv, D->value);
     }
 }
 

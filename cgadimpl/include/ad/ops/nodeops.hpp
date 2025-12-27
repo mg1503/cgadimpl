@@ -73,10 +73,9 @@ std::shared_ptr<Node> sqrt_nodeops(const std::shared_ptr<Node>& x);
 std::shared_ptr<Node> reci_nodeops(const std::shared_ptr<Node>& a);
 // std::shared_ptr<Node> tan_nodeops(const std::shared_ptr<Node>& x);
 
+
+
 std::shared_ptr<Node> linear_nodeops(const  std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c); // fused multiply-add a@b + c
-std::shared_ptr<Node> moewe_nodeops(const std::shared_ptr<Node>& x, const std::shared_ptr<Node>& w, const std::shared_ptr<Node>& b);
-std::shared_ptr<Node> reluatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d);
-std::shared_ptr<Node> sigatt_nodeops(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d);
 std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x); // tanh approx
 std::shared_ptr<Node> silu_nodeops(const std::shared_ptr<Node>& x); // x * sigmoid(x)
 std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float alpha=0.01f); // alpha via const input
@@ -86,9 +85,6 @@ std::shared_ptr<Node> swiglu_nodeops(const std::shared_ptr<Node>& x, const std::
 std::shared_ptr<Node> rms_nodeops(const std::shared_ptr<Node>& x); // root mean square normalization
 std::shared_ptr<Node> realrms_nodeops(const std::shared_ptr<Node>& x, float& g); // with learned scale
 std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a, float& b, float& g); // dynamic tanh via mean_all
-std::shared_ptr<Node> relaynor_nodeops(const std::shared_ptr<Node>& x, float& b, float& g); // with learned scale and bias
-std::shared_ptr<Node> mambassm_nodeops(const std::shared_ptr<Node>& z, const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d); // state space model
-
 
 // rowwise reductions / softmax family
 std::shared_ptr<Node> rowsum_nodeops(const std::shared_ptr<Node>& x); // [B,C] -> [B,1]
@@ -97,7 +93,6 @@ std::shared_ptr<Node> mean_all_nodeops( const std::shared_ptr<Node>& x); // scal
 std::shared_ptr<Node> softmax_row_nodeops( const std::shared_ptr<Node>& z); // [B,C] -> [B,C]
 std::shared_ptr<Node> logsumexp_row_nodeops(const std::shared_ptr<Node>& z); // [B,C] -> [B,1]
 std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x);
-std::shared_ptr<Node> alibiatt_nodeops( const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c, const std::shared_ptr<Node>& d, float& m); // m = max seq len
 
 // composite loss (one-hot targets)
 std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<Node>& logits, const std::shared_ptr<Node>& onehot);
