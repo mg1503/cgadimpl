@@ -17,6 +17,7 @@ struct Value {
     std::shared_ptr<Node> node;
     Value();    
     explicit Value(std::shared_ptr<Node> n);
+    Value(float val);
     const std::vector<int64_t>& shape() const;
     std::pair<int, int> shape_2d() const;
     Tensor& val();

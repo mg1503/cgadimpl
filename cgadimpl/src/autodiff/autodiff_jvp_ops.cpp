@@ -199,6 +199,10 @@ Tensor jvp_Linear(Node* n, const std::function<const Tensor&(Node*)>& t){
     
     return dA + dB + T(t, C);
 }
+
+// ===================================================================
+// jvp_Attention
+// ===================================================================
 Tensor jvp_Attention(Node* n, const std::function<const Tensor&(Node*)>& t){
     throw std::runtime_error("JVP for Attention not implemented yet!");
 }
@@ -213,6 +217,23 @@ Tensor jvp_Div(Node* n, const std::function<const Tensor&(Node*)>& t){
     const Tensor& B = B_node->value;
     
     return (T(t, A_node) / B) - (A * T(t, B_node) / (B * B));
+}
+
+// ===================================================================
+// jvp_Pow
+// ===================================================================
+Tensor jvp_Pow(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* A_node = n->inputs[0].get(); // base a
+    Node* B_node = n->inputs[1].get(); // exponent b
+    const Tensor& a = A_node->value;
+    const Tensor& b = B_node->value;
+    const Tensor& y = n->value; // y = a^b
+    
+    // JVP = b * (y / a) * tangent(a) + y * log(a) * tangent(b)
+    Tensor term1 = b * (y / a) * T(t, A_node);
+    Tensor term2 = y * OwnTensor::log(a, ag::current_stream()) * T(t, B_node);
+    
+    return term1 + term2;
 }
 
 // ===================================================================
@@ -411,13 +432,6 @@ Tensor jvp_MAELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
     return dot_Z + dot_Y;
 }
 
-// ===================================================================
-// jvp_GCU
-// ===================================================================
-Tensor jvp_GCU(Node* n, const std::function<const Tensor&(Node*)>& t){
-    Node* X = n->inputs[0].get();
-    return T(t, X) * (OwnTensor::cos(X->value) - X->value * OwnTensor::sin(X->value));
-}
 
 // ===================================================================
 // jvp_Parcon

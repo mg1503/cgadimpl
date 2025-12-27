@@ -1,0 +1,203 @@
+== Build Type:    Debug
+== Using CUDA CXX: /usr/local/cuda-13.0/bin/nvcc
+== Building tensor library
+
+
+✅ Library build is up-to-date.
+== Configuring core
+-- Found OwnTensor headers: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include
+-- Found OwnTensor library: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/lib/libtensor.so
+-- Forcing NovaCompiler include dir: /home/blubridge-029/Downloads/cgad/cgadimpl_/Nova-Compiler/install/include
+-- cgadimpl build mode: Debug
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/build
+== Building core
+[  1%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_jvp_ops.cpp.o
+[  2%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o
+[  3%] Building CXX object CMakeFiles/cgadimpl.dir/src/ops/activation.cpp.o
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In function ‘std::shared_ptr<ag::Node> ag::detail::pow_nodeops(const std::shared_ptr<ag::Node>&, const std::shared_ptr<ag::Node>&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: error: no matching function for call to ‘pow(OwnTensor::Tensor&, OwnTensor::Tensor&)’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:8,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/Tensor.h:7,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/tensor.hpp:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/graph.hpp:10,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/ops/nodeops.hpp:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:4:
+/usr/include/c++/13/complex:2477:5: note: candidate: ‘template<class _Tp, class _Up> std::complex<typename __gnu_cxx::__promote<decltype (((typename __gnu_cxx::__promote<_Tp, std::__is_integer<_Tp>::__value>::__type)(0) + (typename __gnu_cxx::__promote<_Up, std::__is_integer<_Up>::__value>::__type)(0)))>::__type> std::pow(const complex<_Tp>&, const complex<_Up>&)’
+ 2477 |     pow(const std::complex<_Tp>& __x, const std::complex<_Up>& __y)
+      |     ^~~
+/usr/include/c++/13/complex:2477:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:2469:5: note: candidate: ‘template<class _Tp, class _Up> std::complex<typename __gnu_cxx::__promote<decltype (((typename __gnu_cxx::__promote<_Tp, std::__is_integer<_Tp>::__value>::__type)(0) + (typename __gnu_cxx::__promote<_Up, std::__is_integer<_Up>::__value>::__type)(0)))>::__type> std::pow(const _Tp&, const complex<_Up>&)’
+ 2469 |     pow(const _Tp& __x, const std::complex<_Up>& __y)
+      |     ^~~
+/usr/include/c++/13/complex:2469:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Up>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:2461:5: note: candidate: ‘template<class _Tp, class _Up> std::complex<typename __gnu_cxx::__promote<decltype (((typename __gnu_cxx::__promote<_Tp, std::__is_integer<_Tp>::__value>::__type)(0) + (typename __gnu_cxx::__promote<_Up, std::__is_integer<_Up>::__value>::__type)(0)))>::__type> std::pow(const complex<_Tp>&, const _Up&)’
+ 2461 |     pow(const std::complex<_Tp>& __x, const _Up& __y)
+      |     ^~~
+/usr/include/c++/13/complex:2461:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:1334:5: note: candidate: ‘template<class _Tp> std::complex<_Tp> std::pow(const _Tp&, const complex<_Tp>&)’
+ 1334 |     pow(const _Tp& __x, const complex<_Tp>& __y)
+      |     ^~~
+/usr/include/c++/13/complex:1334:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:1323:5: note: candidate: ‘template<class _Tp> std::complex<_Tp> std::pow(const complex<_Tp>&, const complex<_Tp>&)’
+ 1323 |     pow(const complex<_Tp>& __x, const complex<_Tp>& __y)
+      |     ^~~
+/usr/include/c++/13/complex:1323:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:1289:5: note: candidate: ‘template<class _Tp> std::complex<_Tp> std::pow(const complex<_Tp>&, const _Tp&)’
+ 1289 |     pow(const complex<_Tp>& __x, const _Tp& __y)
+      |     ^~~
+/usr/include/c++/13/complex:1289:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+/usr/include/c++/13/complex:1280:5: note: candidate: ‘template<class _Tp> std::complex<_Tp> std::pow(const complex<_Tp>&, int)’
+ 1280 |     pow(const complex<_Tp>& __z, int __n)
+      |     ^~~
+/usr/include/c++/13/complex:1280:5: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26: note:   ‘OwnTensor::Tensor’ is not derived from ‘const std::complex<_Tp>’
+   77 |     const Tensor& C = pow(a->value, b->value);
+      |                       ~~~^~~~~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:5:
+/usr/include/c++/13/cmath:1070:5: note: candidate: ‘template<class _Tp, class _Up> constexpr typename __gnu_cxx::__promote_2<_Tp, _Up>::__type std::pow(_Tp, _Up)’
+ 1070 |     pow(_Tp __x, _Up __y)
+      |     ^~~
+/usr/include/c++/13/cmath:1070:5: note:   template argument deduction/substitution failed:
+In file included from /usr/include/c++/13/ext/numeric_traits.h:35,
+                 from /usr/include/c++/13/bits/stl_tempbuf.h:63,
+                 from /usr/include/c++/13/memory:66,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/graph.hpp:5:
+/usr/include/c++/13/ext/type_traits.h: In substitution of ‘template<class _Tp, class _Up> using __gnu_cxx::__promote_2 = __gnu_cxx::__promote<decltype (((typename __gnu_cxx::__promote<_Tp, std::__is_integer<_Tp>::__value>::__type)(0) + (typename __gnu_cxx::__promote<_Up, std::__is_integer<_Up>::__value>::__type)(0)))> [with _Tp = OwnTensor::Tensor; _Up = OwnTensor::Tensor]’:
+/usr/include/c++/13/cmath:1070:5:   required by substitution of ‘template<class _Tp, class _Up> constexpr typename __gnu_cxx::__promote_2<_Tp, _Up>::__type std::pow(_Tp, _Up) [with _Tp = OwnTensor::Tensor; _Up = OwnTensor::Tensor]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:77:26:   required from here
+/usr/include/c++/13/ext/type_traits.h:226:61: error: no type named ‘__type’ in ‘struct __gnu_cxx::__promote<OwnTensor::Tensor, false>’
+  226 |     using __promoted_t = decltype((typename __promote<_Tp>::__type(0) + ...));
+      |                                                             ^~~~~~~~~
+/usr/include/c++/13/ext/type_traits.h:226:61: error: no type named ‘__type’ in ‘struct __gnu_cxx::__promote<OwnTensor::Tensor, false>’
+In file included from /usr/include/features.h:502,
+                 from /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h:39,
+                 from /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h:679,
+                 from /usr/include/c++/13/bits/memoryfwd.h:48,
+                 from /usr/include/c++/13/memory:63:
+/usr/include/x86_64-linux-gnu/bits/mathcalls.h:140:1: note: candidate: ‘double pow(double, double)’
+  140 | __MATHCALL_VEC (pow,, (_Mdouble_ __x, _Mdouble_ __y));
+      | ^~~~~~~~~~~~~~
+In file included from /usr/include/c++/13/cmath:47:
+/usr/include/x86_64-linux-gnu/bits/mathcalls.h:140:1: note:   no known conversion for argument 1 from ‘OwnTensor::Tensor’ to ‘double’
+  140 | __MATHCALL_VEC (pow,, (_Mdouble_ __x, _Mdouble_ __y));
+      | ^
+/usr/include/c++/13/cmath:376:3: note: candidate: ‘constexpr long double std::pow(long double, long double)’
+  376 |   pow(long double __x, long double __y)
+      |   ^~~
+/usr/include/c++/13/cmath:376:19: note:   no known conversion for argument 1 from ‘OwnTensor::Tensor’ to ‘long double’
+  376 |   pow(long double __x, long double __y)
+      |       ~~~~~~~~~~~~^~~
+/usr/include/c++/13/cmath:372:3: note: candidate: ‘constexpr float std::pow(float, float)’
+  372 |   pow(float __x, float __y)
+      |   ^~~
+/usr/include/c++/13/cmath:372:13: note:   no known conversion for argument 1 from ‘OwnTensor::Tensor’ to ‘float’
+  372 |   pow(float __x, float __y)
+      |       ~~~~~~^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:406:22: note: candidate: ‘OwnTensor::float16_t OwnTensor::pow(float16_t, float16_t)’
+  406 |     inline float16_t pow(float16_t a, float16_t b) { return float16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                      ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:406:36: note:   no known conversion for argument 1 from ‘OwnTensor::Tensor’ to ‘OwnTensor::float16_t’
+  406 |     inline float16_t pow(float16_t a, float16_t b) { return float16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                          ~~~~~~~~~~^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:421:23: note: candidate: ‘OwnTensor::bfloat16_t OwnTensor::pow(bfloat16_t, bfloat16_t)’
+  421 |     inline bfloat16_t pow(bfloat16_t a, bfloat16_t b) { return bfloat16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                       ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:421:38: note:   no known conversion for argument 1 from ‘OwnTensor::Tensor’ to ‘OwnTensor::bfloat16_t’
+  421 |     inline bfloat16_t pow(bfloat16_t a, bfloat16_t b) { return bfloat16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                           ~~~~~~~~~~~^
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:19:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:25:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, int, cudaStream_t)’
+   25 | Tensor pow(const Tensor& t, int exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:25:33: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘int’
+   25 | Tensor pow(const Tensor& t, int exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:26:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, float, cudaStream_t)’
+   26 | Tensor pow(const Tensor& t, float exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:26:35: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘float’
+   26 | Tensor pow(const Tensor& t, float exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~~~^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:27:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, double, cudaStream_t)’
+   27 | Tensor pow(const Tensor& t, double exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:27:36: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘double’
+   27 | Tensor pow(const Tensor& t, double exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~~~~^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In function ‘std::shared_ptr<ag::Node> ag::detail::pow_nodeops(const std::shared_ptr<ag::Node>&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:92:72: error: ‘b’ was not declared in this scope
+   92 |     auto n = std::make_shared<Node>(C, Op::Pow, (a->requires_grad() || b->requires_grad()), "pow");
+      |                                                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def: In function ‘OwnTensor::Tensor (* ag::jvp_lookup(Op))(Node*, const std::function<const OwnTensor::Tensor&(Node*)>&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_jvp_ops.cpp:626:61: error: ‘jvp_Pow’ is not a member of ‘ag::detail’; did you mean ‘jvp_Log’?
+  626 | #define OP(name, arity, str) case Op::name: return &detail::jvp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:34:1: note: in expansion of macro ‘OP’
+   34 | OP(Pow,       2,    "pow")         // pow(4, 5)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp: In function ‘void ag::detail::vjp_Pow(ag::Node*, const OwnTensor::Tensor&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:783:45: error: no matching function for call to ‘pow(const OwnTensor::Tensor&, OwnTensor::Tensor, ag_cuda_stream_t)’
+  783 |     X_node->grad += gy * (p * OwnTensor::pow(x, p - 1.0f, ag::current_stream()));
+      |                               ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/Tensor.h:7,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/tensor.hpp:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/graph.hpp:10,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/autodiff_ops.hpp:9,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:5:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:406:22: note: candidate: ‘OwnTensor::float16_t OwnTensor::pow(float16_t, float16_t)’
+  406 |     inline float16_t pow(float16_t a, float16_t b) { return float16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                      ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:406:22: note:   candidate expects 2 arguments, 3 provided
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:421:23: note: candidate: ‘OwnTensor::bfloat16_t OwnTensor::pow(bfloat16_t, bfloat16_t)’
+  421 |     inline bfloat16_t pow(bfloat16_t a, bfloat16_t b) { return bfloat16_t(std::pow(static_cast<float>(a), static_cast<float>(b))); }
+      |                       ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:421:23: note:   candidate expects 2 arguments, 3 provided
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:19:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:25:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, int, cudaStream_t)’
+   25 | Tensor pow(const Tensor& t, int exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:25:33: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘int’
+   25 | Tensor pow(const Tensor& t, int exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:26:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, float, cudaStream_t)’
+   26 | Tensor pow(const Tensor& t, float exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:26:35: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘float’
+   26 | Tensor pow(const Tensor& t, float exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~~~^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:27:8: note: candidate: ‘OwnTensor::Tensor OwnTensor::pow(const Tensor&, double, cudaStream_t)’
+   27 | Tensor pow(const Tensor& t, double exponent, cudaStream_t stream = 0);//✨✨✨
+      |        ^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/UnaryOps/Arithmetics.h:27:36: note:   no known conversion for argument 2 from ‘OwnTensor::Tensor’ to ‘double’
+   27 | Tensor pow(const Tensor& t, double exponent, cudaStream_t stream = 0);//✨✨✨
+      |                             ~~~~~~~^~~~~~~~
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:76: CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_jvp_ops.cpp.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:90: CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o] Error 1
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:272: CMakeFiles/cgadimpl.dir/src/ops/activation.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:388: CMakeFiles/cgadimpl.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

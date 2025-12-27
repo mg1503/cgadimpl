@@ -35,9 +35,6 @@ namespace ag::detail {
   #define OP(name, arity, str) \
     void   vjp_##name(Node* n, const Tensor& gy); \
     Tensor jvp_##name(Node* n, const std::function<const Tensor&(Node*)>& tangent_of); \
-    void vjp_Asin(Node* n, const Tensor& gy); \
-    void vjp_Acos(Node* n, const Tensor& gy); \
-    void vjp_Atan(Node* n, const Tensor& gy); \
     Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& tangent_of);
   #include "ad/detail/ops.def"
   #undef OP

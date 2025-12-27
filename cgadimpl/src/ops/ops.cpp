@@ -18,62 +18,27 @@ namespace ag {
     }
 
     Value sub(const Value& a, const Value& b){ 
-        
         return Value(ag::detail::sub_nodeops(a.node, b.node)); 
     }
-
-
 
     Value mul(const Value& a, const Value& b){ 
         return Value(ag::detail::mul_nodeops(a.node, b.node)); 
     }
 
     Value div(const Value& a, const Value& b){ 
-        
         return Value(ag::detail::div_nodeops(a.node, b.node)); 
+    }
+
+    Value pow(const Value& a, const Value& b){ 
+        return Value(ag::detail::pow_nodeops(a.node, b.node)); 
     }
 
     Value sign(const Value& a, const Value& b){ 
         return Value(ag::detail::sign_nodeops(a.node)); 
     }
 
-    Value sinh(const Value& a, const Value& b){ 
-        return Value(ag::detail::sinh_nodeops(a.node)); 
-    }
-
-    Value cosh(const Value& a, const Value& b){ 
-        return Value(ag::detail::cosh_nodeops(a.node)); 
-    }
-
-    Value sin(const Value& a, const Value& b){ 
-        return Value(ag::detail::sin_nodeops(a.node)); 
-    }
-
-    Value cos(const Value& a, const Value& b){ 
-        return Value(ag::detail::cos_nodeops(a.node)); 
-    }
-
-
-    Value flomul(const Value& a, float b){ 
-        return Value(ag::detail::flomul_nodeops(a.node, b));
-    }
-
-    Value floadd(const Value& a, float b){ 
-        return Value(ag::detail::floadd_nodeops(b, a.node));
-    }
-
-     Value flodiv(const Value& a, float b){ 
-        return Value(ag::detail::flodiv_nodeops(b, a.node));
-    }
-
-    Value relu(const Value& x){ 
-      
-        return Value(ag::detail::relu_nodeops(x.node));
-    }
-
-    Value reci(const Value& x){ 
-      
-        return Value(ag::detail::reci_nodeops(x.node));
+    Value abs(const Value& x){
+        return Value(ag::detail::abs_nodeops(x.node));
     }
 
     Value cos(const Value& x){ 
@@ -90,6 +55,21 @@ namespace ag {
       
         return Value(ag::detail::cosh_nodeops(x.node));
     }
+
+
+
+
+    Value relu(const Value& x){ 
+      
+        return Value(ag::detail::relu_nodeops(x.node));
+    }
+
+    Value reci(const Value& x){ 
+      
+        return Value(ag::detail::reci_nodeops(x.node));
+    }
+
+    
 
 
 
@@ -186,11 +166,6 @@ namespace ag {
         return Value(ag::detail::gelu_nodeops(x.node));
     }
 
-
-
-    Value gcu(const Value& x){ 
-        return Value(ag::detail::gcu_nodeops(x.node));
-    }
     
     Value silu(const Value& x){ 
         return Value(ag::detail::silu_nodeops(x.node));

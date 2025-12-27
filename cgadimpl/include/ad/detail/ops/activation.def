@@ -10,7 +10,7 @@
 //   1. Classic activations: ReLU, Sigmoid, Tanh
 //   2. Modern smooth activations: GELU, SiLU (Swish), Mish
 //   3. Parametric activations: LeakyReLU (has alpha parameter)
-//   4. Specialized activations: GCU, LiSHT, Gaussian
+//   4. Specialized activations: LiSHT, Gaussian
 //
 // VJP patterns:
 //   - ReLU:    ∂L/∂X = gy * (x > 0)   [gradient is 0 or 1]
@@ -36,7 +36,6 @@ OP(LeakyRelu, 2,    "leakyrelu")   // max(αx, x) where α is small (e.g., 0.01)
                                    // Arity=2 because alpha is passed as 2nd input
 
 // --- Specialized Activations ---
-OP(GCU,       1,    "gcu")         // x * cos(x) - Growing Cosine Unit
 OP(Gaus,      1,    "gaus")        // e^(-x²) - Gaussian activation
 OP(Parcon,    1,    "parcon")      // Parametric concave activation
 OP(LiSHT,     1,    "lisht")       // x * tanh(x) - Linearly Scaled Hyperbolic Tangent

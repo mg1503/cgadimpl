@@ -1,0 +1,338 @@
+== Build Type:    Debug
+== Using CUDA CXX: /usr/local/cuda-13.0/bin/nvcc
+== Building tensor library
+
+
+✅ Library build is up-to-date.
+== Configuring core
+-- Found OwnTensor headers: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include
+-- Found OwnTensor library: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/lib/libtensor.so
+-- Forcing NovaCompiler include dir: /home/blubridge-029/Downloads/cgad/cgadimpl_/Nova-Compiler/install/include
+-- cgadimpl build mode: Debug
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/build
+== Building core
+[  2%] Building CXX object CMakeFiles/cgadimpl.dir/src/ops/activation.cpp.o
+[  2%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In lambda function:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:208:54: error: expected primary-expression before ‘>’ token
+  208 |                 if constexpr (OwnTensor::is_complex<T>) {
+      |                                                      ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:208:55: error: expected primary-expression before ‘)’ token
+  208 |                 if constexpr (OwnTensor::is_complex<T>) {
+      |                                                       ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = short int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:71:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 2)))’, which is of non-class type ‘const T’ {aka ‘const short int’}
+  209 |                     is_positive = x_data[i].real() > 0;
+      |                                   ~~~~~~~~~~^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:72:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 4)))’, which is of non-class type ‘const T’ {aka ‘const int’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = long int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:73:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 8)))’, which is of non-class type ‘const T’ {aka ‘const long int’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = float]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:74:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 4)))’, which is of non-class type ‘const T’ {aka ‘const float’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = double]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:75:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 8)))’, which is of non-class type ‘const T’ {aka ‘const double’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = OwnTensor::bfloat16_t]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:76:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: ‘const T’ {aka ‘const struct OwnTensor::bfloat16_t’} has no member named ‘real’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = OwnTensor::float16_t]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:77:39:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: ‘const T’ {aka ‘const struct OwnTensor::float16_t’} has no member named ‘real’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = bool]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:78:37:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)i))’, which is of non-class type ‘const T’ {aka ‘const bool’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = unsigned char]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:79:36:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)i))’, which is of non-class type ‘const T’ {aka ‘const unsigned char’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = short unsigned int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:80:37:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 2)))’, which is of non-class type ‘const T’ {aka ‘const short unsigned int’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = unsigned int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:81:37:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 4)))’, which is of non-class type ‘const T’ {aka ‘const unsigned int’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = long unsigned int]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:82:37:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:209:45: error: request for member ‘real’ in ‘*(x_data + ((sizetype)(((long unsigned int)i) * 8)))’, which is of non-class type ‘const T’ {aka ‘const long unsigned int’}
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = OwnTensor::complex32_t]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:83:40:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:211:47: error: call of overloaded ‘complex32_t(int)’ is ambiguous
+  211 |                     is_positive = x_data[i] > static_cast<T>(0);
+      |                                               ^~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/Tensor.h:7,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/tensor.hpp:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/graph.hpp:10,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/ops/nodeops.hpp:6,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:4:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:531:38: note: candidate: ‘OwnTensor::complex32_t::complex32_t(double, double)’
+  531 |         __device__ __host__ explicit complex32_t(double r, double i = 0.0)
+      |                                      ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:529:38: note: candidate: ‘OwnTensor::complex32_t::complex32_t(float, float)’
+  529 |         __device__ __host__ explicit complex32_t(float r, float i = 0.0f)
+      |                                      ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:517:27: note: candidate: ‘OwnTensor::complex32_t::complex32_t(const std::complex<double>&)’
+  517 |         __host__ explicit complex32_t(const std::complex<double>& c)
+      |                           ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:513:27: note: candidate: ‘OwnTensor::complex32_t::complex32_t(const std::complex<float>&)’
+  513 |         __host__ explicit complex32_t(const std::complex<float>& c)
+      |                           ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:503:29: note: candidate: ‘OwnTensor::complex32_t::complex32_t(const OwnTensor::complex32_t&)’
+  503 |         __device__ __host__ complex32_t(const complex32_t& other)
+      |                             ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = OwnTensor::complex64_t]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:84:40:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:211:47: error: call of overloaded ‘complex64_t(int)’ is ambiguous
+  211 |                     is_positive = x_data[i] > static_cast<T>(0);
+      |                                               ^~~~~~~~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:675:25: note: candidate: ‘OwnTensor::complex64_t::complex64_t(const OwnTensor::complex64_t&)’
+  675 |     __device__ __host__ complex64_t(const complex64_t& other)
+      |                         ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:673:23: note: candidate: ‘OwnTensor::complex64_t::complex64_t(const std::complex<float>&)’
+  673 |     __host__ explicit complex64_t(const std::complex<float>& c)
+      |                       ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:670:34: note: candidate: ‘OwnTensor::complex64_t::complex64_t(double, double)’
+  670 |     __device__ __host__ explicit complex64_t(double r, double i = 0.0)
+      |                                  ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/dtype/Types.h:667:25: note: candidate: ‘OwnTensor::complex64_t::complex64_t(float, float)’
+  667 |     __device__ __host__ complex64_t(float r, float i = 0.0f) : real_(r), imag_(i) {}
+      |                         ^~~~~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp: In instantiation of ‘ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)> [with auto:23 = OwnTensor::complex128_t]’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/core/TensorDispatch.h:85:41:   required from ‘auto OwnTensor::dispatch_by_dtype(Dtype, Func&&) [with Func = ag::detail::relumask_nodeops(const std::shared_ptr<ag::Node>&)::<lambda(auto:23)>]’
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:202:26:   required from here
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:211:45: error: no match for ‘operator>’ (operand types are ‘const T’ {aka ‘const OwnTensor::complex128_t’} and ‘T’ {aka ‘OwnTensor::complex128_t’})
+  211 |                     is_positive = x_data[i] > static_cast<T>(0);
+      |                                   ~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:24:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/ScalarOps.h:28:29: note: candidate: ‘template<class S> OwnTensor::Tensor OwnTensor::operator>(const Tensor&, S)’
+   28 | template<typename S> Tensor operator>(const Tensor& t, S scalar);
+      |                             ^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/ScalarOps.h:28:29: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:211:41: note:   cannot convert ‘*(x_data + ((sizetype)(((long unsigned int)i) * 16)))’ (type ‘const T’ {aka ‘const OwnTensor::complex128_t’}) to type ‘const OwnTensor::Tensor&’
+  211 |                     is_positive = x_data[i] > static_cast<T>(0);
+      |                                   ~~~~~~^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/ScalarOps.h:35:29: note: candidate: ‘template<class S> OwnTensor::Tensor OwnTensor::operator>(S, const Tensor&)’
+   35 | template<typename S> Tensor operator> ( S scalar, const Tensor& t);
+      |                             ^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/ScalarOps.h:35:29: note:   template argument deduction/substitution failed:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/ops/activation.cpp:211:47: note:   cannot convert ‘OwnTensor::complex128_t((double)0, 0.0)’ (type ‘T’ {aka ‘OwnTensor::complex128_t’}) to type ‘const OwnTensor::Tensor&’
+  211 |                     is_positive = x_data[i] > static_cast<T>(0);
+      |                                               ^~~~~~~~~~~~~~~~~
+In file included from /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/TensorLib.h:25:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/TensorOps.h:21:12: note: candidate: ‘OwnTensor::Tensor OwnTensor::operator>(const Tensor&, const Tensor&)’
+   21 |     Tensor operator>(const Tensor& lhs, const Tensor& rhs);
+      |            ^~~~~~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include/ops/TensorOps.h:21:36: note:   no known conversion for argument 1 from ‘const T’ {aka ‘const OwnTensor::complex128_t’} to ‘const OwnTensor::Tensor&’
+   21 |     Tensor operator>(const Tensor& lhs, const Tensor& rhs);
+      |                      ~~~~~~~~~~~~~~^~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp: In function ‘void ag::detail::vjp_RealRMSNorm(ag::Node*, const OwnTensor::Tensor&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:769:41: error: a function-definition is not allowed here before ‘{’ token
+  769 | void vjp_Cosh(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:780:41: error: a function-definition is not allowed here before ‘{’ token
+  780 | void vjp_Sinh(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:791:41: error: a function-definition is not allowed here before ‘{’ token
+  791 | void vjp_Sign(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:803:40: error: a function-definition is not allowed here before ‘{’ token
+  803 | void vjp_Sin(Node* n, const Tensor& gy){
+      |                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:813:40: error: a function-definition is not allowed here before ‘{’ token
+  813 | void vjp_Cos(Node* n, const Tensor& gy){
+      |                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:823:40: error: a function-definition is not allowed here before ‘{’ token
+  823 | void vjp_Tan(Node* n, const Tensor& gy){
+      |                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:834:41: error: a function-definition is not allowed here before ‘{’ token
+  834 | void vjp_Asin(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:845:41: error: a function-definition is not allowed here before ‘{’ token
+  845 | void vjp_Acos(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:856:41: error: a function-definition is not allowed here before ‘{’ token
+  856 | void vjp_Atan(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:869:42: error: a function-definition is not allowed here before ‘{’ token
+  869 | void vjp_ASinh(Node* n, const Tensor& gy){
+      |                                          ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:879:42: error: a function-definition is not allowed here before ‘{’ token
+  879 | void vjp_ACosh(Node* n, const Tensor& gy){
+      |                                          ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:889:42: error: a function-definition is not allowed here before ‘{’ token
+  889 | void vjp_ATanh(Node* n, const Tensor& gy){
+      |                                          ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:896:40: error: a function-definition is not allowed here before ‘{’ token
+  896 | void vjp_Abs(Node* n, const Tensor& gy){
+      |                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:908:41: error: a function-definition is not allowed here before ‘{’ token
+  908 | void vjp_Sqrt(Node* n, const Tensor& gy){
+      |                                         ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:919:45: error: a function-definition is not allowed here before ‘{’ token
+  919 | void vjp_Relumask(Node* n, const Tensor& gy){
+      |                                             ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:931:40: error: a function-definition is not allowed here before ‘{’ token
+  931 | void vjp_MOE(Node* n, const Tensor& gy){
+      |                                        ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:957:44: error: a function-definition is not allowed here before ‘{’ token
+  957 | void vjp_MSELoss(Node* n, const Tensor& gy){
+      |                                            ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:974:44: error: a function-definition is not allowed here before ‘{’ token
+  974 | void vjp_MAELoss(Node* n, const Tensor& gy){
+      |                                            ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:995:36: error: a function-definition is not allowed here before ‘{’ token
+  995 | void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
+      |                                    ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/core.def: In function ‘void (* ag::detail::vjp_lookup(ag::Op))(ag::Node*, const OwnTensor::Tensor&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Leaf’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/core.def:16:1: note: in expansion of macro ‘OP’
+   16 | OP(Leaf,      0,    "leaf")        // Graph input nodes (parameters, constants, inputs)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Sqrt’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:30:1: note: in expansion of macro ‘OP’
+   30 | OP(Sqrt,      1,    "sqrt")        // √x, square root
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Sign’ is not a member of ‘ag::detail’; did you mean ‘vjp_SiLU’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:32:1: note: in expansion of macro ‘OP’
+   32 | OP(Sign,      1,    "sign")        // sign(x) ∈ {-1, 0, 1}
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Abs’ is not a member of ‘ag::detail’; did you mean ‘vjp_Add’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:33:1: note: in expansion of macro ‘OP’
+   33 | OP(Abs,       1,    "abs")         // only +ve
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Pow’ is not a member of ‘ag::detail’; did you mean ‘vjp_Log’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:34:1: note: in expansion of macro ‘OP’
+   34 | OP(Pow,       2,    "pow")         // pow(4, 5)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Sin’ is not a member of ‘ag::detail’; did you mean ‘vjp_Sum’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:21:1: note: in expansion of macro ‘OP’
+   21 | OP(Sin,       1,    "sin")         // sin(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Cos’ is not a member of ‘ag::detail’; did you mean ‘vjp_Log’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:22:1: note: in expansion of macro ‘OP’
+   22 | OP(Cos,       1,    "cos")         // cos(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Tan’ is not a member of ‘ag::detail’; did you mean ‘vjp_Tanh’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:23:1: note: in expansion of macro ‘OP’
+   23 | OP(Tan,       1,    "tan")         // tan(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Sinh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Tanh’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:26:1: note: in expansion of macro ‘OP’
+   26 | OP(Sinh,      1,    "sinh")        // sinh(x) = (e^x - e^-x) / 2
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Cosh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Mish’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:27:1: note: in expansion of macro ‘OP’
+   27 | OP(Cosh,      1,    "cosh")        // cosh(x) = (e^x + e^-x) / 2
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Asin’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:30:1: note: in expansion of macro ‘OP’
+   30 | OP(Asin,      1,    "asin")        // asin(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Acos’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:31:1: note: in expansion of macro ‘OP’
+   31 | OP(Acos,      1,    "acos")        // acos(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Atan’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:32:1: note: in expansion of macro ‘OP’
+   32 | OP(Atan,      1,    "atan")        // atan(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_ASinh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Tanh’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:35:1: note: in expansion of macro ‘OP’
+   35 | OP(ASinh,      1,    "asinh")        // asinh(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_ACosh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Mish’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:36:1: note: in expansion of macro ‘OP’
+   36 | OP(ACosh,      1,    "acosh")        // acosh(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_ATanh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Tanh’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:37:1: note: in expansion of macro ‘OP’
+   37 | OP(ATanh,      1,    "atanh")        // atanh(x)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_Relumask’ is not a member of ‘ag::detail’; did you mean ‘vjp_Relu’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/activation.def:42:1: note: in expansion of macro ‘OP’
+   42 | OP(Relumask,  1,    "relumask")    // Helper for ReLU backward (stores mask)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_MOE’ is not a member of ‘ag::detail’; did you mean ‘vjp_Mul’?
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/attention.def:36:1: note: in expansion of macro ‘OP’
+   36 | OP(MOE,            3, "moe")             // Mixture of Experts layer
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_MSELoss’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/loss.def:34:1: note: in expansion of macro ‘OP’
+   34 | OP(MSELoss,       2, "mseloss")          // Mean Squared Error
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1003:61: error: ‘vjp_MAELoss’ is not a member of ‘ag::detail’
+ 1003 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/loss.def:38:1: note: in expansion of macro ‘OP’
+   38 | OP(MAELoss,       2, "maeloss")          // Mean Absolute Error (L1 Loss)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp: At global scope:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:1010:2: error: expected ‘}’ at end of input
+ 1010 | } // namespace ag
+      |  ^
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:10:14: note: to match this ‘{’
+   10 | namespace ag {
+      |              ^
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:90: CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:272: CMakeFiles/cgadimpl.dir/src/ops/activation.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:388: CMakeFiles/cgadimpl.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

@@ -1,0 +1,92 @@
+== Build Type:    Debug
+== Using CUDA CXX: /usr/local/cuda-13.0/bin/nvcc
+== Building tensor library
+
+
+✅ Library build is up-to-date.
+== Configuring core
+-- Found OwnTensor headers: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/include
+-- Found OwnTensor library: /home/blubridge-029/Downloads/cgad/cgadimpl_/tensor/lib/libtensor.so
+-- Forcing NovaCompiler include dir: /home/blubridge-029/Downloads/cgad/cgadimpl_/Nova-Compiler/install/include
+-- cgadimpl build mode: Debug
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/build
+== Building core
+[  2%] Building CXX object CMakeFiles/cgadimpl.dir/src/core/graph.cpp.o
+[  2%] Building CXX object CMakeFiles/cgadimpl.dir/src/core/autodiff.cpp.o
+[  3%] Building CXX object CMakeFiles/cgadimpl.dir/src/core/mlir_emitter.cpp.o
+[  4%] Building CXX object CMakeFiles/cgadimpl.dir/src/nn/nn.cpp.o
+[  5%] Building CXX object CMakeFiles/cgadimpl.dir/src/ops/activation.cpp.o
+[  8%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/careful_deletion.cpp.o
+[  7%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o
+[  8%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_jvp_ops.cpp.o
+[ 10%] Building CXX object CMakeFiles/cgadimpl.dir/src/optimizer/optim.cpp.o
+[ 11%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/checkpoint.cpp.o
+[ 13%] Building CXX object CMakeFiles/cgadimpl.dir/src/runtime/cuda_graphs.cpp.o
+[ 13%] Building CXX object CMakeFiles/cgadimpl.dir/src/autodiff/inplace.cpp.o
+[ 14%] Building CXX object CMakeFiles/cgadimpl.dir/src/runtime/jit_compiler.cpp.o
+[ 16%] Building CXX object CMakeFiles/cgadimpl.dir/src/ops/arithmetic.cpp.o
+[ 16%] Building CXX object CMakeFiles/cgadimpl.dir/src/ops/ops.cpp.o
+[ 17%] Building CXX object CMakeFiles/cgadimpl.dir/src/tools/export_hlo.cpp.o
+[ 19%] Building CXX object CMakeFiles/cgadimpl.dir/src/tools/debug.cpp.o
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def: In function ‘void (* ag::vjp_lookup(Op))(Node*, const OwnTensor::Tensor&)’:
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:990:61: error: ‘vjp_Pow’ is not a member of ‘ag::detail’; did you mean ‘vjp_Log’?
+  990 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/elementwise.def:34:1: note: in expansion of macro ‘OP’
+   34 | OP(Pow,       2,    "pow")         // pow(4, 5)
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:990:61: error: ‘vjp_Cosh’ is not a member of ‘ag::detail’; did you mean ‘vjp_Cos’?
+  990 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/trigonometry.def:27:1: note: in expansion of macro ‘OP’
+   27 | OP(Cosh,      1,    "cosh")        // cosh(x) = (e^x + e^-x) / 2
+      | ^~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/autodiff/autodiff_vjp_ops.cpp:990:61: error: ‘vjp_RealRMSNorm’ is not a member of ‘ag::detail’; did you mean ‘vjp_RMSNorm’?
+  990 | #define OP(name, arity, str) case Op::name: return &detail::vjp_##name;
+      |                                                             ^~~~
+/home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/detail/ops/normalization.def:33:1: note: in expansion of macro ‘OP’
+   33 | OP(RealRMSNorm,   1, "realrmsnorm")    // RMSNorm with learnable scale
+      | ^~
+gmake[2]: *** [CMakeFiles/cgadimpl.dir/build.make:90: CMakeFiles/cgadimpl.dir/src/autodiff/autodiff_vjp_ops.cpp.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+In file included from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/OperationSupport.h:23,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Dialect.h:17,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/OpDefinition.h:22,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Builders.h:12,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/mlir_emitter.hpp:7,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/core/mlir_emitter.cpp:5:
+/home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/TypeRange.h: In static member function ‘static bool llvm::DenseMapInfo<mlir::TypeRange>::isEqual(mlir::TypeRange, mlir::TypeRange)’:
+/home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/TypeRange.h:211:19: warning: C++20 says that these are ambiguous, even though the second is reversed:
+  211 |     return lhs == rhs;
+      |                   ^~~
+In file included from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/Support/TypeID.h:20,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/MLIRContext.h:13,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/DialectRegistry.h:16,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Dialect.h:16:
+/home/blubridge-029/Desktop/llvm-project/llvm/include/llvm/ADT/STLExtras.h:1372:6: note: candidate 1: ‘bool llvm::detail::operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT, ReferenceT>&, const OtherT&) [with OtherT = mlir::TypeRange; DerivedT = mlir::TypeRange; BaseT = llvm::PointerUnion<const mlir::Value*, const mlir::Type*, mlir::OpOperand*, mlir::detail::OpResultImpl*>; T = mlir::Type; PointerT = mlir::Type; ReferenceT = mlir::Type]’
+ 1372 | bool operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT,
+      |      ^~~~~~~~
+/home/blubridge-029/Desktop/llvm-project/llvm/include/llvm/ADT/STLExtras.h:1372:6: note: candidate 2: ‘bool llvm::detail::operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT, ReferenceT>&, const OtherT&) [with OtherT = mlir::TypeRange; DerivedT = mlir::TypeRange; BaseT = llvm::PointerUnion<const mlir::Value*, const mlir::Type*, mlir::OpOperand*, mlir::detail::OpResultImpl*>; T = mlir::Type; PointerT = mlir::Type; ReferenceT = mlir::Type]’ (reversed)
+In file included from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/OperationSupport.h:23,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Dialect.h:17,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/OpDefinition.h:22,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Builders.h:12,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/core/mlir_emitter.hpp:7,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/include/ad/runtime/jit_compiler.hpp:4,
+                 from /home/blubridge-029/Downloads/cgad/cgadimpl_/cgadimpl/src/runtime/jit_compiler.cpp:1:
+/home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/TypeRange.h: In static member function ‘static bool llvm::DenseMapInfo<mlir::TypeRange>::isEqual(mlir::TypeRange, mlir::TypeRange)’:
+/home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/TypeRange.h:211:19: warning: C++20 says that these are ambiguous, even though the second is reversed:
+  211 |     return lhs == rhs;
+      |                   ^~~
+In file included from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/Support/TypeID.h:20,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/MLIRContext.h:13,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/DialectRegistry.h:16,
+                 from /home/blubridge-029/Desktop/llvm-project/mlir/include/mlir/IR/Dialect.h:16:
+/home/blubridge-029/Desktop/llvm-project/llvm/include/llvm/ADT/STLExtras.h:1372:6: note: candidate 1: ‘bool llvm::detail::operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT, ReferenceT>&, const OtherT&) [with OtherT = mlir::TypeRange; DerivedT = mlir::TypeRange; BaseT = llvm::PointerUnion<const mlir::Value*, const mlir::Type*, mlir::OpOperand*, mlir::detail::OpResultImpl*>; T = mlir::Type; PointerT = mlir::Type; ReferenceT = mlir::Type]’
+ 1372 | bool operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT,
+      |      ^~~~~~~~
+/home/blubridge-029/Desktop/llvm-project/llvm/include/llvm/ADT/STLExtras.h:1372:6: note: candidate 2: ‘bool llvm::detail::operator==(const indexed_accessor_range_base<DerivedT, BaseT, T, PointerT, ReferenceT>&, const OtherT&) [with OtherT = mlir::TypeRange; DerivedT = mlir::TypeRange; BaseT = llvm::PointerUnion<const mlir::Value*, const mlir::Type*, mlir::OpOperand*, mlir::detail::OpResultImpl*>; T = mlir::Type; PointerT = mlir::Type; ReferenceT = mlir::Type]’ (reversed)
+gmake[1]: *** [CMakeFiles/Makefile2:388: CMakeFiles/cgadimpl.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2
