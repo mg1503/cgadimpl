@@ -203,17 +203,6 @@ Tensor jvp_Attention(Node* n, const std::function<const Tensor&(Node*)>& t){
     throw std::runtime_error("JVP for Attention not implemented yet!");
 }
 
-Tensor jvp_AlibiAttention(Node* n, const std::function<const Tensor&(Node*)>& t){
-    throw std::runtime_error("JVP for AlibiAttention not implemented yet!");
-}
-
-Tensor jvp_RELUAtt(Node* n, const std::function<const Tensor&(Node*)>& t){
-    throw std::runtime_error("JVP for RELUAtt not implemented yet!");
-}
-Tensor jvp_SigAtt(Node* n, const std::function<const Tensor&(Node*)>& t){
-    throw std::runtime_error("JVP for SigAtt not implemented yet!");
-}
-
 // ===================================================================
 // jvp_Div
 // ===================================================================
@@ -328,7 +317,38 @@ Tensor jvp_Atan(Node* n, const std::function<const Tensor&(Node*)>& t){
     // JVP is tangent(x) * (1 / (1 + x^2))
     return T(t, X) * (1.0f / (1.0f + (X->value * X->value)));
 }
+// ===================================================================
+// jvp_ASinh
+// ===================================================================
+Tensor jvp_ASinh(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP is tangent(x) * (1 / (1 + x^2))
+    return T(t, X) / OwnTensor::sqrt((X->value * X-> value) + 1.0f, ag::current_stream());
+}
+// ===================================================================
+// jvp_ACosh
+// ===================================================================
+Tensor jvp_ACosh(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP is tangent(x) * (1 / (1 + x^2))
+    return T(t, X) / OwnTensor::sqrt((X->value * X-> value) - 1.0f, ag::current_stream());
+}
+Tensor jvp_ATanh(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n->inputs[0].get();
+    // JVP = tangent(x) * (1 / (1 - x^2))
+    return T(t, X) / (1.0f - (X->value * X->value));
+}
+// ===================================================================
+// jvp_Abs
+// ===================================================================
+Tensor jvp_Abs(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X = n -> inputs[0].get();
 
+    const float epsilon = 1e-9f;
+    Tensor sign_x = X -> value / (n->value + epsilon);
+
+    return T(t, X)* sign_x;
+}
 Tensor jvp_MOE(Node* n, const std::function<const Tensor&(Node*)>& t){
     throw std::runtime_error("JVP for MOE not implemented yet!");
 }

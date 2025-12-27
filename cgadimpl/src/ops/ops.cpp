@@ -94,18 +94,14 @@ namespace ag {
 
 
 
-    Value sigatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(ag::detail::sigatt_nodeops(a.node, b.node, c.node, d.node));
-    }
+
 
     Value linear(const Value& a, const Value& b, const Value& c){ 
         return Value(ag::detail::linear_nodeops(a.node, b.node, c.node)); 
     }
 
 
-        Value moewe(const Value& x, const Value& w, const Value& b){ 
-        return Value(ag::detail::moewe_nodeops(x.node, w.node, b.node));
-    }
+
 
 
 
@@ -123,9 +119,6 @@ namespace ag {
     }
 
 
-    Value alibiatt(const Value& a, const Value& b, const Value& c, const Value& d, float m) { 
-    return Value(ag::detail::alibiatt_nodeops(a.node, b.node, c.node, d.node, m));
-}
 
 
 
@@ -176,9 +169,6 @@ namespace ag {
     // }
 
     
-    Value reluatt(const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(ag::detail::reluatt_nodeops(a.node, b.node, c.node, d.node));
-    }
 
     Value sigmoid(const Value& x){ 
         return Value(ag::detail::sigmoid_nodeops(x.node));
@@ -239,9 +229,6 @@ return Value(ag::detail::realrms_nodeops(x.node, g));
         return Value(ag::detail::laynor_nodeops(x.node));
     }
 
-    Value relaynor(const Value& x, float b, float g){ 
-        return Value(ag::detail::relaynor_nodeops(x.node, b, g));
-    }
     
     Value mean_all(const Value& x){ 
         return Value(ag::detail::mean_all_nodeops(x.node));
@@ -257,14 +244,6 @@ return Value(ag::detail::realrms_nodeops(x.node, g));
     
     Value logsumexp_row(const Value& z){ 
         return Value(ag::detail::logsumexp_row_nodeops(z.node));
-    }
-
-
-    Value mambassm(const Value& z, const Value& a, const Value& b, const Value& c, const Value& d){ 
-
-        return Value(ag::detail::mambassm_nodeops(z.node, a.node, b.node, c.node, d.node));
-
-        
     }
 
 
@@ -394,93 +373,6 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
             return log(X);
         }
         
-
-        // ============================================================
-        // Complex operation: AlibiAttention
-        // ============================================================
-        /*
-         * AlibiAttention:
-         * ---------------
-         * This is a specialized attention mechanism variant that adds
-         * a learned or deterministic bias (ALIBI) to the attention logits.
-         *
-         * Steps:
-         *    1. Compute queries (q), keys (k), and values (v) via matmul.
-         *    2. Compute scaled dot-product attention scores.
-         *    3. Apply ALIBI positional bias.
-         *    4. Compute softmax over the attention weights.
-         *    5. Multiply attention weights with the values to get the output.
-         */
-        case Op::AlibiAttention: {
-            // NOTE: This re-computation will automatically use the correct CUDA stream
-            // because all the OwnTensor functions called below (matmul, exp, sum, etc.)
-            // are designed to get the stream from the thread-local context.
-
-            const Tensor &a = node->inputs[0]->value;
-            const Tensor &b = node->inputs[1]->value;
-            const Tensor &c = node->inputs[2]->value;
-            const Tensor &d = node->inputs[3]->value;
-
-            // Step 1: compute projections using the new matmul function
-            Tensor q = matmul(a, b);
-            Tensor k = matmul(a, c);
-            Tensor v = matmul(a, d);
-
-            // Step 2: scaled dot-product attention
-            // FIX: Use .shape().dims.back() instead of .cols()
-            float scale = 1.0f / sqrtf(static_cast<float>(k.shape().dims.back()));
-            Tensor k_transposed = k.t(); // .t() is still correct
-            Tensor logits = (matmul(q, k_transposed)) * scale;
-
-            // Step 3: add ALIBI bias
-            // FIX: Re-implement the missing 'alibi' function.
-            // Alibi creates a positional bias matrix.
-            {
-                int n_heads = logits.shape().dims[0]; // Assuming shape is [heads, seq, seq]
-                int seq_len = logits.shape().dims[1];
-                
-                // For simplicity, create bias on CPU and move to GPU.
-                // For max performance, this would be a custom CUDA kernel.
-                auto cpu_opts = TensorOptions().with_dtype(logits.dtype());
-                Tensor bias_cpu(Shape{{n_heads, seq_len, seq_len}}, cpu_opts);
-
-                // This is a simplified ALIBI implementation.
-                float slope_start = 1.0f / powf(2.0f, 8.0f / n_heads);
-                
-                dispatch_by_dtype(bias_cpu.dtype(), [&](auto dummy){
-                    using T = decltype(dummy);
-                    T* data = bias_cpu.data<T>();
-                    for(int h = 0; h < n_heads; ++h) {
-                        float slope = powf(slope_start, h + 1);
-                        for (int i = 0; i < seq_len; ++i) {
-                            for (int j = 0; j < seq_len; ++j) {
-                                // Causal mask part of alibi
-                                data[h * seq_len * seq_len + i * seq_len + j] = (j > i) ? -std::numeric_limits<T>::infinity() : static_cast<T>(-(seq_len - 1 - j) * slope);
-                            }
-                        }
-                    }
-                });
-                
-                // Move the created bias to the same device as the logits and add it.
-                logits += bias_cpu.to(logits.device());
-            }
-
-            // Step 4: softmax normalization over rows
-            // FIX: Re-implement the missing 'softmax_row' function using basic ops.
-            Tensor s{Shape{}, Dtype::Float32};  ///************************************************************************************************************************************************************************* */
-            {
-                // Numerically stable softmax: subtract max before exponentiating
-                Tensor max_val = reduce_max(logits, {-1}, true);
-                Tensor z = logits - max_val;
-                Tensor exp_z = exp(z);
-                Tensor sum_exp_z = reduce_sum(exp_z, {-1}, true);
-                s = exp_z / sum_exp_z; // Broadcasting is handled by the '/' operator
-            }
-
-            // Step 5: output = attention weights × values
-            Tensor y = matmul(s, v);
-            return y;
-        }
 
         // ============================================================
         // Leaf node (constants or inputs)

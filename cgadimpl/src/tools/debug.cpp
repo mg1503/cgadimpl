@@ -8,6 +8,7 @@
 #include <sstream>
 #include <unordered_set>
 #include <chrono>
+#include <functional>
 #include "ad/autodiff/autodiff.hpp"
 
 namespace ag::debug {
