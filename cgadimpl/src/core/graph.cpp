@@ -2,9 +2,11 @@
 // file: cgadimpl/src/core/graph.cpp
 // =====================
 #include "ad/core/graph.hpp"
+#include <iostream>
 #include <stack>
 #include <unordered_set>
 #include <algorithm>
+#include <stdexcept>
 
 namespace ag {
 
@@ -14,6 +16,7 @@ namespace ag {
 std::vector<Node*> topo_from(Node* root) {
     if (!root) return {};
 
+    std::cerr << "[DEBUG topo_from] Starting with root=" << root << std::endl;
     std::vector<Node*> order;
     std::unordered_set<Node*> visited;
     
@@ -36,7 +39,17 @@ std::vector<Node*> topo_from(Node* root) {
     std::vector<Frame> call_stack;
     call_stack.push_back({root, 0});
     
+    int iterations = 0;
     while (!call_stack.empty()) {
+        iterations++;
+        if (iterations % 1000 == 0) {
+            std::cerr << "[DEBUG topo_from] iter=" << iterations << ", stack_size=" << call_stack.size() << ", visited=" << visited.size() << ", order=" << order.size() << std::endl;
+        }
+        if (iterations > 100000) {
+            std::cerr << "[ERROR topo_from] Too many iterations! Possible cycle or bug. Breaking." << std::endl;
+            break;
+        }
+        
         Frame& frame = call_stack.back();
         Node* u = frame.node;
         
@@ -51,11 +64,13 @@ std::vector<Node*> topo_from(Node* root) {
         // Process next child
         bool pushed_child = false;
         while (frame.next_edge_idx < u->next_edges.size()) {
-            Edge& e = u->next_edges[frame.next_edge_idx];
+            // CRITICAL: Don't use a reference here! call_stack.push_back() can reallocate the vector
+            // making any references invalid. Access by index or copy the pointer.
+            Node* child = u->next_edges[frame.next_edge_idx].function.get();
             frame.next_edge_idx++;
             
-            if (e.function && visited.find(e.function.get()) == visited.end()) {
-                call_stack.push_back({e.function.get(), 0});
+            if (child && visited.find(child) == visited.end()) {
+                call_stack.push_back({child, 0});
                 pushed_child = true;
                 break; // Process this child first
             }
@@ -68,6 +83,7 @@ std::vector<Node*> topo_from(Node* root) {
         }
     }
     
+    std::cerr << "[DEBUG topo_from] Completed. total_nodes=" << order.size() << std::endl;
     // Note: This returns Post-Order (Inputs -> Outputs).
     // If the caller expects Output -> Inputs (for backward), they usually iterate in reverse
     // OR this function should reverse it.

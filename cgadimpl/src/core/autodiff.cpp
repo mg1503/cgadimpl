@@ -37,12 +37,15 @@ void zero_grad(const Value& root){
 #pragma omp parallel for
 
 void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
+    std::cerr << "[DEBUG] backward() called, enable_parallel=" << enable_parallel << std::endl;
     auto order = topo_from(root.node.get());
+    std::cerr << "[DEBUG] topo_from returned " << order.size() << " nodes" << std::endl;
 
     // Initialize dependency counters
     for (Node* n : order) {
         n->child_grad_count = 0;
     }
+    std::cerr << "[DEBUG] Initialized counters" << std::endl;
 
     // Count how many children will send gradients to each parent
     for (Node* n : order) {
@@ -52,6 +55,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             }
         }
     }
+    std::cerr << "[DEBUG] Counted dependencies" << std::endl;
 
     // Seed the root gradient
     if (root.node->requires_grad()){

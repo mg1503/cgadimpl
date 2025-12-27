@@ -54,6 +54,7 @@ int main(){
     std::cout << "Monitor your system (htop/top) to see all CPU cores active!\n" << std::endl;
     
     ag::backward(loss, nullptr, true);  // enable_parallel = true
+    loss.val().display();
     
     std::cout << "\n✅ Backward pass completed!" << std::endl;
     return 0;
