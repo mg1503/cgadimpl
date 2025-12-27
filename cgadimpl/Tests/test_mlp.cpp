@@ -1,8 +1,15 @@
 // test_mlp.cpp:
+#include <torch/torch.h>
+#include <chrono>
+#include <iomanip>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iostream>
+
 #include "ad/ag_all.hpp"
 #include "ad/utils/debug.hpp"
 #include "ad/utils/export_hlo.hpp"
-#include <iostream>
 
 using namespace ag;
 using namespace OwnTensor;
@@ -74,38 +81,22 @@ int main() {
 
     // --- 3. Forward Pass with Simplified Activations and Verbose Printing ---
     std::cout << "\n--- FORWARD PASS ---\n";
-    Value L1 = ag::relu(ag::linear(X,  W1, b1));
-    debug::print_value("L1 = relu(linear(X, W1, b1))", L1);
+    Value L1 = ag::tanh(ag::linear(X,  W1, b1));
+    debug::print_value("L1 = tanh(linear(X, W1, b1))", L1);
 
-    Value L2 = ag::relu(ag::linear(L1, W2, b2));
-    debug::print_value("L2 = relu(linear(L1, W2, b2))", L2);
+    Value L2 = ag::tanh(ag::linear(L1, W2, b2));
+    debug::print_value("L2 = tanh(linear(L1, W2, b2))", L2);
 
-    Value L3 = ag::relu(ag::linear(L2, W3, b3));
-    debug::print_value("L3 = relu(linear(L2, W3, b3))", L3);
+    Value L3 = ag::tanh(ag::linear(L2, W3, b3));
+    debug::print_value("L3 = tanh(linear(L2, W3, b3))", L3);
     
     Value logits = ag::linear(L3, W4, b4);
     debug::print_value("logits = linear(L3, W4, b4)", logits);
 
-
     // --- 4. Loss and Backward Pass ---
     Value loss = ag::mse_loss(logits, Y);
 
-    ag::debug::dump_dot(loss, "graph_mlp.jpg");
     backward(loss);
-    ag::hlo::dump_stablehlo(loss,  "build/mlp_test_hlo.mlir");
-    // --- 5. Print All Gradients ---
-    std::cout << "\n--- RESULTS ---\n";
-    debug::print_value("Final Loss", loss);
-    debug::print_grad("W1", W1);
-    debug::print_grad("b1", b1);
-    debug::print_grad("W2", W2);
-    debug::print_grad("b2", b2);
-    debug::print_grad("W3", W3);
-    debug::print_grad("b3", b3);
-    debug::print_grad("W4", W4);
-    debug::print_grad("b4", b4);
-    
-    std::cout << "\n✅ test_mlp completed.\n";
 
     /*
     --- HAND CALCULATION FOR L1 ---
@@ -133,6 +124,72 @@ int main() {
     L1 = relu(...) = [[0.8, 1.1],
                       [1.6, 2.3]]  (All positive, so no change)
     */
+    
+    std::cout << "\n--- Tanh Benchmark (Scalability, Latency, Throughput, Accuracy) ---\n";
+    auto run_tanh_benchmark = [&](int64_t N, int iters = 15) {
+        std::cout << "\n[N=" << N << "] Benchmarking Tanh...\n";
+
+        // 1. Setup Data
+        OwnTensor::Tensor Xt_bench(Shape{{1, N}}, false);
+        float* x_ptr = Xt_bench.data<float>();
+        for (int64_t i = 0; i < N; ++i) {
+            x_ptr[i] = static_cast<float>(i % 100) / 50.0f - 1.0f; 
+        }
+        Value X_bench = make_tensor(Xt_bench, "X_bench");
+
+        // 2. Accuracy Check
+        Value L_ag = ag::tanh(X_bench);
+        torch::Tensor x_torch = torch::from_blob(x_ptr, {N}, torch::kFloat32);
+        torch::Tensor y_torch_ref = torch::tanh(x_torch);
+        
+        float max_err = 0.0f;
+        double mse = 0.0;
+        const float* ag_ptr = L_ag.val().data<float>();
+        const float* torch_ptr = y_torch_ref.data_ptr<float>();
+        
+        for (int64_t i = 0; i < N; ++i) {
+            float diff = std::abs(ag_ptr[i] - torch_ptr[i]);
+            max_err = std::max(max_err, diff);
+            mse += (double)diff * diff;
+        }
+        mse /= N;
+
+        // 3. Latency & Throughput (AG)
+        std::vector<double> ag_times;
+        for (int i = 0; i < iters; ++i) {
+            auto t0 = std::chrono::high_resolution_clock::now();
+            Value tmp = ag::tanh(X_bench);
+            auto t1 = std::chrono::high_resolution_clock::now();
+            ag_times.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
+        }
+        std::sort(ag_times.begin(), ag_times.end());
+        double ag_median = ag_times[iters / 2];
+
+        // 4. Latency & Throughput (Torch)
+        std::vector<double> torch_times;
+        for (int i = 0; i < iters; ++i) {
+            auto t0 = std::chrono::high_resolution_clock::now();
+            torch::Tensor tmp = torch::tanh(x_torch);
+            auto t1 = std::chrono::high_resolution_clock::now();
+            torch_times.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
+        }
+        std::sort(torch_times.begin(), torch_times.end());
+        double torch_median = torch_times[iters / 2];
+
+        // 5. Results
+        double ag_throughput = (double)N / (ag_median / 1000.0) / 1e6; // M elements/s
+        double torch_throughput = (double)N / (torch_median / 1000.0) / 1e6;
+
+        std::cout << std::fixed << std::setprecision(6);
+        std::cout << "  AG Latency:     " << std::setw(10) << ag_median << " ms | Throughput: " << std::setw(10) << ag_throughput << " M elem/s\n";
+        std::cout << "  Torch Latency:  " << std::setw(10) << torch_median << " ms | Throughput: " << std::setw(10) << torch_throughput << " M elem/s\n";
+        std::cout << "  Accuracy (MSE): " << mse << " | Max Error: " << max_err << "\n";
+    };
+
+    std::vector<int64_t> sizes = {1000, 10000, 100000, 1000000, 10000000};
+    for (auto n : sizes) {
+        run_tanh_benchmark(n);
+    }
 
     return 0;
 }
