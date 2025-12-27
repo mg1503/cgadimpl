@@ -125,7 +125,7 @@ int main() {
                       [1.6, 2.3]]  (All positive, so no change)
     */
     
-    std::cout << "\n--- Tanh Benchmark (Scalability, Latency, Throughput, Accuracy) ---\n";
+    std::cout << "\n--- Tanh Benchmark (Latency, Throughput, Accuracy) ---\n";
     auto run_tanh_benchmark = [&](int64_t N, int iters = 15) {
         std::cout << "\n[N=" << N << "] Benchmarking Tanh...\n";
 
