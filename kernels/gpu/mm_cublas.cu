@@ -3,7 +3,7 @@
     // ====================================================================
     #include <cuda_runtime.h>
     #include <cublas_v2.h>
-    #include "ad/kernels_api.hpp"
+    #include "ad/ops/kernels_api.hpp"
 
     // --- Forward Pass: C = A @ B ---
     // A is (M, K), B is (K, N), C is (M, N). All are row-major.

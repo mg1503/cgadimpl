@@ -16,10 +16,12 @@
 // =============================================
 #include <unordered_map>
 #include <stdexcept>
-#include "ad/autodiff.hpp"
+
+#include "ad/autodiff/autodiff.hpp"
 #include "ad/detail/autodiff_ops.hpp"
-#include "ad/debug.hpp"
-#include <ad/checkpoint.hpp>
+#include "ad/utils/debug.hpp"
+#include "ad/autodiff/checkpoint.hpp"
+#include "ad/core/ReadyQueue.hpp" // custom queue for our dependency counter algorithm to be implemented in the .backward() fucntion.
 namespace ag {
 
 void zero_grad(const Value& root){
@@ -27,55 +29,181 @@ void zero_grad(const Value& root){
     for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
 }
 
-void backward(const Value& root, const Tensor* grad_seed){
+#pragma omp parallel for
+
+void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     auto order = topo_from(root.node.get());
 
-    // for (Node* n : order) {
-        
-    //     if (n->requires_grad() /*&& n->grad.numel() == 0*/) {
-    //         n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
-    //     }
-    // }
+    // Initialize dependency counters
+    for (Node* n : order) {
+        n->child_grad_count = 0;
+    }
 
-     // seed
-    if (root.node->requires_grad()) {
-        if (grad_seed) {
+    // Count how many children will send gradients to each parent
+    for (Node* n : order) {
+        for (auto& parent : n->inputs){
+            if (parent && parent->requires_grad()) {
+                parent->child_grad_count++;
+            }
+        }
+    }
+
+    // Seed the root gradient
+    if (root.node->requires_grad()){
+        if(grad_seed){
             root.node->grad = *grad_seed;
-        } else {
-            // Use the new factories and get options from the value tensor
+        }else{
             auto opts = ag::options(root.node->value);
             if (root.node->value.numel() == 1) {
-                root.node->grad.fill(1.0f);
+                root.node->grad = OwnTensor::Tensor::ones(Shape{{1}}, opts);
             } else {
                 root.node->grad = OwnTensor::Tensor::ones(root.node->value.shape(), opts);
             }
         }
     }
 
-    // reverse topo
-    for (auto it = order.rbegin(); it != order.rend(); ++it) {
-        Node* n = *it;
-        // The requires_grad() check is now a function call
-        if (!n->requires_grad()) continue;
-        //  std::cout << "  [Backward Step] Op: " << op_name(n->op) 
-        //           << " (Node @" << n << ", Name: " << n->debug_name << ")" << std::endl;
-        // std::cout << "    > Incoming Grad (dL/d" << n->debug_name << ") has shape: [" 
-        //           << n->grad.shape().dims[0] << "x" << n->grad.shape().dims[1] << "]" << std::endl;
-        // std::cout << "    > Calling VJP function: vjp_" << op_name(n->op) << "()" << std::endl;
-        // --- END PRINTING ---
-        const Tensor& gy = n->grad;
-
-        ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
-
-        if (n->is_checkpoint && (n->value.numel() == 0 || n->value.allocated_bytes() == 0)) {
-        if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
-            throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+    // Dependency tracking for correctness (always needed)
+    // Count how many nodes will be processed
+    int num_compute_nodes = 0;
+    for (Node* n : order) {
+        if (n->requires_grad() && !n->is_leaf) {
+            num_compute_nodes++;
         }
-        }
-        //  this part calculates and accumulates gradients into parent nodes
-        VjpFn fn = vjp_lookup(n->op);
-        if (fn) fn(n, gy); // handler accumulates into parents
     }
+
+    // User chose sequential execution
+    if (!enable_parallel) {
+        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+            Node* n = *it;
+            if (!n->requires_grad()) continue;
+            
+            const Tensor& gy = n->grad;
+            
+            if (n->is_checkpoint && n->value.numel() == 0) {
+                if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
+                    throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+                }
+            }
+            
+            VjpFn fn = vjp_lookup(n->op);
+            if (fn) fn(n, gy);
+        }
+        return;
+    }
+
+    // PARALLEL EXECUTION (user opted-in via enable_parallel=true)
+    std::atomic<int> pending_tasks{num_compute_nodes};
+
+    readyqueue rq;
+    // Push all nodes that are initially ready (no children waiting to send gradients)
+    for (Node* n : order) {
+        if (n->requires_grad() && !n->is_leaf && n->child_grad_count == 0){
+            rq.push(n);
+        }
+    }
+    
+    //worker task
+    auto workertask = [&](){
+        while (true){
+            Node* node = rq.pop();
+            if ( node == nullptr ){
+                break;
+            }
+            
+            VjpFn vjpfn = vjp_lookup(node->op);
+
+            // Execute checkpointing if needed
+            if (node->is_checkpoint && node->value.numel() == 0) {
+                if (!ag::checkpoint_impl::recompute_subgraph(node->shared_from_this())) {
+                    pending_tasks--;
+                    continue;
+                }
+            }
+            
+            // Execute VJP function
+            if (vjpfn){
+                vjpfn(node, node->grad);
+            }
+
+            // Update parent counters
+            for (auto& parent_ptr : node->inputs){
+                Node* parent = parent_ptr.get();
+                if (!parent || !parent->requires_grad()) continue;
+
+                // Decrement counter 
+                if (parent->child_grad_count.fetch_sub(1) == 1){
+                    rq.push(parent);
+                }
+            }
+            pending_tasks--;
+        }
+    };
+
+    //launch worker threads
+    int num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> workers;
+    for (int i = 0; i < num_threads; ++i){
+        workers.emplace_back(workertask);
+    }
+
+    // Main thread waits for all tasks to complete
+    while(pending_tasks > 0){
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    
+    // Shutdown after all tasks complete
+    rq.shutdown();
+    for (auto& worker : workers){
+        worker.join();
+    }
+
+
+
+    // // for (Node* n : order) {
+        
+    // //     if (n->requires_grad() /*&& n->grad.numel() == 0*/) {
+    // //         n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    // //     }
+    // // }
+
+    //  // seed
+    // if (root.node->requires_grad()) {
+    //     if (grad_seed) {
+    //         root.node->grad = *grad_seed;
+    //     } else {
+    //         // Use the new factories and get options from the value tensor
+    //         auto opts = ag::options(root.node->value);
+    //         if (root.node->value.numel() == 1) {
+    //             root.node->grad.fill(1.0f);
+    //         } else {
+    //             root.node->grad = OwnTensor::Tensor::ones(root.node->value.shape(), opts);
+    //         }
+    //     }
+    // }
+
+    // // reverse topo
+    // for (auto it = order.rbegin(); it != order.rend(); ++it) {
+    //     Node* n = *it;
+    //     // The requires_grad() check is now a function call
+    //     if (!n->requires_grad()) continue;
+    //     const Tensor& gy = n->grad;
+
+    //     ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
+
+    //     if (n->is_checkpoint && n->value.numel() == 0) {
+    //     if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
+    //         throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
+    //     }
+    //     }
+        
+    //     // Phase 1.1: is_leaf handling
+    //     // Only compute VJP for non-leaf nodes (leaf nodes only accumulate, no backward op)
+    //     if (!n->is_leaf) {
+    //         //  this part calculates and accumulates gradients into parent nodes
+    //         VjpFn fn = vjp_lookup(n->op);
+    //         if (fn) fn(n, gy); // handler accumulates into parents
+    //     }
+    // }
 }
 
 Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
@@ -102,6 +230,7 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
 
         ag::debug::on_jvp_step(n);
 
+        //  this part calculates and accumulates gradients
         JvpFn fn = jvp_lookup(n->op);
         if (fn) t = fn(n, tangent_of);
 

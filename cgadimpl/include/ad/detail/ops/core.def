@@ -1,0 +1,16 @@
+// =============================================================================
+// FILE: ops/core.def
+// PURPOSE: Core/fundamental operations that form the base of the computation graph
+// =============================================================================
+//
+// These are special operations that every autodiff system needs:
+//   - Leaf: Represents input tensors, constants, and parameters
+//           This is the starting point of any computation graph
+//
+// Format: OP(EnumName, Arity, "string_name")
+//   - EnumName: The C++ enum value (e.g., Op::Leaf)
+//   - Arity: Number of input nodes (0 for Leaf since it has no parents)
+//   - string_name: Human-readable name for debugging/serialization
+// =============================================================================
+
+OP(Leaf,      0,    "leaf")        // Graph input nodes (parameters, constants, inputs)

@@ -1,0 +1,48 @@
+// =============================================================================
+// FILE: ops/attention.def
+// PURPOSE: Attention mechanisms and transformer building blocks
+// =============================================================================
+//
+// Attention is the core innovation behind Transformers (GPT, BERT, etc.)
+// These are FUSED operations - they combine multiple steps for efficiency.
+//
+// Standard Attention formula:
+//   Q = X @ Wq,  K = X @ Wk,  V = X @ Wv
+//   scores = softmax(Q @ K.T / √d_k)
+//   output = scores @ V
+//
+// Why fused ops?
+//   - Fewer kernel launches
+//   - Better memory locality
+//   - Can use FlashAttention-style optimizations
+//
+// Variants implemented:
+//   - Attention: Standard scaled dot-product attention
+//   - AlibiAttention: With ALiBi positional bias (no learned pos embeddings)
+//   - RELUAtt: ReLU instead of softmax (linear attention approximation)
+//   - SigAtt: Sigmoid instead of softmax
+//
+// These operations SAVE Q, K, V, scores on tape for backward pass!
+// =============================================================================
+
+// --- Standard Attention ---
+OP(Attention,      4, "attention")       // Full attention: (X, Wq, Wk, Wv)
+                                         // Computes: softmax(XWq @ (XWk).T / √d) @ XWv
+
+// --- Attention Variants ---
+OP(AlibiAttention, 3, "alibiattention")  // Attention + ALiBi positional bias
+                                         // Arity=3: bias parameter included
+
+OP(RELUAtt,        4, "reluatt")         // ReLU attention (sparse, faster)
+                                         // Uses ReLU instead of softmax
+
+OP(SigAtt,         4, "sigatt")          // Sigmoid attention
+                                         // Uses sigmoid instead of softmax
+
+// --- Gated Activations (transformer FFN blocks) ---
+OP(SWIGLU,         1, "swiglu")          // SwiGLU: swish(xW) ⊙ (xV)
+                                         // Used in LLaMA, PaLM FFN blocks
+
+// --- Mixture of Experts ---
+OP(MOE,            3, "moe")             // Mixture of Experts layer
+                                         // Arity=3: (input, expert_weights, bias)

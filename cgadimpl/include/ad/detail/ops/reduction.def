@@ -1,0 +1,33 @@
+// =============================================================================
+// FILE: ops/reduction.def
+// PURPOSE: Tensor reduction and aggregation operations
+// =============================================================================
+//
+// Reductions collapse one or more dimensions of a tensor into a smaller shape.
+// They aggregate values across specified axes.
+//
+// Types:
+//   - Global reductions: Reduce entire tensor to scalar (Sum, MeanAll)
+//   - Row-wise reductions: Reduce along last dimension [B,C] → [B,1]
+//   - Softmax family: Normalize rows to probability distributions
+//
+// VJP patterns:
+//   - Sum:     ∂L/∂X = broadcast(gy) to shape of X
+//   - MeanAll: ∂L/∂X = gy / N  (where N = total elements)
+//   - RowSum:  ∂L/∂X = broadcast gy along reduced axis
+//   - Softmax: ∂L/∂X = S * (gy - sum(S * gy))  [where S = softmax output]
+//
+// IMPORTANT: These are commonly used in loss computation and attention!
+// =============================================================================
+
+// --- Global Reductions (output is scalar) ---
+OP(Sum,       1,    "sum")         // Σ all elements → scalar
+OP(MeanAll,   1,    "meanall")     // (Σ all elements) / N → scalar
+
+// --- Row-wise Reductions (reduce last dimension) ---
+OP(RowSum,    1,    "rowsum")      // [B, C] → [B, 1], sum along columns
+OP(RowMax,    1,    "rowmax")      // [B, C] → [B, 1], max along columns
+
+// --- Softmax Family (special normalizing reductions) ---
+OP(SoftmaxRow,   1, "softmax_row")    // exp(x) / Σexp(x) along rows → probabilities
+OP(LogSumExpRow, 1, "logsumexp_row")  // log(Σexp(x)) along rows → numerically stable

@@ -1,4 +1,4 @@
-#!/bin/bash
+# #!/bin/bash
 set -euo pipefail
 
 # --- Configuration ---
@@ -51,7 +51,7 @@ echo "== Copying kernel plugins to test directory"
 cp "$KERNELS_BUILD/cpu/libagkernels_cpu.so" "$CGADIMPL_BUILD/"
 cp "$KERNELS_BUILD/gpu/libagkernels_cuda.so" "$CGADIMPL_BUILD/"
 
-# # --- STEP 5: Run tests ---
+# --- STEP 5: Run tests ---
 # echo "== Staging complete. Running tests..."
 # cd "$CGADIMPL_BUILD"
 # ctest --output-on-failure

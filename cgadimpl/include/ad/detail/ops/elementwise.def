@@ -1,0 +1,32 @@
+// =============================================================================
+// FILE: ops/elementwise.def
+// PURPOSE: Element-wise binary and unary arithmetic operations
+// =============================================================================
+//
+// These operations apply the same function to each element independently:
+//   - Binary ops take two tensors and produce one (Add, Sub, Mul, Div)
+//   - Unary ops take one tensor and produce one (Exp, Log, etc.)
+//
+// Key property: Output shape = Input shape (element-wise broadcasting applies)
+//
+// VJP (Vector-Jacobian Product) patterns:
+//   - Add:  ∂L/∂A = gy,  ∂L/∂B = gy
+//   - Sub:  ∂L/∂A = gy,  ∂L/∂B = -gy
+//   - Mul:  ∂L/∂A = gy * B,  ∂L/∂B = gy * A
+//   - Div:  ∂L/∂A = gy / B,  ∂L/∂B = -gy * A / B²
+//   - Exp:  ∂L/∂X = gy * exp(x)
+//   - Log:  ∂L/∂X = gy / x
+// =============================================================================
+
+// --- Binary Arithmetic Operations ---
+OP(Add,       2,    "add")         // a + b
+OP(Sub,       2,    "sub")         // a - b
+OP(Mul,       2,    "mul")         // a * b (element-wise)
+OP(Div,       2,    "div")         // a / b (element-wise)
+
+// --- Unary Mathematical Functions ---
+OP(Exp,       1,    "exp")         // e^x
+OP(Log,       1,    "log")         // ln(x), natural logarithm
+OP(Sqrt,      1,    "sqrt")        // √x, square root
+OP(Reciprocal,1,    "reciprocal")  // 1/x
+OP(Sign,      1,    "sign")        // sign(x) ∈ {-1, 0, 1}

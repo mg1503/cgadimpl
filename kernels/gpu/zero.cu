@@ -3,7 +3,7 @@
 // =========================
 #include <cuda_runtime.h>
 #include <cstdint>
-#include "ad/kernels_api.hpp"
+#include "ad/ops/kernels_api.hpp"
 
 // external linkage (no 'static')
 void zero_cuda(float* x, int64_t n, ag_cuda_stream_t s) {
