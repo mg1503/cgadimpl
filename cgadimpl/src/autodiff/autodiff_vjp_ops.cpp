@@ -48,12 +48,12 @@ void vjp_Add(Node* n, const Tensor& gy){
     if (A->requires_grad())
     { 
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += reduce_for_broadcast(gy, A->value);
+        A->tensor.grad_view() += reduce_for_broadcast(gy, A->tensor);
     }
     if (B->requires_grad())
     { 
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += reduce_for_broadcast(gy, B->value);
+        B->tensor.grad_view() += reduce_for_broadcast(gy, B->tensor);
     }
 }
 
@@ -63,11 +63,11 @@ void vjp_Sub(Node* n, const Tensor& gy){
     if (A->requires_grad()) 
     {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += reduce_for_broadcast(gy, A->value);}
+        A->tensor.grad_view() += reduce_for_broadcast(gy, A->tensor);}
     if (B->requires_grad()) 
     {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += reduce_for_broadcast(gy * -1.0f, B->value);}
+        B->tensor.grad_view() += reduce_for_broadcast(gy * -1.0f, B->tensor);}
 }
 
 void vjp_Mul(Node* n, const Tensor& gy){
@@ -76,11 +76,11 @@ void vjp_Mul(Node* n, const Tensor& gy){
     if (A->requires_grad()) 
     {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += reduce_for_broadcast(gy * B->value, A->value);}
+        A->tensor.grad_view() += reduce_for_broadcast(gy * B->tensor, A->tensor);}
     if (B->requires_grad()) 
     {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += reduce_for_broadcast(gy * A->value, B->value);}
+        B->tensor.grad_view() += reduce_for_broadcast(gy * A->tensor, B->tensor);}
 }
 void vjp_Div(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
@@ -90,14 +90,14 @@ void vjp_Div(Node* n, const Tensor& gy){
     if (A->requires_grad()) 
     { 
         std::lock_guard<std::mutex> lock(A->grad_mutex);            
-        A->grad += reduce_for_broadcast(gy / B->value, A->value);
+        A->tensor.grad_view() += reduce_for_broadcast(gy / B->tensor, A->tensor);
     }
     
     // VJP for B: dL/dB = gy * (-A / (B*B))
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        Tensor grad_B = gy * -1.0f * A->value / (B->value * B->value);
-        B->grad += reduce_for_broadcast(grad_B, B->value);
+        Tensor grad_B = gy * -1.0f * A->tensor / (B->tensor * B->tensor);
+        B->tensor.grad_view() += reduce_for_broadcast(grad_B, B->tensor);
     }
 }
 
@@ -110,21 +110,21 @@ void vjp_FMA(Node* n, const Tensor& gy){
     Node* B = n->inputs[1].get();
     Node* C = n->inputs[2].get();
     
-    const Tensor& At = A->value;
-    const Tensor& Bt = B->value;
+    const Tensor& At = A->tensor;
+    const Tensor& Bt = B->tensor;
 
     // The OwnTensor operators handle device, stream, and broadcasting automatically.
     if (A->requires_grad()){
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += OwnTensor::matmul(gy, Bt.t());
+        A->tensor.grad_view() += OwnTensor::matmul(gy, Bt.t());
     }
     if (B->requires_grad()){
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += OwnTensor::matmul(At.t(), gy);
+        B->tensor.grad_view() += OwnTensor::matmul(At.t(), gy);
     }
     if (C->requires_grad()) {
         std::lock_guard<std::mutex> lock(C->grad_mutex);
-        C->grad += gy;
+        C->tensor.grad_view() += gy;
     }
 }
 
@@ -137,13 +137,13 @@ void vjp_LayerNorm(Node* n, const Tensor& gy){
     if (!x->requires_grad()) return;
 
     // Get the number of features from the last dimension
-    const float N = static_cast<float>(x->value.shape().dims.back());
+    const float N = static_cast<float>(x->tensor.shape().dims.back());
     
     const Tensor& variance = *n->tape[0];
     const Tensor& mean = *n->tape[1];
 
     Tensor std_dev = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream()); // Use OwnTensor::sqrt
-    Tensor xmu = x->value - mean;
+    Tensor xmu = x->tensor - mean;
 
     // Use reduce_sum for row-wise summation
     Tensor grad_sum = OwnTensor::reduce_sum(gy, {-1}, true);
@@ -155,7 +155,7 @@ void vjp_LayerNorm(Node* n, const Tensor& gy){
     Tensor dx = term3 / (std_dev * N);
     if (x->requires_grad()){
         std::lock_guard<std::mutex> lock(x->grad_mutex);
-        x->grad += dx;
+        x->tensor.grad_view() += dx;
     }
 }
 
@@ -169,7 +169,7 @@ void vjp_RMSNorm(Node* n, const Tensor& gy){
     const Tensor& rms = *n->tape[0]; // rsqrt(variance + epsilon)
     const Tensor& y_normalized = *n->tape[1]; // x * rsqrt(...)
     
-    const float inv_N = 1.0f / static_cast<float>(x->value.shape().dims.back());
+    const float inv_N = 1.0f / static_cast<float>(x->tensor.shape().dims.back());
 
     Tensor dot = OwnTensor::reduce_sum(gy * y_normalized, {-1}, true);
     
@@ -178,7 +178,7 @@ void vjp_RMSNorm(Node* n, const Tensor& gy){
 
     if (x->requires_grad()){
         std::lock_guard<std::mutex> lock(x->grad_mutex);
-        x->grad += grad_x;
+        x->tensor.grad_view() += grad_x;
     }
 }
 
@@ -190,14 +190,14 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     Node* g = n->inputs[1].get(); // Gain
     Node* b = n->inputs[2].get(); // Bias
     
-    const float N = static_cast<float>(x->value.shape().dims.back());
+    const float N = static_cast<float>(x->tensor.shape().dims.back());
 
     const Tensor& variance = *n->tape[0];
     const Tensor& mean = *n->tape[1];
     const Tensor& x_normalized = *n->tape[2];
     
     Tensor std_dev = OwnTensor::sqrt(variance + 1e-5f, ag::current_stream());
-    Tensor xmu = x->value - mean;
+    Tensor xmu = x->tensor - mean;
 
     // VJP for the core normalization part (same as LayerNorm)
     Tensor grad_sum = OwnTensor::reduce_sum(gy, {-1}, true);
@@ -211,15 +211,15 @@ void vjp_RealLayerNorm(Node* n, const Tensor& gy){
     // VJP for the affine transformation (scale and shift)
     if (g->requires_grad()) {
         std::lock_guard<std::mutex> lock(g->grad_mutex);
-        g->grad += OwnTensor::reduce_sum(gy * x_normalized, {-1});
+        g->tensor.grad_view() += OwnTensor::reduce_sum(gy * x_normalized, {-1});
     }
     if (b->requires_grad()) {
         std::lock_guard<std::mutex> lock(b->grad_mutex);
-        b->grad += OwnTensor::reduce_sum(gy, {-1});
+        b->tensor.grad_view() += OwnTensor::reduce_sum(gy, {-1});
     }
     if (x->requires_grad()) {
         std::lock_guard<std::mutex> lock(x->grad_mutex);
-        x->grad += (g->value / std_dev) * dx_normalized;
+        x->tensor.grad_view() += (g->tensor / std_dev) * dx_normalized;
     }
 }
 
@@ -256,22 +256,22 @@ void vjp_Attention(Node* n, const Tensor& gy){
     // Propagate gradients to the weight matrices and the input A
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += OwnTensor::matmul(A->value.t(), dL_dq) * scale;
+        B->tensor.grad_view() += OwnTensor::matmul(A->tensor.t(), dL_dq) * scale;
     }
     if (C->requires_grad()) {
         std::lock_guard<std::mutex> lock(C->grad_mutex);
-        C->grad += OwnTensor::matmul(A->value.t(), dL_dk) * scale;
+        C->tensor.grad_view() += OwnTensor::matmul(A->tensor.t(), dL_dk) * scale;
     }
     if (D->requires_grad()) {
         std::lock_guard<std::mutex> lock(D->grad_mutex);
-        D->grad += OwnTensor::matmul(A->value.t(), dL_dv);
+        D->tensor.grad_view() += OwnTensor::matmul(A->tensor.t(), dL_dv);
     }
     if (A->requires_grad()) {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->value);
-        Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->value);
-        Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->value);
-        A->grad += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
+        Tensor dL_dA_q = OwnTensor::matmul(dL_dq, B->tensor);
+        Tensor dL_dA_k = OwnTensor::matmul(dL_dk, C->tensor);
+        Tensor dL_dA_v = OwnTensor::matmul(dL_dv, D->tensor);
+        A->tensor.grad_view() += (dL_dA_q * scale) + (dL_dA_k * scale) + dL_dA_v;
     }
 }
 
@@ -291,8 +291,8 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
     Node* D = n->inputs[4].get();
 
     // Recompute intermediates using OwnTensor API
-    Tensor y = OwnTensor::matmul(X->value, A->value.t()) + B->value;
-    Tensor h = OwnTensor::matmul(X->value, C->value.t()) + D->value;
+    Tensor y = OwnTensor::matmul(X->tensor, A->tensor.t()) + B->tensor;
+    Tensor h = OwnTensor::matmul(X->tensor, C->tensor.t()) + D->tensor;
 
     // --- Re-implement sigmoid and its derivative using OwnTensor ops ---
     Tensor sig_y = 1.0f / (1.0f + OwnTensor::exp(y * -1.0f));
@@ -306,25 +306,25 @@ void vjp_SWIGLU(Node* n, const Tensor& gy){
 
     if (D->requires_grad()) {
         std::lock_guard<std::mutex> lock(D->grad_mutex);
-        D->grad += dL_dh;
+        D->tensor.grad_view() += dL_dh;
     }
     if (C->requires_grad()) {
         std::lock_guard<std::mutex> lock(C->grad_mutex);
-        C->grad += OwnTensor::matmul(dL_dh.t(), X->value);
+        C->tensor.grad_view() += OwnTensor::matmul(dL_dh.t(), X->tensor);
     }
     
     if (B->requires_grad()){
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += dL_dy;
+        B->tensor.grad_view() += dL_dy;
     }
     if (A->requires_grad()) {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += OwnTensor::matmul(dL_dy.t(), X->value);
+        A->tensor.grad_view() += OwnTensor::matmul(dL_dy.t(), X->tensor);
     }
     
     if (X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += OwnTensor::matmul(dL_dh, C->value) + OwnTensor::matmul(dL_dy, A->value);
+        X->tensor.grad_view() += OwnTensor::matmul(dL_dh, C->tensor) + OwnTensor::matmul(dL_dy, A->tensor);
     }
 }
 // ===================================================================
@@ -335,14 +335,14 @@ void vjp_Relu(Node* n, const Tensor& gy){
      if (!X->requires_grad()) return;
 
     // --- DEFINITIVE FIX for ReLU VJP ---
-    // The output of the forward pass is n->value, which is relu(X->value).
-    // Where n->value is > 0, the original input was > 0.
+    // The output of the forward pass is n->tensor, which is relu(X->tensor).
+    // Where n->tensor is > 0, the original input was > 0.
     // We can create a mask from this.
 
     // 1. Create a sign tensor from the OUTPUT of the ReLU.
     //    This is more stable than using the input.
     const float epsilon = 1e-9f;
-    Tensor sign_output = n->value / (OwnTensor::abs(n->value, ag::current_stream()) + epsilon);
+    Tensor sign_output = n->tensor / (OwnTensor::abs(n->tensor, ag::current_stream()) + epsilon);
 
     // 2. Create the mask where output > 0
     Tensor mask = (sign_output + OwnTensor::abs(sign_output, ag::current_stream())) * 0.5f;
@@ -350,7 +350,7 @@ void vjp_Relu(Node* n, const Tensor& gy){
     if (X->requires_grad())
     { 
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += reduce_for_broadcast(gy * mask, X->value);
+        X->tensor.grad_view() += reduce_for_broadcast(gy * mask, X->tensor);
     }
     // --- END FIX ---
 }
@@ -366,7 +366,7 @@ void vjp_Exp(Node* n, const Tensor& gy){
     // This uses the stream-aware OwnTensor operator '*' for both CPU and GPU.
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * n->value;
+        X->tensor.grad_view() += gy * n->tensor;
     }
 }
 
@@ -382,7 +382,7 @@ void vjp_Log(Node* n, const Tensor& gy){
     // This uses the stream-aware OwnTensor operator '/' for both CPU and GPU.
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy / X->value;
+        X->tensor.grad_view() += gy / X->tensor;
     }
 }
 
@@ -396,10 +396,10 @@ void vjp_GCU(Node* n, const Tensor& gy){
 
     // VJP is gy * (cos(x) - x * sin(x))
     // All ops are from OwnTensor and are stream-aware.
-    Tensor d_gcu = OwnTensor::cos(X->value) - (X->value * OwnTensor::sin(X->value));
+    Tensor d_gcu = OwnTensor::cos(X->tensor) - (X->tensor * OwnTensor::sin(X->tensor));
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad+= gy * d_gcu;
+        X->tensor.grad_view()+= gy * d_gcu;
     }
 }
 
@@ -412,19 +412,19 @@ void vjp_Mish(Node* n, const Tensor& gy){
 
     // Re-calculate intermediates needed for the derivative
     // softplus(x) = log(1 + exp(x))
-    Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(X->value));
+    Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(X->tensor));
     Tensor tanh_sp = OwnTensor::tanh(sp);
     
     // sigmoid(x) = 1 / (1 + exp(-x))
-    Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(X->value * -1.0f));
+    Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(X->tensor * -1.0f));
 
     // The derivative of mish
-    Tensor d_mish = tanh_sp + X->value * (1.0f - (tanh_sp * tanh_sp)) * sig_x;
+    Tensor d_mish = tanh_sp + X->tensor * (1.0f - (tanh_sp * tanh_sp)) * sig_x;
     
     // Apply the chain rule
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * d_mish;
+        X->tensor.grad_view() += gy * d_mish;
     }
 }
 
@@ -436,11 +436,11 @@ void vjp_Tanh(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // VJP is gy * (1 - tanh(x)^2)
-    // Here, t = n->value is the result of the forward tanh(x)
-    const Tensor& t = n->value;
+    // Here, t = n->tensor is the result of the forward tanh(x)
+    const Tensor& t = n->tensor;
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (1.0f - (t * t));
+        X->tensor.grad_view() += gy * (1.0f - (t * t));
     }
 }
 
@@ -452,11 +452,11 @@ void vjp_Sigmoid(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // VJP is gy * (sigmoid(x) * (1 - sigmoid(x)))
-    // Here, s = n->value is the result of the forward sigmoid(x)
-    const Tensor& s = n->value;
+    // Here, s = n->tensor is the result of the forward sigmoid(x)
+    const Tensor& s = n->tensor;
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (s * (1.0f - s));
+        X->tensor.grad_view() += gy * (s * (1.0f - s));
     }
 }
 
@@ -470,11 +470,11 @@ void vjp_Softplus(Node* n, const Tensor& gy){
 
     // VJP is gy * sigmoid(x)
     // sigmoid(x) = 1 / (1 + exp(-x))
-    Tensor d_softplus = 1.0f / (1.0f + OwnTensor::exp(X->value * -1.0f));
+    Tensor d_softplus = 1.0f / (1.0f + OwnTensor::exp(X->tensor * -1.0f));
     
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad  += gy * d_softplus;
+        X->tensor.grad_view()  += gy * d_softplus;
     }
 }
 
@@ -487,10 +487,10 @@ void vjp_Gaus(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // VJP is gy * (-2 * x * exp(-x^2))
-    // We can reuse the forward pass output, n->value, which is exp(-x^2).
+    // We can reuse the forward pass output, n->tensor, which is exp(-x^2).
     if (X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * -2.0f * X->value * n->value;
+        X->tensor.grad_view() += gy * -2.0f * X->tensor * n->tensor;
     }
 }
 
@@ -504,7 +504,7 @@ void vjp_Transpose(Node* n, const Tensor& gy){
     // The VJP is just the transpose of the gradient.
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy.t();
+        X->tensor.grad_view() += gy.t();
         }
 }
 
@@ -516,14 +516,14 @@ void vjp_SiLU(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // Recompute sigmoid(x)
-    Tensor s = 1.0f / (1.0f + OwnTensor::exp(X->value * -1.0f));
+    Tensor s = 1.0f / (1.0f + OwnTensor::exp(X->tensor * -1.0f));
     
     // Derivative of SiLU
-    Tensor d_silu = s * (1.0f + X->value * (1.0f - s));
+    Tensor d_silu = s * (1.0f + X->tensor * (1.0f - s));
     
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * d_silu;}
+        X->tensor.grad_view() += gy * d_silu;}
 }
 
 // ===================================================================
@@ -536,7 +536,7 @@ void vjp_Parcon(Node* n, const Tensor& gy){
     // VJP is gy * (2 - 2*x)
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (2.0f - 2.0f * X->value);
+        X->tensor.grad_view() += gy * (2.0f - 2.0f * X->tensor);
     }
 }
 
@@ -548,14 +548,14 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // Recompute tanh(x)
-    Tensor th_x = OwnTensor::tanh(X->value);
+    Tensor th_x = OwnTensor::tanh(X->tensor);
     
     // Derivative is tanh(x) + x * sech(x)^2, which is tanh(x) + x * (1 - tanh(x)^2)
-    Tensor d_lisht = th_x + X->value * (1.0f - (th_x * th_x));
+    Tensor d_lisht = th_x + X->tensor * (1.0f - (th_x * th_x));
     
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * d_lisht;}
+        X->tensor.grad_view() += gy * d_lisht;}
 } 
 
 // ===================================================================
@@ -564,7 +564,7 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
 void vjp_GELU(Node* n, const Tensor& gy){
     Node* X_node = n->inputs[0].get();
     if (!X_node->requires_grad()) return;
-    const Tensor& x = X_node->value;
+    const Tensor& x = X_node->tensor;
 
     // Constants for the GELU approximation's derivative
     const float c1 = 0.7978845608f; // sqrt(2.0f / M_PI)
@@ -585,7 +585,7 @@ void vjp_GELU(Node* n, const Tensor& gy){
     // Apply the chain rule
     if (X_node->requires_grad()){
         std::lock_guard<std::mutex> lock(X_node->grad_mutex);
-        X_node->grad += gy * d_gelu;
+        X_node->tensor.grad_view() += gy * d_gelu;
     }
 }
 // ===================================================================
@@ -594,13 +594,13 @@ void vjp_GELU(Node* n, const Tensor& gy){
 void vjp_LeakyRelu(Node* n, const Tensor& gy){
     Node* X_node = n->inputs[0].get();
     if (!X_node->requires_grad()) return;
-    const Tensor& x = X_node->value;
+    const Tensor& x = X_node->tensor;
     
     // Get alpha from the second input node
     Node* A_node = n->inputs[1].get();
     // Use .data<T>()[0] to get the scalar value from the 1x1 tensor
     // FIX: Move to CPU before data access to avoid "scalar copy: invalid argument" on CUDA
-    float alpha = A_node->value.to_cpu().data<float>()[0]; 
+    float alpha = A_node->tensor.to_cpu().data<float>()[0]; 
 
     // --- Create the Leaky ReLU derivative mask using pure arithmetic ---
     // The mask should be 1 where x > 0 and alpha where x <= 0.
@@ -619,7 +619,7 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
     // Apply the chain rule
     if (X_node->requires_grad()){
         std::lock_guard<std::mutex> lock(X_node->grad_mutex);
-        X_node->grad += gy * d_leaky;
+        X_node->tensor.grad_view() += gy * d_leaky;
     }
 }
 
@@ -629,19 +629,19 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
 void vjp_MatMul(Node* n, const Tensor& gy){
     Node* A_node = n->inputs[0].get();
     Node* B_node = n->inputs[1].get();
-    const Tensor& A = A_node->value;
-    const Tensor& B = B_node->value;
+    const Tensor& A = A_node->tensor;
+    const Tensor& B = B_node->tensor;
 
     // VJP for A: dL/dA = dL/dY @ B^T
     if (A_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(A_node->grad_mutex);
-        A_node->grad += OwnTensor::matmul(gy, B.t());
+        A_node->tensor.grad_view() += OwnTensor::matmul(gy, B.t());
     }
 
     // VJP for B: dL/dB = A^T @ dL/dY
     if (B_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(B_node->grad_mutex);
-        B_node->grad += OwnTensor::matmul(A.t(), gy);
+        B_node->tensor.grad_view() += OwnTensor::matmul(A.t(), gy);
     }
 }
 
@@ -663,21 +663,21 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
     
     if (G->requires_grad()) {
         std::lock_guard<std::mutex> lock(G->grad_mutex);
-        G->grad += gy * th_h;
+        G->tensor.grad_view() += gy * th_h;
     }
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += gy;
+        B->tensor.grad_view() += gy;
     }
     if (A->requires_grad()) {
         std::lock_guard<std::mutex> lock(A->grad_mutex);        
         // Chain rule: gy * g * d_tanh * x
-        A->grad += gy * G->value * d_tanh * X->value;
+        A->tensor.grad_view() += gy * G->tensor * d_tanh * X->tensor;
     }
     if (X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
         // Chain rule: gy * g * d_tanh * a
-        X->grad += gy * G->value * d_tanh * A->value;
+        X->tensor.grad_view() += gy * G->tensor * d_tanh * A->tensor;
     }
 }
 
@@ -690,10 +690,10 @@ void vjp_Sum(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // `gy` is a 1x1 scalar tensor. The '+' operator will automatically
-    // broadcast it to the shape of X->grad.
+    // broadcast it to the shape of X->tensor.grad_view().
     if(X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy;
+        X->tensor.grad_view() += gy;
     }
 }
 
@@ -705,10 +705,10 @@ void vjp_RowSum(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // `gy` has shape [B, 1]. The '+' operator will automatically
-    // broadcast it to the shape of X->grad, which is [B, C].
+    // broadcast it to the shape of X->tensor.grad_view(), which is [B, C].
     if (X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy;
+        X->tensor.grad_view() += gy;
     }
 }
 
@@ -719,8 +719,8 @@ void vjp_RowMax(Node* n, const Tensor& gy){
     // To implement this, we need to know the *index* of the max element in each row.
     // This requires an `argmax` function which is not available in OwnTensor.
     // The VJP would look like:
-    //   Tensor indices = OwnTensor::argmax(X->value, /*axis=*/-1);
-    //   X->grad.scatter_add_(/*axis=*/-1, indices, gy);
+    //   Tensor indices = OwnTensor::argmax(X->tensor, /*axis=*/-1);
+    //   X->tensor.grad_view().scatter_add_(/*axis=*/-1, indices, gy);
     throw std::runtime_error("VJP for RowMax cannot be implemented without argmax or comparison ops in the tensor library.");
 }
 
@@ -733,13 +733,13 @@ void vjp_MeanAll(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
     
     // The gradient needs to be scaled by 1/N.
-    float scale = 1.0f / static_cast<float>(X->value.numel());
+    float scale = 1.0f / static_cast<float>(X->tensor.numel());
     
     // `gy` is a scalar. `gy * scale` is also a scalar.
     // The `+=` operator will broadcast this scalar across the entire gradient tensor.
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * scale;}
+        X->tensor.grad_view() += gy * scale;}
 }
 
 // ===================================================================
@@ -750,7 +750,7 @@ void vjp_SoftmaxRow(Node* n, const Tensor& gy){
     if (!Z->requires_grad()) return;
 
     // y is the output of the softmax, which is stored in the node's value.
-    const Tensor& y = n->value;
+    const Tensor& y = n->tensor;
 
     // Calculate the dot product along the rows.
     // This needs to be a sum, not a matmul.
@@ -759,7 +759,7 @@ void vjp_SoftmaxRow(Node* n, const Tensor& gy){
     // The += operator will broadcast 'dot' correctly.
     if (Z->requires_grad()){
         std::lock_guard<std::mutex> lock(Z->grad_mutex);
-        Z->grad += y * (gy - dot);
+        Z->tensor.grad_view() += y * (gy - dot);
     }
 }
 
@@ -772,7 +772,7 @@ void vjp_LogSumExpRow(Node* n, const Tensor& gy){
 
     // --- Re-implement softmax using OwnTensor ops ---
     // This is the derivative of logsumexp.
-    const Tensor& z_val = Z->value;
+    const Tensor& z_val = Z->tensor;
     Tensor max_val = OwnTensor::reduce_max(z_val, {-1}, true);
     Tensor exp_z = OwnTensor::exp(z_val - max_val);
     Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
@@ -782,7 +782,7 @@ void vjp_LogSumExpRow(Node* n, const Tensor& gy){
     // The VJP is gy * softmax(z). The += operator will handle broadcasting.
     if(Z->requires_grad()){
         std::lock_guard<std::mutex> lock(Z->grad_mutex);
-        Z->grad += gy * softmax_z;}
+        Z->tensor.grad_view() += gy * softmax_z;}
 }
 
 // ===================================================================
@@ -791,8 +791,8 @@ void vjp_LogSumExpRow(Node* n, const Tensor& gy){
 void vjp_CeWithLogits(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
-    const Tensor& Z = Z_node->value;
-    const Tensor& Y = Y_node->value;
+    const Tensor& Z = Z_node->tensor;
+    const Tensor& Y = Y_node->tensor;
     
     // Batch size is the size of the first dimension
     const float inv_batch_size = 1.0f / static_cast<float>(Z.shape().dims[0]);
@@ -810,13 +810,13 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
         // gZ = (softmax(Z) - Y) / batch_size
         Tensor gZ = (softmax_z - Y) * inv_batch_size;
         // The `gy` for a loss function is typically a scalar. The operators will broadcast it.
-        Z_node->grad += gy * gZ;
+        Z_node->tensor.grad_view() += gy * gZ;
     }
     if (Y_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Y_node->grad_mutex);
         // gY = -log_softmax(Z) / batch_size
         Tensor gY = log_softmax_z * (-1.0f * inv_batch_size);
-        Y_node->grad += gy * gY;
+        Y_node->tensor.grad_view() += gy * gY;
     }
 }
 
@@ -826,8 +826,8 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
 void vjp_KLDivergence(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
-    const Tensor& Z = Z_node->value;
-    const Tensor& Y = Y_node->value;
+    const Tensor& Z = Z_node->tensor;
+    const Tensor& Y = Y_node->tensor;
     
     const float inv_batch_size = 1.0f / static_cast<float>(Z.shape().dims[0]);
 
@@ -843,14 +843,14 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
         std::lock_guard<std::mutex> lock(Z_node->grad_mutex);
         // gZ = softmax(Z) - Y, scaled by batch size
         Tensor gZ = (softmax_z - Y) * inv_batch_size;
-        Z_node->grad += gy * gZ;
+        Z_node->tensor.grad_view() += gy * gZ;
     }
     if (Y_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Y_node->grad_mutex);
         // gY = log(Y) + 1 - log_softmax(Z), scaled by batch size
         Tensor log_Y = OwnTensor::log(Y + 1e-9f); // Add epsilon for stability
         Tensor gY = (log_Y + 1.0f - log_softmax_z) * inv_batch_size;
-        Y_node->grad += gy * gY;
+        Y_node->tensor.grad_view() += gy * gY;
     }
 }
 
@@ -863,21 +863,21 @@ void vjp_Linear(Node* n, const Tensor& gy){
     Node* W_node = n->inputs[1].get(); // Weight W
     Node* b_node = n->inputs[2].get(); // Bias b
     
-    const Tensor& X = X_node->value;
-    const Tensor& W = W_node->value;
+    const Tensor& X = X_node->tensor;
+    const Tensor& W = W_node->tensor;
 
     // VJP for input X: dX = dY @ W. Correct.
     // [B, Out] @ [Out, In] -> [B, In]
     if (X_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(X_node->grad_mutex);
-        X_node->grad += OwnTensor::matmul(gy, W);
+        X_node->tensor.grad_view() += OwnTensor::matmul(gy, W);
     }
 
     // VJP for weight W: dW = dY.T @ X. Correct math for Y = X @ W.T + b
     // [Out, B] @ [B, In] -> [Out, In]
     if (W_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(W_node->grad_mutex);
-        W_node->grad += OwnTensor::matmul(gy.t(), X);
+        W_node->tensor.grad_view() += OwnTensor::matmul(gy.t(), X);
     }
 
     // VJP for bias b: sum(dY) over batch dimension, keeping rank. Correct.
@@ -886,7 +886,7 @@ void vjp_Linear(Node* n, const Tensor& gy){
         std::lock_guard<std::mutex> lock(b_node->grad_mutex);
         // Change keepdim from 'false' to 'true'.
         // This makes the result [1, Out] instead of [Out].
-        b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
+        b_node->tensor.grad_view() += OwnTensor::reduce_sum(gy, {0}, true);
     }
 }
 // ===================================================================
@@ -895,11 +895,11 @@ void vjp_Linear(Node* n, const Tensor& gy){
 void vjp_Reciprocal(Node* n, const Tensor& gy){
     Node* X_node = n->inputs[0].get();
     if (!X_node->requires_grad()) return;
-    const Tensor& X = X_node->value;
+    const Tensor& X = X_node->tensor;
     // VJP is gy * (-1 / X^2)
     if(X_node->requires_grad()){
         std::lock_guard<std::mutex> lock(X_node->grad_mutex);
-        X_node->grad += gy * -1.0f / (X * X);
+        X_node->tensor.grad_view() += gy * -1.0f / (X * X);
     }
 }
 
@@ -920,7 +920,7 @@ void vjp_Cosh(Node* n, const Tensor& gy){
     // VJP is gy * sinh(x)
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * OwnTensor::sinh(X->value);}
+        X->tensor.grad_view() += gy * OwnTensor::sinh(X->tensor);}
 }
 
 // ===================================================================
@@ -933,7 +933,7 @@ void vjp_Sinh(Node* n, const Tensor& gy){
     // VJP is gy * cosh(x)
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * OwnTensor::cosh(X->value);
+        X->tensor.grad_view() += gy * OwnTensor::cosh(X->tensor);
     }
 }
 
@@ -948,7 +948,7 @@ void vjp_Sign(Node* n, const Tensor& gy){
     // in case of broadcasting.
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * 0.0f;
+        X->tensor.grad_view() += gy * 0.0f;
     }
 }
 
@@ -962,7 +962,7 @@ void vjp_Cos(Node* n, const Tensor& gy){
     // VJP is gy * -sin(x)
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * -1.0f * OwnTensor::sin(X->value);
+        X->tensor.grad_view() += gy * -1.0f * OwnTensor::sin(X->tensor);
     }
 }
 
@@ -976,7 +976,7 @@ void vjp_Sin(Node* n, const Tensor& gy){
     // VJP is gy * cos(x)
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * OwnTensor::cos(X->value);
+        X->tensor.grad_view() += gy * OwnTensor::cos(X->tensor);
     }
 }
 // ===================================================================
@@ -989,7 +989,7 @@ void vjp_Tan(Node* n, const Tensor& gy){
     // VJP is gy * (1/cos(x)*1/cos(x))
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * ((1/OwnTensor::cos(X->value)) * (1/OwnTensor::cos(X->value)));
+        X->tensor.grad_view() += gy * ((1/OwnTensor::cos(X->tensor)) * (1/OwnTensor::cos(X->tensor)));
     }
 }
 
@@ -1003,7 +1003,7 @@ void vjp_Asin(Node* n, const Tensor& gy){
     // VJP is gy * (1 / sqrt(1 - x^2))
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+        X->tensor.grad_view() += gy * (1.0f / OwnTensor::sqrt(1.0f - (X->tensor * X->tensor), ag::current_stream()));
     }
 }
 
@@ -1017,7 +1017,7 @@ void vjp_Acos(Node* n, const Tensor& gy){
     // VJP is gy * (-1 / sqrt(1 - x^2))
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (-1.0f / OwnTensor::sqrt(1.0f - (X->value * X->value), ag::current_stream()));
+        X->tensor.grad_view() += gy * (-1.0f / OwnTensor::sqrt(1.0f - (X->tensor * X->tensor), ag::current_stream()));
     }
 }
 
@@ -1031,7 +1031,7 @@ void vjp_Atan(Node* n, const Tensor& gy){
     // VJP is gy * (1 / (1 + x^2))
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * (1.0f / (1.0f + (X->value * X->value)));}
+        X->tensor.grad_view() += gy * (1.0f / (1.0f + (X->tensor * X->tensor)));}
 }
 
 
@@ -1043,10 +1043,10 @@ void vjp_Sqrt(Node* n, const Tensor& gy){
     if (!X->requires_grad()) return;
 
     // VJP is gy * (0.5 / sqrt(x)) = gy * 0.5 / y
-    // n->value is the result of the forward pass, which is sqrt(x).
+    // n->tensor is the result of the forward pass, which is sqrt(x).
     if (X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * 0.5f / n->value;
+        X->tensor.grad_view() += gy * 0.5f / n->tensor;
     }
 }
 
@@ -1061,7 +1061,7 @@ void vjp_Relumask(Node* n, const Tensor& gy){
     // for a zero-like tensor.
     if(X->requires_grad()){
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += gy * 0.0f;
+        X->tensor.grad_view() += gy * 0.0f;
     }
 }
 
@@ -1093,18 +1093,18 @@ void vjp_RELUAtt(Node* n, const Tensor& gy){
     // Propagate gradients to the weight matrices and the input A
     if (D->requires_grad()) {
         std::lock_guard<std::mutex> lock(D->grad_mutex);
-        D->grad += matmul(A->value.t(), dL_dv);}
+        D->tensor.grad_view() += matmul(A->tensor.t(), dL_dv);}
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += matmul(A->value.t(), dL_dq);}
+        B->tensor.grad_view() += matmul(A->tensor.t(), dL_dq);}
     if (C->requires_grad()) {
         std::lock_guard<std::mutex> lock(C->grad_mutex);
-        C->grad += matmul(A->value.t(), dL_dk);}
+        C->tensor.grad_view() += matmul(A->tensor.t(), dL_dk);}
     if (A->requires_grad()) {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += matmul(dL_dq, B->value) + 
-                   matmul(dL_dk, C->value) + 
-                   matmul(dL_dv, D->value);
+        A->tensor.grad_view() += matmul(dL_dq, B->tensor) + 
+                   matmul(dL_dk, C->tensor) + 
+                   matmul(dL_dv, D->tensor);
     }
 }
 
@@ -1119,17 +1119,17 @@ void vjp_MOE(Node* n, const Tensor& gy){
     // VJP for input X: dX = dY @ W.T
     if (X->requires_grad()) {
         std::lock_guard<std::mutex> lock(X->grad_mutex);
-        X->grad += OwnTensor::matmul(gy, W->value.t());
+        X->tensor.grad_view() += OwnTensor::matmul(gy, W->tensor.t());
     }
     // VJP for weight W: dW = X.T @ dY
     if (W->requires_grad()) {
         std::lock_guard<std::mutex> lock(W->grad_mutex);
-        W->grad += OwnTensor::matmul(X->value.t(), gy);
+        W->tensor.grad_view() += OwnTensor::matmul(X->tensor.t(), gy);
     }
     // VJP for bias B: dB is the sum of gradients along the batch dimension
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
-        B->grad += OwnTensor::reduce_sum(gy, {0}, false);
+        B->tensor.grad_view() += OwnTensor::reduce_sum(gy, {0}, false);
     }
 }
 // ===================================================================
@@ -1157,20 +1157,20 @@ void vjp_SigAtt(Node* n, const Tensor& gy){
     if (B->requires_grad()) {
         std::lock_guard<std::mutex> lock(B->grad_mutex);
         
-        B->grad += matmul(A->value.t(), dL_dq);}
+        B->tensor.grad_view() += matmul(A->tensor.t(), dL_dq);}
     if (C->requires_grad()) {
         std::lock_guard<std::mutex> lock(C->grad_mutex);
         
-        C->grad += matmul(A->value.t(), dL_dk);}
+        C->tensor.grad_view() += matmul(A->tensor.t(), dL_dk);}
     if (D->requires_grad()) {
         std::lock_guard<std::mutex> lock(D->grad_mutex);
         
-        D->grad += matmul(A->value.t(), dL_dv);}
+        D->tensor.grad_view() += matmul(A->tensor.t(), dL_dv);}
     if (A->requires_grad()) {
         std::lock_guard<std::mutex> lock(A->grad_mutex);
-        A->grad += matmul(dL_dq, B->value) + 
-                   matmul(dL_dk, C->value) + 
-                   matmul(dL_dv, D->value);
+        A->tensor.grad_view() += matmul(dL_dq, B->tensor) + 
+                   matmul(dL_dk, C->tensor) + 
+                   matmul(dL_dv, D->tensor);
     }
 }
 
@@ -1185,15 +1185,15 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
     const float gy_scalar = gy.to_cpu().data<float>()[0];
-    const float scale = 2.0f / static_cast<float>(Z_node->value.numel());
-    Tensor diff = Z_node->value - Y_node->value;
+    const float scale = 2.0f / static_cast<float>(Z_node->tensor.numel());
+    Tensor diff = Z_node->tensor - Y_node->tensor;
     if (Z_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Z_node->grad_mutex);
-        Z_node->grad += (diff * (gy_scalar * scale));
+        Z_node->tensor.grad_view() += (diff * (gy_scalar * scale));
     }
     if (Y_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Y_node->grad_mutex);
-        Y_node->grad += (diff * (-1.0f * gy_scalar * scale));
+        Y_node->tensor.grad_view() += (diff * (-1.0f * gy_scalar * scale));
     }
 }
 
@@ -1203,8 +1203,8 @@ void vjp_MSELoss(Node* n, const Tensor& gy){
 void vjp_MAELoss(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
-    const Tensor& Z = Z_node->value;
-    const Tensor& Y = Y_node->value;
+    const Tensor& Z = Z_node->tensor;
+    const Tensor& Y = Y_node->tensor;
 
     const float inv_N = 1.0f / static_cast<float>(Z.numel());
 
@@ -1215,11 +1215,11 @@ void vjp_MAELoss(Node* n, const Tensor& gy){
     
     if (Z_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Z_node->grad_mutex);
-        Z_node->grad += gy * sign_diff * inv_N;
+        Z_node->tensor.grad_view() += gy * sign_diff * inv_N;
     }
     if (Y_node->requires_grad()) {
         std::lock_guard<std::mutex> lock(Y_node->grad_mutex);
-        Y_node->grad += gy * sign_diff * (-1.0f * inv_N);
+        Y_node->tensor.grad_view() += gy * sign_diff * (-1.0f * inv_N);
     }
 }
 

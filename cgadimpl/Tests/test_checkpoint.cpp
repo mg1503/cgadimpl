@@ -58,7 +58,7 @@
 
 // //     // 8. Print recomputed value
 // //     std::cout << "\nCheckpointed node value after recompute:\n";
-// //     std::cout << y2.node->value << "\n";
+// //     std::cout << y2.node->tensor << "\n";
 
 // //     std::cout << "===== Test completed successfully =====\n";
 // //     return 0;
@@ -195,7 +195,7 @@ int main() {
     
     // To prove recomputation works, manually delete the value that h2 depends on.
     // During backward(), the framework MUST recompute h1 to compute h2.
-    h1.node->value.reset();
+    h1.node->tensor.reset();
     
     std::cout << "Running backward pass with checkpointing...\n";
     backward(loss);

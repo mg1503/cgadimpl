@@ -244,7 +244,7 @@ Compiled compile(const Value& output,
         if (n->op == Op::Leaf) continue;
         Step st;
         st.op = n->op;
-        st.out_meta = {n->shape(), n->value.dtype(), n->value.device()};
+        st.out_meta = {n->shape(), n->tensor.dtype(), n->tensor.device()};
         st.out_slot = plan.num_slots++;
         slot_of[n] = st.out_slot;
 
@@ -254,7 +254,7 @@ Compiled compile(const Value& output,
             if (p->op == Op::Leaf) {
                 if (is_in(in_ix, p))        st.args.push_back(ArgInput{ in_ix[p] });
                 else if (is_in(par_ix, p))  st.args.push_back(ArgParam{ par_ix[p] });
-                else                        st.args.push_back(ArgLit{ p->value });
+                else                        st.args.push_back(ArgLit{ p->tensor });
             } else {
                 st.args.push_back(ArgSlot{ slot_of.at(p) });
             }

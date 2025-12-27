@@ -23,7 +23,7 @@ int main() {
     // 1st in-place modification
     std::cout << "\n[Step 1] Performing in-place add\n";
     // --- FIX: Use += and modern factories ---
-    v.node->value += Tensor::ones(v.val().shape(), ag::options(v.val()));
+    v.node->tensor += Tensor::ones(v.val().shape(), ag::options(v.val()));
     inplace::bump_tensor_version(v.node.get());
     size_t ver1 = inplace::get_tensor_version(v.node.get());
     std::cout << "  -> version = " << ver1 << "\n";
@@ -32,7 +32,7 @@ int main() {
     // 2nd in-place modification
     std::cout << "\n[Step 2] Performing another in-place add\n";
     // --- FIX: Use += and modern factories ---
-    v.node->value += (Tensor::ones(Shape{{2, 2}}) * 2.0f);
+    v.node->tensor += (Tensor::ones(Shape{{2, 2}}) * 2.0f);
     inplace::bump_tensor_version(v.node.get());
     size_t ver2 = inplace::get_tensor_version(v.node.get());
     std::cout << "  -> version = " << ver2 << "\n";

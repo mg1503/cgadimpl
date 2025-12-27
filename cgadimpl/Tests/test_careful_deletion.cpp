@@ -105,7 +105,7 @@ int main() {
 
     // Perform in-place modification to test version bump
     std::cout << "\n[In-place Modification Test]\n";
-    l3.node->value += (Tensor::ones(l3.val().shape(), ag::options(l3.val())) * 0.1f);
+    l3.node->tensor += (Tensor::ones(l3.val().shape(), ag::options(l3.val())) * 0.1f);
     inplace::bump_tensor_version(l3.node.get());
     size_t v3_after = inplace::get_tensor_version(l3.node.get());
     std::cout << "  Layer3 version after in-place update = " << v3_after << "\n";
@@ -124,8 +124,8 @@ int main() {
     // -------------------------------------------------------------
     std::cout << "\n[Simulate Deallocation + Recomputation]\n";
     // Correctly create empty tensors to simulate deallocation
-    l1.node->value = Tensor(Shape{}, TensorOptions{});
-    l3.node->value = Tensor(Shape{}, TensorOptions{});
+    l1.node->tensor = Tensor(Shape{}, TensorOptions{});
+    l3.node->tensor = Tensor(Shape{}, TensorOptions{});
 
     bool ok1 = ag::checkpoint_impl::recompute_subgraph(l1.node);
     // For in-place, the correct recompute function is different
@@ -281,7 +281,7 @@ int main() {
 
 //     // Perform in-place modification to test version bump
 //     std::cout << "\n[In-place Modification Test]\n";
-//     l3.node->value += (Tensor::ones(l3.val().shape(), ag::options(l3.val())) * 0.1f);
+//     l3.node->tensor += (Tensor::ones(l3.val().shape(), ag::options(l3.val())) * 0.1f);
 //     inplace::bump_tensor_version(l3.node.get());
 //     size_t v3_after = inplace::get_tensor_version(l3.node.get());
 //     std::cout << "  Layer3 version after in-place update = " << v3_after << "\n";
@@ -300,8 +300,8 @@ int main() {
 //     // -------------------------------------------------------------
 //     std::cout << "\n[Simulate Deallocation + Recomputation]\n";
 //     // Correctly create empty tensors to simulate deallocation
-//     l1.node->value = Tensor(Shape{}, TensorOptions{});
-//     l3.node->value = Tensor(Shape{}, TensorOptions{});
+//     l1.node->tensor = Tensor(Shape{}, TensorOptions{});
+//     l3.node->tensor = Tensor(Shape{}, TensorOptions{});
 
 //     bool ok1 = ag::checkpoint_impl::recompute_subgraph(l1.node);
 //     // For in-place, the correct recompute function is different

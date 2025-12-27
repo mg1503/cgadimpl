@@ -2,16 +2,16 @@
 // cgadimpl/src/core/autodiff.cpp
 // Summary of the Changes
 //     zero_grad():
-//         Tensor::zeros(n->value.shape()) was changed to OwnTensor::Tensor::zeros(n->value.shape(), ag::options(n->value)).
+//         Tensor::zeros(n->tensor.shape()) was changed to OwnTensor::Tensor::zeros(n->tensor.shape(), ag::options(n->tensor)).
 //         Reason: This is the most important pattern. We must use the ag::options() helper to create a new zero-filled tensor that has the same device (CPU/CUDA) and dtype as the value tensor it corresponds to.
 //     backward():
 //         The grad_seed logic was rewritten to use OwnTensor::Tensor::ones with the correct Shape and TensorOptions, again ensuring the seed tensor is created on the correct device.
-//         The check n->value.size() == 0 was correctly changed to n->value.numel() == 0 to match the new API.
+//         The check n->tensor.size() == 0 was correctly changed to n->tensor.numel() == 0 to match the new API.
 //     jvp():
 //         The initial return Tensor{} was changed to return Tensor{Shape{}, TensorOptions{}} to correctly default-construct an empty tensor.
 //         T.reserve(order.numel()) was a bug. order is a std::vector, so we use order.size().
 //         The static fallback tensor Z was changed to be a correctly default-constructed empty tensor.
-//         The creation of the tangent tensor t was changed from Tensor::zeros(n->value) to the correct OwnTensor::Tensor::zeros(n->value.shape(), ag::options(n->value)) to ensure it's on the right device.
+//         The creation of the tangent tensor t was changed from Tensor::zeros(n->tensor) to the correct OwnTensor::Tensor::zeros(n->tensor.shape(), ag::options(n->tensor)) to ensure it's on the right device.
 // You have now updated all the core logic of the autodiff engine to be fully compatible with the new OwnTensor library. This was a critical step.
 // =============================================
 #include <unordered_map>
@@ -26,7 +26,12 @@ namespace ag {
 
 void zero_grad(const Value& root){
     auto order = topo_from(root.node.get());
-    for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    for (Node* n : order) {
+        if (n->requires_grad()) {
+            n->tensor.set_requires_grad(true);
+            n->tensor.grad_view().fill(0.0f);
+        }
+    }
 }
 
 #pragma omp parallel for
@@ -50,15 +55,14 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
     // Seed the root gradient
     if (root.node->requires_grad()){
+        root.node->tensor.set_requires_grad(true);
+        Tensor g = root.node->tensor.grad_view();
         if(grad_seed){
-            root.node->grad = *grad_seed;
+            g.fill(0.0f);
+            g += *grad_seed; // Accumulate seed into gradient
         }else{
-            auto opts = ag::options(root.node->value);
-            if (root.node->value.numel() == 1) {
-                root.node->grad = OwnTensor::Tensor::ones(Shape{{1}}, opts);
-            } else {
-                root.node->grad = OwnTensor::Tensor::ones(root.node->value.shape(), opts);
-            }
+            auto opts = ag::options(root.node->tensor);
+            g.fill(1.0f);
         }
     }
 
@@ -77,9 +81,9 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             Node* n = *it;
             if (!n->requires_grad()) continue;
             
-            const Tensor& gy = n->grad;
+            Tensor gy = n->tensor.grad_view();
             
-            if (n->is_checkpoint && n->value.numel() == 0) {
+            if (n->is_checkpoint && n->tensor.numel() == 0) {
                 if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
                     throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
                 }
@@ -113,7 +117,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             VjpFn vjpfn = vjp_lookup(node->op);
 
             // Execute checkpointing if needed
-            if (node->is_checkpoint && node->value.numel() == 0) {
+            if (node->is_checkpoint && node->tensor.numel() == 0) {
                 if (!ag::checkpoint_impl::recompute_subgraph(node->shared_from_this())) {
                     pending_tasks--;
                     continue;
@@ -122,7 +126,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             
             // Execute VJP function
             if (vjpfn){
-                vjpfn(node, node->grad);
+                vjpfn(node, node->tensor.grad_view());
             }
 
             // Update parent counters
@@ -161,22 +165,22 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
     // // for (Node* n : order) {
         
-    // //     if (n->requires_grad() /*&& n->grad.numel() == 0*/) {
-    // //         n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    // //     if (n->requires_grad() /*&& n->tensor.grad_view().numel() == 0*/) {
+    // //         n->tensor.grad_view() = Tensor::zeros(n->tensor.shape(), ag::options(n->tensor));
     // //     }
     // // }
 
     //  // seed
     // if (root.node->requires_grad()) {
     //     if (grad_seed) {
-    //         root.node->grad = *grad_seed;
+    //         root.node->tensor.grad_view() = *grad_seed;
     //     } else {
     //         // Use the new factories and get options from the value tensor
-    //         auto opts = ag::options(root.node->value);
-    //         if (root.node->value.numel() == 1) {
-    //             root.node->grad.fill(1.0f);
+    //         auto opts = ag::options(root.node->tensor);
+    //         if (root.node->tensor.numel() == 1) {
+    //             root.node->tensor.grad_view().fill(1.0f);
     //         } else {
-    //             root.node->grad = OwnTensor::Tensor::ones(root.node->value.shape(), opts);
+    //             root.node->tensor.grad_view() = OwnTensor::Tensor::ones(root.node->tensor.shape(), opts);
     //         }
     //     }
     // }
@@ -186,11 +190,11 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
     //     Node* n = *it;
     //     // The requires_grad() check is now a function call
     //     if (!n->requires_grad()) continue;
-    //     const Tensor& gy = n->grad;
+    //     const Tensor& gy = n->tensor.grad_view();
 
     //     ag::debug::on_backprop_step(n, gy); // (optional) prints one line per node
 
-    //     if (n->is_checkpoint && n->value.numel() == 0) {
+    //     if (n->is_checkpoint && n->tensor.numel() == 0) {
     //     if (!ag::checkpoint_impl::recompute_subgraph(n->shared_from_this())) {
     //         throw std::runtime_error("autodiff: failed to recompute checkpointed node during backward");
     //     }
@@ -223,7 +227,7 @@ Tensor jvp(const Value& root, const std::unordered_map<Node*, Tensor>& seed){
 
     for (Node* n : order) {
         // seed tangent for this node (if provided), else zeros of the correct shape/device
-        Tensor t = OwnTensor::Tensor::zeros(n->value.shape(), ag::options(n->value));
+        Tensor t = OwnTensor::Tensor::zeros(n->tensor.shape(), ag::options(n->tensor));
         if (auto it = seed.find(n); it != seed.end()) {
             t = it->second;
         }

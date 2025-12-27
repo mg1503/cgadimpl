@@ -158,11 +158,10 @@ bool try_delete_node(Node* node, DeletePolicy policy) {
     if (!gradients_done(node)) return false;
 
     // 5 Otherwise, it is safe to free this node’s memory
-    // node->value = Tensor(OwnTensor::Shape{}, ag::options(node->value)); // release the tensor’s data buffer
-    // node->grad  = Tensor(OwnTensor::Shape{}, ag::options(node->grad));  // release gradient memory as well
+    // node->tensor = Tensor(OwnTensor::Shape{}, ag::options(node->tensor)); // release the tensor’s data buffer
+    // node->tensor.grad_view()  = Tensor(OwnTensor::Shape{}, ag::options(node->tensor.grad_view()));  // release gradient memory as well
     
-    node->value.reset(); // release the tensor’s data buffer
-    node->grad.reset();  // release gradient memory as well
+    node->tensor.reset(); // release both data and gradient buffers
 
 
     // Optional: if aggressive policy, clear alias or metadata info completely

@@ -111,7 +111,7 @@ static void propagate_to_aliases(Node* node, const Tensor& new_value) {
     auto it = g_alias.find(data_ptr);
     if (it != g_alias.end()) {
         for (Node* alias_node : it->second) {
-            alias_node->value = new_value; // shallow copy (shared buffer)
+            alias_node->tensor = new_value; // shallow copy (shared buffer)
             g_meta[alias_node].version = g_meta[node].version;
         }
     }
@@ -150,17 +150,17 @@ void mark_inplace_checkpoint(const NodePtr& node, const InplaceOptions& opts) {
     // Create snapshot entry
     // Create and initialize the snapshot entry in one step
     SnapshotEntry entry {
-        .snapshot = node->value.clone(),
+        .snapshot = node->tensor.clone(),
         .version_at_save = get_tensor_version(node.get())
     };
     g_snapshots[node.get()] = entry;
 
     // Link alias tracking
-    register_tensor_alias((void*)node->value.data(), node.get());
+    register_tensor_alias((void*)node->tensor.data(), node.get());
 
     if (opts.verbose) {
         std::stringstream shape_ss;
-        const auto& dims = node->value.shape().dims;
+        const auto& dims = node->tensor.shape().dims;
         shape_ss << "[";
         for(size_t i = 0; i < dims.size(); ++i) {
             shape_ss << dims[i] << (i == dims.size() - 1 ? "" : ", ");
@@ -228,11 +228,11 @@ bool recompute_inplace(const NodePtr& node) {
         size_t current_ver = g_meta[raw].version;
         size_t new_ver = current_ver + 1;
         g_meta[raw].version = new_ver;
-        g_snapshots[raw] = { node->value, new_ver };
+        g_snapshots[raw] = { node->tensor, new_ver };
     }
 
     // Update any aliased nodes
-    propagate_to_aliases(raw, node->value);
+    propagate_to_aliases(raw, node->tensor);
 
     // Done
     g_recompute_in_progress.erase(raw);
@@ -263,7 +263,7 @@ bool ensure_inplace_value(const NodePtr& node) {
     std::cerr << "[inplace] ensure enter node@" << raw << "\n";
 
     // Fast path: tensor already present
-    if (node->value.numel() != 0) {
+    if (node->tensor.numel() != 0) {
         std::cerr << "[inplace] node@" << raw << " already has value\n";
         return true;
     }
@@ -291,8 +291,8 @@ bool ensure_inplace_value(const NodePtr& node) {
 
         // Case 1: snapshot is valid
         if (meta_ver == 0 || snap_ptr->version_at_save == meta_ver) {
-            node->value = snap_ptr->snapshot; // Use '->' for pointers
-            propagate_to_aliases(raw, node->value);
+            node->tensor = snap_ptr->snapshot; // Use '->' for pointers
+            propagate_to_aliases(raw, node->tensor);
             std::cerr << "[inplace] restored snapshot for node@" << raw << "\n";
             {
                 std::lock_guard<std::mutex> guard(g_lock);
@@ -313,8 +313,8 @@ bool ensure_inplace_value(const NodePtr& node) {
 
         // Case 3: recompute failed → fallback to snapshot anyway
         std::cerr << "[inplace] recompute failed; fallback to snapshot\n";
-        node->value = snap_ptr->snapshot; // Use '->'
-        propagate_to_aliases(raw, node->value);
+        node->tensor = snap_ptr->snapshot; // Use '->'
+        propagate_to_aliases(raw, node->tensor);
         return true;
     }
 
@@ -352,9 +352,9 @@ void on_recomputed(Node* raw) {
         std::lock_guard<std::mutex> guard(g_lock);
         size_t new_ver = g_meta[raw].version + 1;
         g_meta[raw].version = new_ver;
-        g_snapshots[raw] = { raw->value, new_ver };
+        g_snapshots[raw] = { raw->tensor, new_ver };
     }
-    propagate_to_aliases(raw, raw->value);
+    propagate_to_aliases(raw, raw->tensor);
 }
 
 /*

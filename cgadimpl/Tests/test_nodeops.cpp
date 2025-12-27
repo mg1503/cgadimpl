@@ -17,7 +17,7 @@ int main() {
 
   // --- FIX: Use the modern, N-dimensional shape access ---
   auto expected_shape = std::vector<int64_t>{4, 2};
-  assert(nmm->value.shape().dims == expected_shape);
+  assert(nmm->tensor.shape().dims == expected_shape);
 
   std::cout << "[OK] test_nodeops passed." << std::endl;
   

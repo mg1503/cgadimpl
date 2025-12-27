@@ -57,7 +57,7 @@ void test_inplace_checkpointing() {
     Value x = make_tensor(T, "x");
     inplace::mark_inplace_checkpoint(x.node);
 
-    x.node->value = Tensor(Shape{}, TensorOptions{}); // Simulate deallocation
+    x.node->tensor = Tensor(Shape{}, TensorOptions{}); // Simulate deallocation
     bool ok = inplace::ensure_inplace_value(x.node);
     assert(ok && "Inplace recovery failed!");
     std::cout << "In-place checkpoint restore test passed.\n";
@@ -99,7 +99,7 @@ void test_alias_tracking() {
     inplace::register_tensor_alias((void*)AliasA.val().data(), AliasA.node.get());
     inplace::mark_inplace_checkpoint(A.node);
 
-    A.node->value += Tensor::ones(A.val().shape(), ag::options(A.val()));
+    A.node->tensor += Tensor::ones(A.val().shape(), ag::options(A.val()));
     inplace::bump_tensor_version(A.node.get());
 
     assert(allclose(A.val(), AliasA.val()));
@@ -132,7 +132,7 @@ void test_combined_system() {
     Tensor grad_a1 = a.grad(), grad_b1 = b.grad(), grad_c1 = c.grad();
 
     size_t ver_before = inplace::get_tensor_version(z.node.get());
-    z.node->value = Tensor(Shape{}, TensorOptions{});
+    z.node->tensor = Tensor(Shape{}, TensorOptions{});
     inplace::ensure_inplace_value(z.node);
     size_t ver_after = inplace::get_tensor_version(z.node.get());
     assert(ver_after > ver_before);
@@ -246,7 +246,7 @@ int main() {
 //     Value x = make_tensor(T, "x");
 //     inplace::mark_inplace_checkpoint(x.node);
 
-//     x.node->value = Tensor(Shape{}, TensorOptions{}); // Simulate deallocation
+//     x.node->tensor = Tensor(Shape{}, TensorOptions{}); // Simulate deallocation
 //     bool ok = inplace::ensure_inplace_value(x.node);
 //     assert(ok && "Inplace recovery failed!");
 //     std::cout << "In-place checkpoint restore test passed.\n";
@@ -288,7 +288,7 @@ int main() {
 //     inplace::register_tensor_alias((void*)AliasA.val().data(), AliasA.node.get());
 //     inplace::mark_inplace_checkpoint(A.node);
 
-//     A.node->value += Tensor::ones(A.val().shape(), ag::options(A.val()));
+//     A.node->tensor += Tensor::ones(A.val().shape(), ag::options(A.val()));
 //     inplace::bump_tensor_version(A.node.get());
 
 //     assert(allclose(A.val(), AliasA.val()));
@@ -321,7 +321,7 @@ int main() {
 //     Tensor grad_a1 = a.grad(), grad_b1 = b.grad(), grad_c1 = c.grad();
 
 //     size_t ver_before = inplace::get_tensor_version(z.node.get());
-//     z.node->value = Tensor(Shape{}, TensorOptions{});
+//     z.node->tensor = Tensor(Shape{}, TensorOptions{});
 //     inplace::ensure_inplace_value(z.node);
 //     size_t ver_after = inplace::get_tensor_version(z.node.get());
 //     // Restoring from snapshot keeps the same version. Recomputing bumps it.

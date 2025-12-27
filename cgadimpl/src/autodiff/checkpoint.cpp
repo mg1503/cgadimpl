@@ -33,7 +33,7 @@ void mark_node_checkpoint(const std::shared_ptr<Node> &node, const CheckpointOpt
 // --- HELPER FUNCTION that drives the robust recursion ---
 inline bool ensure_value_present(const std::shared_ptr<Node> &node) {
     if (!node) return true; // Non-existent parents are not an error
-    if (node->value.numel() != 0) return true; // Value is already present
+    if (node->tensor.numel() != 0) return true; // Value is already present
     if (node->is_checkpoint) return recompute_subgraph(node); // Recompute it
     // If value is missing and not a checkpoint, we cannot proceed.
     return false; 
@@ -45,7 +45,7 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
     if (!node->is_checkpoint) return false;
 
     // Fast path: if already recomputed by a recursive call, do nothing.
-    if (node->value.numel() != 0) return true;
+    if (node->tensor.numel() != 0) return true;
 
     // ... (Your RNG restore logic can go here) ...
 
@@ -54,7 +54,7 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
         if (!parent_node) continue;
 
         // Check if the parent's value is missing
-        if (parent_node->value.numel() == 0) {
+        if (parent_node->tensor.numel() == 0) {
             // If the parent is also a checkpoint, we can recursively recompute it.
             if (parent_node->is_checkpoint) {
                 if (!recompute_subgraph(parent_node)) {
@@ -75,7 +75,7 @@ bool recompute_subgraph(const std::shared_ptr<Node>& node) {
 
     // 2. Now that inputs are guaranteed to be present, run the forward op for THIS node.
     try {
-        node->value = forward_eval_node(node.get());
+        node->tensor = forward_eval_node(node.get());
         ag::inplace::on_recomputed(node.get());
     } catch (const std::exception &e) {
         std::cerr << "[checkpoint] Exception during recompute of node @" << node.get() << ": " << e.what() << "\n";

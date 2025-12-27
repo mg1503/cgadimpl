@@ -8,8 +8,10 @@ namespace ag::nn {
 void Module::to(Device dev) {
     for (Value& p : params_) {
         if (p.node) {
-            p.node->value = p.node->value.to(dev);
-            p.node->grad = OwnTensor::Tensor::zeros(p.node->value.shape(), ag::options(p.node->value));
+            p.node->tensor = p.node->tensor.to(dev);
+            if (p.node->tensor.requires_grad()) {
+                p.node->tensor.grad_view().fill(0.0f);
+            }
         }
     }
 }
@@ -17,7 +19,7 @@ void Module::to(Device dev) {
 void Module::zero_grad() {
     for (Value& p : params_) {
         if (p.node && p.node->requires_grad()) {
-            p.node->grad = OwnTensor::Tensor::zeros(p.node->value.shape(), ag::options(p.node->value));
+            p.node->tensor.grad_view().fill(0.0f);
         }
     }
 }

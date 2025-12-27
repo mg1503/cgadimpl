@@ -50,8 +50,8 @@ int main() {
     std::cout << "\nRunning compiled graph...\n";
 
     // Prepare raw tensor pointers for the run() method
-    std::vector<Tensor*> in_ptrs = {&X.node->value};
-    std::vector<Tensor*> par_ptrs = {&W1.node->value, &b1.node->value};
+    std::vector<Tensor*> in_ptrs = {&X.node->tensor};
+    std::vector<Tensor*> par_ptrs = {&W1.node->tensor, &b1.node->tensor};
 
     Tensor compiled_out; // This will receive the output
     bool ok = comp.run(in_ptrs, par_ptrs, compiled_out);

@@ -95,7 +95,7 @@ void test_manual_mlp_training() {
         // e. Optimizer step: update all parameters using their gradients.
         for (Value& param : parameters) {
             // Manual SGD update, directly modifying the node's value tensor
-            param.node->value -= (param.grad() * learning_rate);
+            param.node->tensor -= (param.grad() * learning_rate);
         }
 
         double current_loss = loss.val().to_cpu().data<float>()[0];

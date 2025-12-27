@@ -25,14 +25,14 @@ void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) { // C
             
             // --- THE FIX: Use the new, stream-aware operators ---
             
-            // 1. (-learning_rate * n->grad)
+            // 1. (-learning_rate * n->tensor.grad_view())
             // This calls the overloaded operator*(float, Tensor), which correctly
             // gets the stream from the context for GPU operations.
             
-            // 2. n->value += ...
+            // 2. n->tensor += ...
             // This calls the overloaded operator+=, which also correctly
             // gets the stream from the context for GPU operations.
-            n->value += -learning_rate * n->grad;
+            n->tensor += -learning_rate * n->tensor.grad_view();
         }
     }
 }

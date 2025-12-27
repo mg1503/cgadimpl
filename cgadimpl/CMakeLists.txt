@@ -168,6 +168,7 @@ if(true)
   add_ag_test(time_estimation                   Tests/test_time_execution.cpp)
   add_ag_test(test_dag_analysis                Tests/test_dag_analysis.cpp)
   add_ag_test(test_warmup                      Tests/test_warmup.cpp)
+  add_ag_test( test_torch_mlp                  Tests/Benchmark_tests/test_mlp.cpp)
 
 endif()
 

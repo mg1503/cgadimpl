@@ -95,7 +95,7 @@ struct DeletionGuard {
  *  Behavior:
  *      - Checks the node’s safety based on current deletion policy.
  *      - Ensures no checkpoint or guard is still referencing the node.
- *      - If safe → clears the Tensor contents (`node->value.clear()` etc.).
+ *      - If safe → clears the Tensor contents (`node->tensor.clear()` etc.).
  *      - Returns `true` if deletion succeeded, `false` otherwise.
  *
  *  Parameters:

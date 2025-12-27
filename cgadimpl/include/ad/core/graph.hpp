@@ -21,14 +21,13 @@ struct Value {
     std::pair<int, int> shape_2d() const;
     Tensor& val();
     const Tensor& val() const;
-    Tensor& grad();
-    const Tensor& grad() const;
+    Tensor grad();
+    Tensor grad() const;
 };
 
 struct Node : std::enable_shared_from_this<Node> {
     // Core tensors
-    Tensor value;
-    Tensor grad;    
+    Tensor tensor;    
     
     // Graph structure
     std::vector<std::shared_ptr<Node>> inputs;
@@ -58,9 +57,9 @@ struct Node : std::enable_shared_from_this<Node> {
     };
     ExecutionContext creation_context;      // Captured execution context
     
-    bool requires_grad_flag_{false};
-    bool requires_grad() const { return requires_grad_flag_; }
-    const std::vector<int64_t>& shape() const { return value.shape().dims; }
+    // bool requires_grad_flag_{false};
+    bool requires_grad() const { return tensor.requires_grad(); }
+    const std::vector<int64_t>& shape() const { return tensor.shape().dims; }
     Node(const Tensor& v, Op op_, bool req_grad, const char* nm="");
     Node() = default;
 };

@@ -14,9 +14,8 @@ namespace ag {
 // --- Node Implementation ---
 // Node::Node() = default; 
 Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm) 
-    : op(op_), 
-      value(v),
-      requires_grad_flag_(req_grad),
+    : tensor(v), 
+      op(op_), 
       debug_name(nm),
       is_leaf(op_ == Op::Leaf)  // Phase 1.1: Mark leaf nodes
 {
@@ -24,37 +23,27 @@ Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm)
     creation_context.stream = current_stream();
     creation_context.device = v.device();
     
-    if (requires_grad_flag_) {
-        // CORRECT WAY:
-        // 1. Create a TensorOptions object with the correct properties.
-        // TensorOptions opts = TensorOptions()
-        //                         .with_dtype(v.dtype())
-        //                         .with_device(v.device());
-        
-        // 2. Call the 'zeros' factory with the correct signature (shape, opts).
-        grad = OwnTensor::Tensor::zeros(v.shape(), ag::options(v));
-    }/*else {
-        // If no grad is required, grad can be an empty tensor.
-        // grad = Tensor(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device()));
-    }*/
+   if (req_grad && !tensor.requires_grad()) {
+        tensor.set_requires_grad(true);
+    }
 }
 
 // --- Value Implementation ---
 // ADDED: Implement the Value helper functions
-Tensor& Value::val() { return node->value; }
-const Tensor& Value::val() const { return node->value; }
-Tensor& Value::grad() { return node->grad; }
-const Tensor& Value::grad() const { return node->grad; }
+Tensor& Value::val() { return node->tensor; }
+const Tensor& Value::val() const { return node->tensor; }
+Tensor Value::grad() { return node->tensor.grad_view(); }
+Tensor Value::grad() const { return node->tensor.grad_view(); }
 Value::Value() = default;
 Value::Value(std::shared_ptr<Node> n) : node(std::move(n)) {}
 
 // NEW: Implementation for the real shape()
 const std::vector<int64_t>& Value::shape() const {
-    return node->value.shape().dims;
+    return node->tensor.shape().dims;
 }
 // 2d helper
 std::pair<int, int> Value::shape_2d() const {
-    const auto& dims = node->value.shape().dims;
+    const auto& dims = node->tensor.shape().dims;
     if (dims.size() == 0) return {0, 0};
     if (dims.size() == 1) return {1, static_cast<int>(dims[0])};
     // For 2D or more, return the first two dimensions.

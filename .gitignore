@@ -42,3 +42,5 @@ Makefile
 *.swp
 *~
 # llvm-project
+libtorch
+libtorch-shared-with-deps-2.9.1+cu128.zip

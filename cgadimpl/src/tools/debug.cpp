@@ -97,7 +97,7 @@ void on_node_created(const std::shared_ptr<Node>& n){
     std::ostringstream label;
     label << "[" << op_name(n->op) << "]"
           << (n->requires_grad() ? " (grad)" : "      ") // Use function call
-          << "  value " << shape_str(n->value)          // Use new shape_str
+          << "  value " << shape_str(n->tensor)          // Use new shape_str
           << "  @" << n.get();
     if (n->debug_name && n->debug_name[0] != '\0')
         label << "  name=\"" << n->debug_name << "\"";
@@ -116,9 +116,9 @@ void print_all_values(const Value& root){
         std::ostringstream label;
         label << "[" << op_name(n->op) << "]"
               << (n->requires_grad() ? " (grad)" : "      ")
-              << " value " << shape_str(n->value)
+              << " value " << shape_str(n->tensor)
               << " @" << n;
-        print_tensor(label.str(), n->value); // This will now use the powerful display()
+        print_tensor(label.str(), n->tensor); // This will now use the powerful display()
     }
 }
 
@@ -127,9 +127,9 @@ void print_all_grads(const Value& root){
     std::cout << "=== GRADS (topo) ===\n";
     for (Node* n : order) if (n->requires_grad()) {
         std::ostringstream label;
-        label << "[" << op_name(n->op) << "] grad " << shape_str(n->grad)
+        label << "[" << op_name(n->op) << "] grad " << shape_str(n->tensor.grad_view())
               << " @" << n;
-        print_tensor(label.str(), n->grad); // This will now use the powerful display()
+        print_tensor(label.str(), n->tensor.grad_view()); // This will now use the powerful display()
     }
 }
 
@@ -150,7 +150,7 @@ void dump_dot(const Value& root, const std::string& filepath){
      for (Node* n : order) {
         std::ostringstream id; id << "n" << n;
         std::ostringstream lab;
-        lab  << op_name(n->op) << "\\n" << shape_str(n->value) << "\\n"<< dtype_str(n->value) ; // Correct
+        lab  << op_name(n->op) << "\\n" << shape_str(n->tensor) << "\\n"<< dtype_str(n->tensor) ; // Correct
         std::string color = (n->op==Op::Leaf ? (n->requires_grad() ? "lightgoldenrod1" : "lightgrey")
                                              : (n->requires_grad() ? "lightblue" : "white")); // Correct
         out << "  " << id.str()
@@ -199,7 +199,7 @@ void enable_grad_tracing(bool on) { g_trace_bp = on; }
 // --- backprop step hook ---
 void on_backprop_step(Node* n, const Tensor& gy) {
     if (!g_trace_bp) return;
-    auto shp = n->value.shape();
+    auto shp = n->tensor.shape();
     std::cout << "[VJP] node @" << n << " op=" << op_name(n->op)
           << "  y_grad shape=" << shape_str(gy) << "\n";
 
@@ -208,7 +208,7 @@ void on_backprop_step(Node* n, const Tensor& gy) {
         // FIX: Use the new shape_str helper for N-D printing
         std::cout << "   -> parent[" << k << "] @" << p
                 << " (" << op_name(p->op) << ") receives grad shape "
-                << shape_str(p->value) << "\n";
+                << shape_str(p->tensor) << "\n";
     }
 }
 
@@ -228,7 +228,7 @@ void dump_vjp_dot(const Value& root, const std::string& filepath) {
         std::string color = (n->op==Op::Leaf ? (n->requires_grad() ? "lightgoldenrod1" : "lightgrey")
                                              : (n->requires_grad() ? "white" : "white"));
         out << "  n" << n
-            << " [label=\"" << op_name(n->op) << "\\n" << shape_str(n->value)
+            << " [label=\"" << op_name(n->op) << "\\n" << shape_str(n->tensor)
             << "\", style=filled, fillcolor=\"" << color << "\"];\n";
     }
     // red VJP edges (child -> parent)
@@ -270,13 +270,13 @@ void on_jvp_step(Node* n) {
     // FIX: Use the global shape_str helper
     std::cout << "[JVP] node @" << n
               << " op=" << op_name(n->op)
-              << "  value=" << shape_str(n->value) << "\n";
+              << "  value=" << shape_str(n->tensor) << "\n";
     for (size_t k = 0; k < n->inputs.size(); ++k) {
         Node* p = n->inputs[k].get();
         // FIX: Use the global shape_str helper
         std::cout << "    parent[" << k << "] @" << p
                   << " (" << op_name(p->op) << ")  value="
-                  << shape_str(p->value) << "\n";
+                  << shape_str(p->tensor) << "\n";
     }
 }
 
@@ -292,7 +292,7 @@ void dump_jvp_dot(const Value& root, const std::string& filepath) {
            "  node [shape=record, fontsize=10];\n";
     for (Node* n : order) {
         out << "  n" << n << " [label=\""
-            << op_name(n->op) << "\\n" << shape_str(n->value)
+            << op_name(n->op) << "\\n" << shape_str(n->tensor)
             << "\", style=filled, fillcolor=\"white\"];\n";
     }
     // Tangents flow forward: parent -> child (green)
@@ -341,7 +341,7 @@ void print_dag_summary(const Value& root) {
             num_leaves++;
             if (n->requires_grad()) {
                 num_trainable++;
-                total_params += n->value.numel();
+                total_params += n->tensor.numel();
             }
         }
     }

@@ -24,6 +24,8 @@ void run_benchmark(const std::string& label, Device device) {
         D = matmul(A, B);
         E = matmul(D, C);
     }
+    // E.backward();
+
 
     if (device == Device::CUDA) cudaDeviceSynchronize();
     auto t2 = std::chrono::high_resolution_clock::now();

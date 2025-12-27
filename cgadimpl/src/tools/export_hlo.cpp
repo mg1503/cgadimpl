@@ -119,10 +119,10 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
         std::string an = "%arg" + std::to_string(i);
         name[a] = an;
         if (i) out << ", ";
-        out << an << ": " << hlo_type_string(a->value); // This was already correct
+        out << an << ": " << hlo_type_string(a->tensor); // This was already correct
     }
-    // Use root.node->value to get the tensor
-    out << ") -> " << hlo_type_string(root.node->value) << " {\n";
+    // Use root.node->tensor to get the tensor
+    out << ") -> " << hlo_type_string(root.node->tensor) << " {\n";
 
     int vid = 0;     // value id for %vN
     int tmpid = 0;   // temp id for broadcasts and constants
@@ -152,14 +152,14 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
 
         // --- THE FIX ---
         // 1. Get the full N-dimensional shape of the current node's output tensor.
-        const auto& target_dims = n->value.shape().dims;
+        const auto& target_dims = n->tensor.shape().dims;
 
         // 2. The in_name helper now captures and uses this N-D shape vector.
         auto in_name = [&](size_t k)->std::string{
             Node* p = n->inputs[k].get();
             std::string pn = name.count(p) ? name[p] : (name[p]=newv()); // ensure parent has a name
             // Pass the full shape vector to our new maybe_broadcast function.
-            return maybe_broadcast(out, pn, p->value, target_dims, tmpid);
+            return maybe_broadcast(out, pn, p->tensor, target_dims, tmpid);
         };
 
         switch (n->op) {
@@ -172,7 +172,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string v = newv();
                 const char* op = (n->op==Op::Add) ? "add" : (n->op==Op::Sub) ? "subtract" : "multiply";
                 out << "  " << v << " = stablehlo." << op << " " << a << ", " << b
-                    << " : " << hlo_type_string(n->value) << "\n";
+                    << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -188,13 +188,13 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 
                 // 2. Pass this temporary tensor to maybe_broadcast.
                 //    Also, pass the full N-D target shape.
-                const auto& target_dims = n->value.shape().dims;
+                const auto& target_dims = n->tensor.shape().dims;
                 std::string z2 = maybe_broadcast(out, zero, one_by_one_tensor, target_dims, tmpid);
                 // --- END OF FIX ---
 
                 std::string v = newv();
                 out << "  " << v << " = stablehlo.maximum " << x << ", " << z2
-                    << " : " << hlo_type_string(n->value) << "\n"; // Use the N-D type helper
+                    << " : " << hlo_type_string(n->tensor) << "\n"; // Use the N-D type helper
                 name[n] = v;
                 break;
             }
@@ -205,7 +205,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 const char* op = (n->op==Op::Exp) ? "exponential" : (n->op==Op::Log) ? "log" : "tanh";
                 // This block was already correct as it used the new helpers.
                 out << "  " << v << " = stablehlo." << op << " " << x
-                    << " : " << hlo_type_string(n->value) << "\n";
+                    << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -214,7 +214,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string x = in_name(0);
                 std::string v = newv();
                 // This was also correct.
-                out << "  " << v << " = stablehlo.logistic " << x << " : " << hlo_type_string(n->value) << "\n";
+                out << "  " << v << " = stablehlo.logistic " << x << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -222,18 +222,18 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 // softplus = log(1 + exp(x))
                 std::string x = in_name(0);
                 std::string ex = newv();
-                out << "  " << ex << " = stablehlo.exponential " << x << " : " << hlo_type_string(n->value) << "\n";
+                out << "  " << ex << " = stablehlo.exponential " << x << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 // --- FIX: Use the new N-D broadcast and correct Tensor constructor ---
                 std::string one = cst_scalar(1.0f);
                 Tensor one_by_one_tensor(Shape{{1, 1}}, false); // Correct constructor
-                std::string oneb = maybe_broadcast(out, one, one_by_one_tensor, n->value.shape().dims, tmpid);
+                std::string oneb = maybe_broadcast(out, one, one_by_one_tensor, n->tensor.shape().dims, tmpid);
                 // --- END FIX ---
 
                 std::string add = newv();
-                out << "  " << add << " = stablehlo.add " << ex << ", " << oneb << " : " << hlo_type_string(n->value) << "\n";
+                out << "  " << add << " = stablehlo.add " << ex << ", " << oneb << " : " << hlo_type_string(n->tensor) << "\n";
                 std::string v = newv();
-                out << "  " << v << " = stablehlo.log " << add << " : " << hlo_type_string(n->value) << "\n";
+                out << "  " << v << " = stablehlo.log " << add << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -241,42 +241,42 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 // This block was already correct.
                 std::string x = in_name(0);
                 std::string s = newv();
-                out << "  " << s << " = stablehlo.logistic " << x << " : " << hlo_type_string(n->value) << "\n";
+                out << "  " << s << " = stablehlo.logistic " << x << " : " << hlo_type_string(n->tensor) << "\n";
                 std::string v = newv();
                 out << "  " << v << " = stablehlo.multiply " << x << ", " << s
-                    << " : " << hlo_type_string(n->value) << "\n";
+                    << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
             case Op::GELU: {
                 // --- FIX: This entire block needs to use the N-D broadcast ---
                 std::string x = in_name(0);
-                std::string x2 = newv(); out << "  " << x2 << " = stablehlo.multiply " << x << ", " << x << " : " << hlo_type_string(n->value) << "\n";
-                std::string x3 = newv(); out << "  " << x3 << " = stablehlo.multiply " << x2 << ", " << x << " : " << hlo_type_string(n->value) << "\n";
+                std::string x2 = newv(); out << "  " << x2 << " = stablehlo.multiply " << x << ", " << x << " : " << hlo_type_string(n->tensor) << "\n";
+                std::string x3 = newv(); out << "  " << x3 << " = stablehlo.multiply " << x2 << ", " << x << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 Tensor one_by_one_tensor(Shape{{1, 1}}, false); // Helper tensor
-                const auto& target_dims = n->value.shape().dims;
+                const auto& target_dims = n->tensor.shape().dims;
 
                 std::string c044 = cst_scalar(0.044715f);
                 std::string c044b = maybe_broadcast(out, c044, one_by_one_tensor, target_dims, tmpid);
-                std::string t1 = newv(); out << "  " << t1 << " = stablehlo.multiply " << x3 << ", " << c044b << " : " << hlo_type_string(n->value) << "\n";
-                std::string t2 = newv(); out << "  " << t2 << " = stablehlo.add " << x << ", " << t1 << " : " << hlo_type_string(n->value) << "\n";
+                std::string t1 = newv(); out << "  " << t1 << " = stablehlo.multiply " << x3 << ", " << c044b << " : " << hlo_type_string(n->tensor) << "\n";
+                std::string t2 = newv(); out << "  " << t2 << " = stablehlo.add " << x << ", " << t1 << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 std::string c = cst_scalar(0.797884583f); // sqrt(2/pi)
                 std::string cb = maybe_broadcast(out, c, one_by_one_tensor, target_dims, tmpid);
-                std::string u = newv(); out << "  " << u << " = stablehlo.multiply " << t2 << ", " << cb << " : " << hlo_type_string(n->value) << "\n";
+                std::string u = newv(); out << "  " << u << " = stablehlo.multiply " << t2 << ", " << cb << " : " << hlo_type_string(n->tensor) << "\n";
                 
-                std::string th = newv(); out << "  " << th << " = stablehlo.tanh " << u << " : " << hlo_type_string(n->value) << "\n";
+                std::string th = newv(); out << "  " << th << " = stablehlo.tanh " << u << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 std::string one = cst_scalar(1.0f);
                 std::string oneb = maybe_broadcast(out, one, one_by_one_tensor, target_dims, tmpid);
-                std::string s = newv(); out << "  " << s << " = stablehlo.add " << oneb << ", " << th << " : " << hlo_type_string(n->value) << "\n";
+                std::string s = newv(); out << "  " << s << " = stablehlo.add " << oneb << ", " << th << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 std::string half = cst_scalar(0.5f);
                 std::string halfb = maybe_broadcast(out, half, one_by_one_tensor, target_dims, tmpid);
-                std::string h = newv(); out << "  " << h << " = stablehlo.multiply " << x << ", " << s << " : " << hlo_type_string(n->value) << "\n";
+                std::string h = newv(); out << "  " << h << " = stablehlo.multiply " << x << ", " << s << " : " << hlo_type_string(n->tensor) << "\n";
                 
-                std::string v = newv(); out << "  " << v << " = stablehlo.multiply " << h << ", " << halfb << " : " << hlo_type_string(n->value) << "\n";
+                std::string v = newv(); out << "  " << v << " = stablehlo.multiply " << h << ", " << halfb << " : " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -284,27 +284,27 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 // --- FIX: Use N-D broadcast and correct API calls ---
                 std::string x = in_name(0);
                 Node* A = n->inputs[1].get();
-                float alpha = A->value.data<float>()[0]; // Correct way to get scalar value
+                float alpha = A->tensor.data<float>()[0]; // Correct way to get scalar value
                 
                 Tensor one_by_one_tensor(Shape{{1, 1}}, false);
-                const auto& target_dims = n->value.shape().dims;
+                const auto& target_dims = n->tensor.shape().dims;
 
                 std::string a = cst_scalar(alpha);
                 std::string ab = maybe_broadcast(out, a, one_by_one_tensor, target_dims, tmpid);
-                std::string ax = newv(); out << "  " << ax << " = stablehlo.multiply " << ab << ", " << x << " : " << hlo_type_string(n->value) << "\n";
+                std::string ax = newv(); out << "  " << ax << " = stablehlo.multiply " << ab << ", " << x << " : " << hlo_type_string(n->tensor) << "\n";
                 
                 std::string zero = cst_scalar(0.0f);
                 std::string z2 = maybe_broadcast(out, zero, one_by_one_tensor, target_dims, tmpid);
                 
                 std::string pred = newv();
                 out << "  " << pred << " = stablehlo.compare GT, " << x << ", " << z2
-                    << ", type = \"PRED\" : " << hlo_type_string(n->value) << "\n";
+                    << ", type = \"PRED\" : " << hlo_type_string(n->tensor) << "\n";
                 
                 std::string v = newv();
                 out << "  " << v << " = stablehlo.select " << pred << ", " << x << ", " << ax
                     << " : tensor<" << target_dims[0] << "x" << target_dims[1] << "xi1>, " 
-                    << hlo_type_string(n->value) << ", " << hlo_type_string(n->value) 
-                    << " -> " << hlo_type_string(n->value) << "\n";
+                    << hlo_type_string(n->tensor) << ", " << hlo_type_string(n->tensor) 
+                    << " -> " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -320,8 +320,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 out << "  " << v << " = stablehlo.dot_general " << an << ", " << bn
                     << " contracting_dims = [lhs = [1], rhs = [0]], "
                        "batching_dims = [lhs = [], rhs = []] "
-                    << " : " << hlo_type_string(A->value) << ", " << hlo_type_string(B->value)
-                    << " -> " << hlo_type_string(n->value) << "\n";
+                    << " : " << hlo_type_string(A->tensor) << ", " << hlo_type_string(B->tensor)
+                    << " -> " << hlo_type_string(n->tensor) << "\n";
                 name[n] = v;
                 break;
             }
@@ -336,7 +336,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 // For readability (and many verifiers accept this), we put a simple scalar region.
                 out << "  " << v << " = stablehlo.reduce " << xn << ", " << zero
                     << " dimensions = [0, 1] : "
-                    << hlo_type_string(X->value) << ", " << ty_scalar() << " -> " << ty_scalar() << " {\n"
+                    << hlo_type_string(X->tensor) << ", " << ty_scalar() << " -> " << ty_scalar() << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.add %lhs, %rhs : f32\n"
                     << "      stablehlo.return %r : f32\n"
@@ -352,8 +352,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string v = newv();
                 out << "  " << v << " = stablehlo.reduce " << xn << ", " << zero
                     << " dimensions = dense<[1]> : tensor<1xi64>" // reduce axis 1
-                    << " : (" << hlo_type_string(X->value) << ", tensor<f32>"
-                    << ") -> " << hlo_type_string(n->value) << " {\n"
+                    << " : (" << hlo_type_string(X->tensor) << ", tensor<f32>"
+                    << ") -> " << hlo_type_string(n->tensor) << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.add %lhs, %rhs : f32\n"
                     << "      stablehlo.return %r : f32\n"
@@ -370,8 +370,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 // --- FIX: Use N-D hlo_type_string for the output type ---
                 out << "  " << v << " = stablehlo.reduce " << xn << ", " << ninf
                     << " dimensions = dense<[1]> : tensor<1xi64>" // reduce axis 1
-                    << " : (" << hlo_type_string(X->value) << ", tensor<f32>"
-                    << ") -> " << hlo_type_string(n->value) << " {\n"
+                    << " : (" << hlo_type_string(X->tensor) << ", tensor<f32>"
+                    << ") -> " << hlo_type_string(n->tensor) << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.maximum %lhs, %rhs : f32\n"
                     << "      stablehlo.return %r : f32\n"
@@ -382,14 +382,14 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
             case Op::MeanAll: {
                 Node* X = n->inputs[0].get();
                 // --- FIX: Use .numel() for correctness with N-D tensors ---
-                std::string ones = cst_scalar(1.0f / static_cast<float>(X->value.numel()));
+                std::string ones = cst_scalar(1.0f / static_cast<float>(X->tensor.numel()));
                 
                 std::string xn = name.count(X) ? name[X] : (name[X]=newv());
                 std::string zero = cst_scalar(0.0f);
                 std::string s = newv();
 
                 // --- FIX: Build the dimensions attribute dynamically for N-D ---
-                std::vector<int64_t> all_dims(X->value.shape().dims.size());
+                std::vector<int64_t> all_dims(X->tensor.shape().dims.size());
                 std::iota(all_dims.begin(), all_dims.end(), 0); // Fills with 0, 1, 2, ...
                 
                 std::ostringstream dims_attr;
@@ -400,7 +400,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
 
                 out << "  " << s << " = stablehlo.reduce " << xn << ", " << zero
                     << " dimensions = " << dims_attr.str() << " : "
-                    << "(" << hlo_type_string(X->value) << ", tensor<f32>"
+                    << "(" << hlo_type_string(X->tensor) << ", tensor<f32>"
                     << ") -> " << ty_scalar() << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.add %lhs, %rhs : f32\n"
@@ -422,14 +422,14 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
 
                 // --- FIX: Get the correct shape for the intermediate tensor 'm' ---
                 // The output of the row-max/row-sum is the same shape as the final output `n`.
-                const std::string m_type = hlo_type_string(n->value);
+                const std::string m_type = hlo_type_string(n->tensor);
 
                 // m = row_max(z)
                 std::string ninf = cst_scalar(-std::numeric_limits<float>::infinity());
                 std::string m = newv();
                 out << "  " << m << " = stablehlo.reduce " << zn << ", " << ninf
                     << " dimensions = dense<[1]> : tensor<1xi64>"
-                    << " : (" << hlo_type_string(Z->value) << ", tensor<f32>"
+                    << " : (" << hlo_type_string(Z->tensor) << ", tensor<f32>"
                     << ") -> " << m_type << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.maximum %lhs, %rhs : f32\n"
@@ -440,22 +440,22 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string mb = newv();
                 out << "  " << mb << " = stablehlo.broadcast_in_dim " << m
                     << ", broadcast_dimensions = dense<[0]> : tensor<1xi64>"
-                    << " : " << m_type << " -> " << hlo_type_string(Z->value) << "\n";
+                    << " : " << m_type << " -> " << hlo_type_string(Z->tensor) << "\n";
                 
                 std::string zc = newv();
                 out << "  " << zc << " = stablehlo.subtract " << zn << ", " << mb
-                    << " : " << hlo_type_string(Z->value) << "\n";
+                    << " : " << hlo_type_string(Z->tensor) << "\n";
                 
                 // e = exp(zc)
                 std::string e = newv(); 
-                out << "  " << e << " = stablehlo.exponential " << zc << " : " << hlo_type_string(Z->value) << "\n";
+                out << "  " << e << " = stablehlo.exponential " << zc << " : " << hlo_type_string(Z->tensor) << "\n";
                 
                 // s = row_sum(e)
                 std::string zero = cst_scalar(0.0f);
                 std::string s = newv();
                 out << "  " << s << " = stablehlo.reduce " << e << ", " << zero
                     << " dimensions = dense<[1]> : tensor<1xi64>"
-                    << " : (" << hlo_type_string(Z->value) << ", tensor<f32>"
+                    << " : (" << hlo_type_string(Z->tensor) << ", tensor<f32>"
                     << ") -> " << m_type << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32):\n"
                     << "      %r = stablehlo.add %lhs, %rhs : f32\n"
@@ -474,10 +474,10 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                     std::string sb = newv();
                     out << "  " << sb << " = stablehlo.broadcast_in_dim " << s
                         << ", broadcast_dimensions = dense<[0]> : tensor<1xi64>"
-                        << " : " << m_type << " -> " << hlo_type_string(Z->value) << "\n";
+                        << " : " << m_type << " -> " << hlo_type_string(Z->tensor) << "\n";
                     std::string v = newv();
                     out << "  " << v << " = stablehlo.divide " << e << ", " << sb
-                        << " : " << hlo_type_string(Z->value) << "\n";
+                        << " : " << hlo_type_string(Z->tensor) << "\n";
                     name[n] = v;
                 }
                 break;
@@ -492,8 +492,8 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string yn = name.count(Y) ? name[Y] : (name[Y]=newv());
 
                 // --- FIX: Use N-D shapes and helpers ---
-                const auto& z_dims = Z->value.shape().dims;
-                const auto& y_dims = Y->value.shape().dims;
+                const auto& z_dims = Z->tensor.shape().dims;
+                const auto& y_dims = Y->tensor.shape().dims;
                 int64_t B = z_dims.empty() ? 1 : z_dims[0]; // Batch size
                 
                 // We need the shape of the row-wise reduction result (e.g., [B, 1])
@@ -511,22 +511,22 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string m = newv();
                 out << "  " << m << " = stablehlo.reduce " << zn << ", " << ninf
                     << " dimensions = dense<[" << z_dims.size() - 1 << "]> : tensor<1xi64>"
-                    << " : (" << hlo_type_string(Z->value) << ", tensor<f32>"
+                    << " : (" << hlo_type_string(Z->tensor) << ", tensor<f32>"
                     << ") -> " << reduced_type_str << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32): %r = stablehlo.maximum %lhs, %rhs : f32\n      stablehlo.return %r : f32\n  }\n";
                 
                 std::string mb = newv();
                 out << "  " << mb << " = stablehlo.broadcast_in_dim " << m
                     << ", broadcast_dimensions = dense<[0]> : tensor<1xi64>" // Assuming 2D for simplicity of broadcast
-                    << " : " << reduced_type_str << " -> " << hlo_type_string(Z->value) << "\n";
+                    << " : " << reduced_type_str << " -> " << hlo_type_string(Z->tensor) << "\n";
                 
-                std::string zc = newv(); out << "  " << zc << " = stablehlo.subtract " << zn << ", " << mb << " : " << hlo_type_string(Z->value) << "\n";
-                std::string e = newv();  out << "  " << e  << " = stablehlo.exponential " << zc << " : " << hlo_type_string(Z->value) << "\n";
+                std::string zc = newv(); out << "  " << zc << " = stablehlo.subtract " << zn << ", " << mb << " : " << hlo_type_string(Z->tensor) << "\n";
+                std::string e = newv();  out << "  " << e  << " = stablehlo.exponential " << zc << " : " << hlo_type_string(Z->tensor) << "\n";
                 std::string zero = cst_scalar(0.0f);
                 std::string s = newv();
                 out << "  " << s << " = stablehlo.reduce " << e << ", " << zero
                     << " dimensions = dense<[" << z_dims.size() - 1 << "]> : tensor<1xi64>"
-                    << " : (" << hlo_type_string(Z->value) << ", tensor<f32>"
+                    << " : (" << hlo_type_string(Z->tensor) << ", tensor<f32>"
                     << ") -> " << reduced_type_str << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32): %r = stablehlo.add %lhs, %rhs : f32\n      stablehlo.return %r : f32\n  }\n";
                 
@@ -537,17 +537,17 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string lse_b = newv();
                 out << "  " << lse_b << " = stablehlo.broadcast_in_dim " << lse_plus_m
                     << ", broadcast_dimensions = dense<[0]> : tensor<1xi64>"
-                    << " : " << reduced_type_str << " -> " << hlo_type_string(Z->value) << "\n";
-                std::string lsm = newv(); out << "  " << lsm << " = stablehlo.subtract " << zn << ", " << lse_b << " : " << hlo_type_string(Z->value) << "\n";
+                    << " : " << reduced_type_str << " -> " << hlo_type_string(Z->tensor) << "\n";
+                std::string lsm = newv(); out << "  " << lsm << " = stablehlo.subtract " << zn << ", " << lse_b << " : " << hlo_type_string(Z->tensor) << "\n";
                 
                 // prod = Y * log_softmax
-                std::string prod = newv(); out << "  " << prod << " = stablehlo.multiply " << yn << ", " << lsm << " : " << hlo_type_string(Z->value) << "\n";
+                std::string prod = newv(); out << "  " << prod << " = stablehlo.multiply " << yn << ", " << lsm << " : " << hlo_type_string(Z->tensor) << "\n";
 
                 // rs = sum(prod, axis=-1)
                 std::string rs = newv();
                 out << "  " << rs << " = stablehlo.reduce " << prod << ", " << zero
                     << " dimensions = dense<[" << z_dims.size() - 1 << "]> : tensor<1xi64>"
-                    << " : (" << hlo_type_string(Z->value) << ", tensor<f32>"
+                    << " : (" << hlo_type_string(Z->tensor) << ", tensor<f32>"
                     << ") -> " << reduced_type_str << " {\n"
                     << "    ^bb0(%lhs: f32, %rhs: f32): %r = stablehlo.add %lhs, %rhs : f32\n      stablehlo.return %r : f32\n  }\n";
 
@@ -573,7 +573,7 @@ void dump_stablehlo(const Value& root, const std::string& filepath)
                 std::string xn = X ? (name.count(X)?name[X]:(name[X]=newv())) : "%UNDEF";
                 std::string v = newv();
                 // This was already corrected.
-                out << "  " << v << " = stablehlo.copy " << xn << " : " << (X ? hlo_type_string(X->value) : "tensor<?>") << "\n";
+                out << "  " << v << " = stablehlo.copy " << xn << " : " << (X ? hlo_type_string(X->tensor) : "tensor<?>") << "\n";
                 name[n] = v;
                 break;
             }
