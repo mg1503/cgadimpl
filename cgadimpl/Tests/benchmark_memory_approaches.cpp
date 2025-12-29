@@ -61,7 +61,7 @@ int main() {
     print_mem_stats("Baseline", initial_stats);
 
     // 2. Build Graph
-    const int LAYERS = 50; // Reduced layers to ensure stability and avoid NaNs
+    const int LAYERS = 200; // Reduced layers to ensure stability and avoid NaNs
     const int WIDTH = 1024;
     const int BATCH = 64;
     
