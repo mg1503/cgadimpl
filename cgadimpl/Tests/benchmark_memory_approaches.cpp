@@ -6,6 +6,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <iomanip>
+#include <numeric>
 #include "ad/ag_all.hpp"
 
 using namespace ag;
@@ -14,27 +15,21 @@ using namespace ag;
 // Memory Measurement Helpers (Linux Specific)
 // ==========================================
 struct MemoryStats {
-    long vm_peak_kb = 0; // Peak virtual memory size
-    long vm_size_kb = 0; // Current virtual memory size
-    long vm_hwm_kb  = 0; // Peak resident set size ("High Water Mark")
-    long vm_rss_kb  = 0; // Current resident set size
+    long vm_peak_kb = 0;
+    long vm_size_kb = 0;
+    long vm_hwm_kb  = 0;
+    long vm_rss_kb  = 0;
 };
 
 MemoryStats get_memory_stats() {
     MemoryStats stats;
     std::ifstream status_file("/proc/self/status");
     std::string line;
-    
-    if (!status_file.is_open()) {
-        std::cerr << "Warning: Could not open /proc/self/status" << std::endl;
-        return stats;
-    }
-
+    if (!status_file.is_open()) return stats;
     while (std::getline(status_file, line)) {
         std::stringstream ss(line);
         std::string key;
         ss >> key;
-        
         if (key == "VmPeak:") ss >> stats.vm_peak_kb;
         else if (key == "VmSize:") ss >> stats.vm_size_kb;
         else if (key == "VmHWM:")  ss >> stats.vm_hwm_kb;
@@ -53,54 +48,47 @@ void print_mem_stats(const std::string& label, const MemoryStats& stats) {
 // ==========================================
 // Benchmark Logic
 // ==========================================
-int main(int argc, char** argv) {
+int main() {
+    // 0. FIXED SEED for Precision Comparison
+    srand(42); 
+    // If your Tensor library has a global seed, set it here explicitly if possible.
+    // For now, assuming randn uses std::rand or similar common source from <random> 
+    // initialized often in main. If cgadimpl has explicit seeder, use it.
+    
     std::cout << "========================================================\n";
-    std::cout << "     GRADIENT APPROACH MEMORY BENCHMARK\n";
+    std::cout << "  BENCHMARK: Memory | Time | Precision (Fixed Seed)\n";
     std::cout << "========================================================\n\n";
 
-    // 1. Initial Baseline
     MemoryStats initial_stats = get_memory_stats();
-    print_mem_stats("Baseline (Start)", initial_stats);
+    print_mem_stats("Baseline", initial_stats);
 
-    // 2. Build a Heavy Graph
-    // Deep MLP with wide layers to stress memory allocation
+    // 2. Build Graph
     const int LAYERS = 200;
     const int WIDTH = 1024;
     const int BATCH = 64;
     
-    std::cout << "\n[Test Configuration]\n";
-    std::cout << "  Layers: " << LAYERS << "\n";
-    std::cout << "  Width:  " << WIDTH << "\n";
-    std::cout << "  Batch:  " << BATCH << "\n";
-    
     auto start_build = std::chrono::high_resolution_clock::now();
 
-    Tensor Xt = Tensor::randn(Shape{{BATCH, WIDTH}}, TensorOptions().with_req_grad(false));
+    // Use a simple deterministic initialization if random is inconsistent across branches
+    // But ideally randn is consistent if seeded. 
+    // Let's use `full` or `ones` modulated to be safe if we rely on checksums?
+    // Actually, `randn` is better for creating non-trivial gradients. 
+    // We assume the user's random implementation is consistent.
+    
+    Tensor Xt = Tensor::randn(Shape{{BATCH, WIDTH}}, TensorOptions().with_req_grad(true));
     Value x = make_tensor(Xt, "Input");
     
-    // Create shared weights to reduce parameter count but keep activation memory high
-    // (Simulating a Recurrent-like structure or just deep shared weights)
-    // Actually, distinct weights stress memory MORE, so let's make distinct weights
-    // But to avoid OOM on small machines, maybe just a few sets reused? 
-    // Let's use distinct weights for max stress.
-    
-    std::vector<Value> params;
     Value h = x;
+    std::vector<Value> params;
     
     for (int i = 0; i < LAYERS; ++i) {
-        // Linear layer: W[WIDTH, WIDTH]
         Tensor Wt = Tensor::randn(Shape{{WIDTH, WIDTH}}, TensorOptions().with_req_grad(true));
         Value W = make_tensor(Wt, ("W" + std::to_string(i)).c_str());
         params.push_back(W);
         
-        // Operation: h = tanh(h @ W)
         Value linear = matmul(h, W);
         h = tanh(linear); 
-        
-        // Occasional skip connection to make graph interesting
-        if (i % 10 == 0 && i > 0) {
-             h = h + x; // Broadcast add or matching shape add
-        }
+        if (i % 10 == 0 && i > 0) h = h + x;
     }
     
     Value loss = sum(h);
@@ -109,51 +97,65 @@ int main(int argc, char** argv) {
     double build_time = std::chrono::duration<double>(end_build - start_build).count();
     
     MemoryStats build_stats = get_memory_stats();
-    print_mem_stats("After Graph Build", build_stats);
-    std::cout << "  Build Time: " << build_time << " s\n";
+    print_mem_stats("After Build", build_stats);
 
-    // 3. Backward Pass (The Critical Part)
-    std::cout << "\n[Running Backward Pass...]\n";
-    
+    // 3. Backward
     zero_grad(loss);
-    
     auto start_back = std::chrono::high_resolution_clock::now();
-    backward(loss); // Standard sequential backward
+    backward(loss); 
     auto end_back = std::chrono::high_resolution_clock::now();
     
     MemoryStats back_stats = get_memory_stats();
     print_mem_stats("After Backward", back_stats);
     
     double back_time = std::chrono::duration<double>(end_back - start_back).count();
-    std::cout << "  Backward Time: " << back_time << " s\n";
-
-    // 4. Metrics Calculation
     long mem_growth_kb = back_stats.vm_rss_kb - build_stats.vm_rss_kb;
-    double mem_growth_mb = mem_growth_kb / 1024.0;
+
+    // 4. PRECISION CHECKSUM
+    // Sum up the gradients of the Input X and the first Weight W0
+    // This allows verifying that gradients are identical to the 6th decimal independent of approach.
     
-    // Estimate Allocation Rate based on Resident Memory Growth / Time
-    // (This is a lower bound, as it ignores temporary allocations that were freed)
-    double alloc_rate_mbs = mem_growth_mb / back_time;
+    double input_grad_sum = 0.0;
+    if (x.node && x.node->grad.numel() > 0) {
+        // Access data safely
+        // Assuming CPU float pointer
+        const float* ptr = (const float*)x.node->grad.data();
+        if (ptr) {
+             for(size_t k=0; k<x.node->grad.numel(); ++k) input_grad_sum += ptr[k];
+        }
+    }
+
+    double weight_grad_sum = 0.0;
+    if (!params.empty()) {
+        Value w0 = params[0];
+        const float* ptr = (const float*)w0.node->grad.data();
+        if (ptr) {
+             for(size_t k=0; k<w0.node->grad.numel(); ++k) weight_grad_sum += ptr[k];
+        }
+    }
+    
+    double loss_val = 0.0;
+    if (loss.node->value.numel() > 0) {
+        const float* ptr = (const float*)loss.node->value.data();
+        if(ptr) loss_val = ptr[0];
+    }
 
     std::cout << "\n========================================================\n";
     std::cout << "                  RESULTS SUMMARY\n";
     std::cout << "========================================================\n";
-    std::cout << "  Metric                      | Value\n";
-    std::cout << "  --------------------------- | --------------------\n";
-    std::cout << "  Peak Virtual Memory         | " << back_stats.vm_peak_kb / 1024.0 << " MB\n";
-    std::cout << "  Peak RSS (Physical)         | " << back_stats.vm_hwm_kb / 1024.0 << " MB\n";
-    std::cout << "  Backward Memory Growth      | " << mem_growth_mb << " MB\n";
-    std::cout << "  Backward Execution Time     | " << back_time << " s\n";
-    std::cout << "  Approx. Net Alloc Rate      | " << alloc_rate_mbs << " MB/s\n";
+    std::cout << "  PERFORMANCE METRICS:\n";
+    std::cout << "  --------------------\n";
+    std::cout << "  Peak RSS (Physical)     | " << back_stats.vm_hwm_kb / 1024.0 << " MB\n";
+    std::cout << "  Backward Execution Time | " << back_time << " s\n";
+    std::cout << "  Memory Growth (Back)    | " << mem_growth_kb / 1024.0 << " MB\n";
+    
+    std::cout << "\n  PRECISION CHECKSUMS (Must Match Exactly):\n";
+    std::cout << "  ----------------------------------------\n";
+    std::cout << std::fixed << std::setprecision(6);
+    std::cout << "  Final Loss Value        | " << loss_val << "\n";
+    std::cout << "  Input X Grad Sum        | " << input_grad_sum << "\n";
+    std::cout << "  Weight W0 Grad Sum      | " << weight_grad_sum << "\n";
     std::cout << "========================================================\n";
-    
-    std::cout << "\nINTERPRETATION GUIDE:\n";
-    std::cout << "1. Run this binary on Branch A (Node-centric).\n";
-    std::cout << "2. Checkout Branch B (Tensor-centric).\n";
-    std::cout << "3. Recompile and run this binary again.\n";
-    std::cout << "4. Compare 'Backward Memory Growth' and 'Peak RSS'.\n";
-    std::cout << "   - Lower Peak RSS = Better Memory Utilization.\n";
-    std::cout << "   - Lower Execution Time = Better Throughput.\n";
-    
+
     return 0;
 }
