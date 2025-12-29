@@ -810,16 +810,48 @@ std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
 // ===================================================================
 std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
     // All ops automatically use the stream from the context.
-    Tensor y = OwnTensor::log(1.0f + OwnTensor::exp(x->value));
+    // Tensor y = OwnTensor::log(1.0f + OwnTensor::exp(x->value));
+    const float threshold = 20.0f;
+    
+    const Tensor& x_val = x->value;
+    Tensor y = OwnTensor::Tensor::zeros(x_val.shape(), ag::options(x_val));
+    
+    // Dispatch by dtype to handle the computation
+    dispatch_by_dtype(x_val.dtype(), [&](auto dummy){
+        using T = decltype(dummy);
+        if constexpr (std::is_same_v<T, OwnTensor::complex32_t> || 
+                      std::is_same_v<T, OwnTensor::complex64_t> || 
+                      std::is_same_v<T, OwnTensor::complex128_t>) {
+             throw std::runtime_error("softplus_nodeops not implemented for complex types");
+        } else {
+            const T* x_data = x_val.data<T>();
+            T* y_data = y.data<T>();
+            int64_t n = x_val.numel();
+            
+            for (int64_t i = 0; i < n; ++i) {
+                T val = x_data[i];
+                if (val > T(threshold)) {
+                    y_data[i] = val;  // For large x, softplus(x) ≈ x
+                } else {
+                    y_data[i] = std::log(T(1.0) + std::exp(val));
+                }
+            }
+        }
+    });
 
     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
     n->inputs = {x};
-
-    //new code lines --> dependency counter
-    if(x) x->child_grad_count++;
-
     ag::debug::on_node_created(n);
     return n;
+
+    // auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
+    // n->inputs = {x};
+
+    // //new code lines --> dependency counter
+    // if(x) x->child_grad_count++;
+
+    // ag::debug::on_node_created(n);
+    // return n;
 }
 
 // ===================================================================
