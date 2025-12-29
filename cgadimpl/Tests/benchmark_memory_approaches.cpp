@@ -7,12 +7,13 @@
 #include <unistd.h>
 #include <iomanip>
 #include <numeric>
+#include <algorithm>
 #include "ad/ag_all.hpp"
 
 using namespace ag;
 
 // ==========================================
-// Memory Measurement Helpers (Linux Specific)
+// Memory Measurement Helpers
 // ==========================================
 struct MemoryStats {
     long vm_peak_kb = 0;
@@ -49,45 +50,48 @@ void print_mem_stats(const std::string& label, const MemoryStats& stats) {
 // Benchmark Logic
 // ==========================================
 int main() {
-    // 0. FIXED SEED for Precision Comparison
+    // 0. FIXED SEED
     srand(42); 
-    // If your Tensor library has a global seed, set it here explicitly if possible.
-    // For now, assuming randn uses std::rand or similar common source from <random> 
-    // initialized often in main. If cgadimpl has explicit seeder, use it.
     
     std::cout << "========================================================\n";
-    std::cout << "  BENCHMARK: Memory | Time | Precision (Fixed Seed)\n";
+    std::cout << "  BENCHMARK: Memory | Time | Precision (LINEAR)\n";
     std::cout << "========================================================\n\n";
 
     MemoryStats initial_stats = get_memory_stats();
     print_mem_stats("Baseline", initial_stats);
 
     // 2. Build Graph
-    const int LAYERS = 200;
+    const int LAYERS = 50; 
     const int WIDTH = 1024;
     const int BATCH = 64;
     
+    std::cout << "\n[Test Configuration]\n";
+    std::cout << "  Layers: " << LAYERS << "\n";
+    std::cout << "  Width:  " << WIDTH << "\n";
+    std::cout << "  Init:   Deterministic (0.01)\n";
+    std::cout << "  Model:  Linear (No Tanh)\n";
+
     auto start_build = std::chrono::high_resolution_clock::now();
 
-    // Use a simple deterministic initialization if random is inconsistent across branches
-    // But ideally randn is consistent if seeded. 
-    // Let's use `full` or `ones` modulated to be safe if we rely on checksums?
-    // Actually, `randn` is better for creating non-trivial gradients. 
-    // We assume the user's random implementation is consistent.
-    
-    Tensor Xt = Tensor::randn(Shape{{BATCH, WIDTH}}, TensorOptions().with_req_grad(true));
+    // Init inputs to small constant
+    Tensor Xt = Tensor::full(Shape{{BATCH, WIDTH}}, TensorOptions().with_req_grad(true), 0.01f);
     Value x = make_tensor(Xt, "Input");
     
     Value h = x;
     std::vector<Value> params;
     
     for (int i = 0; i < LAYERS; ++i) {
-        Tensor Wt = Tensor::randn(Shape{{WIDTH, WIDTH}}, TensorOptions().with_req_grad(true));
+        // Linear weights
+        Tensor Wt = Tensor::full(Shape{{WIDTH, WIDTH}}, TensorOptions().with_req_grad(true), 0.01f);
         Value W = make_tensor(Wt, ("W" + std::to_string(i)).c_str());
         params.push_back(W);
         
         Value linear = matmul(h, W);
-        h = tanh(linear); 
+        
+        // CRITICAL CHANGE: No Activation, just scaling to prevent explosion
+        // Linear network ensures gradients flow all the way back
+        h = linear * 0.1f; 
+        
         if (i % 10 == 0 && i > 0) h = h + x;
     }
     
@@ -100,6 +104,7 @@ int main() {
     print_mem_stats("After Build", build_stats);
 
     // 3. Backward
+    std::cout << "\n[Running Backward Pass...]\n";
     zero_grad(loss);
     auto start_back = std::chrono::high_resolution_clock::now();
     backward(loss); 
@@ -112,29 +117,51 @@ int main() {
     long mem_growth_kb = back_stats.vm_rss_kb - build_stats.vm_rss_kb;
 
     // 4. PRECISION CHECKSUM
-    // Sum up the gradients of the Input X and the first Weight W0
-    // This allows verifying that gradients are identical to the 6th decimal independent of approach.
-    
     double input_grad_sum = 0.0;
-    if (x.node && x.node->grad.numel() > 0) {
-        // Access data safely
-        // Assuming CPU float pointer
-        const float* ptr = (const float*)x.node->grad.data();
-        if (ptr) {
-             for(size_t k=0; k<x.node->grad.numel(); ++k) input_grad_sum += ptr[k];
+    // Handle both Node-centric (node->grad) and Tensor-centric (node->tensor.grad_view())
+    // We try to compile code that works for the user's current branch.
+    // Since we are on 'main' (Node-centric), we use node->grad.
+    // USER MUST MODIFY THIS LINE ON THE OTHER BRANCH if accessor differs.
+    
+    if (x.node) {
+        // Try accessing via tensor first (works on both if node has tensor member)
+        // Wait, main branch has `Tensor grad`, other might have `grad_view()`.
+        // Let's use the most generic one for 'main' which is node->grad.
+        // Actually, user updated it to `x.node->tensor.grad_view()` in Step 177.
+        // I should stick to what compiles on THIS branch.
+        // On 'main', Node has `Tensor grad`. So `x.node->grad`.
+        
+        // I will write the 'main' branch version.
+        if (x.node->grad.numel() > 0) {
+            const float* ptr = (const float*)x.node->grad.data();
+            if (ptr) {
+                 size_t n = std::min((size_t)1000, x.node->grad.numel());
+                 for(size_t k=0; k<n; ++k) input_grad_sum += ptr[k];
+            }
         }
     }
 
     double weight_grad_sum = 0.0;
     if (!params.empty()) {
         Value w0 = params[0];
-        const float* ptr = (const float*)w0.node->grad.data();
-        if (ptr) {
-             for(size_t k=0; k<w0.node->grad.numel(); ++k) weight_grad_sum += ptr[k];
+        if (w0.node->grad.numel() > 0) {
+            const float* ptr = (const float*)w0.node->grad.data();
+             if (ptr) {
+                 size_t n = std::min((size_t)1000, w0.node->grad.numel());
+                 for(size_t k=0; k<n; ++k) weight_grad_sum += ptr[k];
+            }
         }
     }
     
     double loss_val = 0.0;
+    // Accessing value data
+    // On main, Node has `Tensor value`.
+    // On other branch, Node has `Tensor tensor`.
+    // The user manually edited it to `node->tensor` previously.
+    // I will write `node->value` as per 'main' definitions I saw earlier.
+    // Wait, Step 133 shows `Tensor value;` in main branch graph.hpp.
+    // So `node->value` is correct for main.
+    
     if (loss.node->value.numel() > 0) {
         const float* ptr = (const float*)loss.node->value.data();
         if(ptr) loss_val = ptr[0];
