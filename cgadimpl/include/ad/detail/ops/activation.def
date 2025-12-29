@@ -39,4 +39,3 @@ OP(LeakyRelu, 2,    "leakyrelu")   // max(αx, x) where α is small (e.g., 0.01)
 OP(Gaus,      1,    "gaus")        // e^(-x²) - Gaussian activation
 OP(Parcon,    1,    "parcon")      // Parametric concave activation
 OP(LiSHT,     1,    "lisht")       // x * tanh(x) - Linearly Scaled Hyperbolic Tangent
-OP(Relumask,  1,    "relumask")    // Helper for ReLU backward (stores mask)

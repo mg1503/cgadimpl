@@ -178,6 +178,16 @@ if(true)
   add_ag_test(test_dag_analysis                Tests/test_dag_analysis.cpp)
   add_ag_test(test_warmup                      Tests/test_warmup.cpp)
 
+  # Ops Tests
+  add_ag_test(test_activation                  Tests/test_activation.cpp)
+  add_ag_test(test_arithmetic                  Tests/test_arithmetic.cpp)
+  add_ag_test(test_attention                   Tests/test_attention.cpp)
+  add_ag_test(test_linalg                      Tests/test_linalg.cpp)
+  add_ag_test(test_loss                        Tests/test_loss.cpp)
+  add_ag_test(test_normalization               Tests/test_normalization.cpp)
+  add_ag_test(test_reduction                   Tests/test_reduction.cpp)
+  add_ag_test(test_trigonometry                Tests/test_trigonometry.cpp)
+
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

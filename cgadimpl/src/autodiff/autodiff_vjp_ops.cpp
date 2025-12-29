@@ -31,7 +31,6 @@ static Tensor reduce_for_broadcast(const Tensor& grad_in, const Tensor& target_v
     }
     return summed_grad.reshape(target_val.shape());
 }
-
 // --- Basic Arithmetic ---
 void vjp_Add(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get(); 
@@ -67,59 +66,7 @@ void vjp_Div(Node* n, const Tensor& gy){
     }
 }
 
-void vjp_Pow(Node* n, const Tensor& gy){
-    Node* A_node = n->inputs[0].get();
-    Node* B_node = n->inputs[1].get();
-    const Tensor& A = A_node->value;
-    const Tensor& B = B_node->value;
-    if (A_node->requires_grad()) {
-        A_node->grad += reduce_for_broadcast(gy * B * OwnTensor::exp((B - 1.0f) * OwnTensor::log(A, ag::current_stream()), ag::current_stream()), A);
-    }
-    if (B_node->requires_grad()) {
-        B_node->grad += reduce_for_broadcast(gy * n->value * OwnTensor::log(A, ag::current_stream()), B);
-    }
-}
-
-// --- Unary Elementwise ---
-void vjp_Exp(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * n->value;
-}
-
-void vjp_Log(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy / X->value;
-}
-
-void vjp_Tanh(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * (1.0f - n->value * n->value);
-}
-
-void vjp_Sqrt(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * 0.5f / n->value;
-}
-
-void vjp_Abs(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) {
-        const float epsilon = 1e-9f;
-        X->grad += gy * (X->value / (n->value + epsilon));
-    }
-}
-
-void vjp_Reciprocal(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad -= gy / (X->value * X->value);
-}
-
-void vjp_Sign(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * 0.0f;
-}
-
-// --- Activations ---
+// Classic Activations ---------------
 void vjp_Relu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
@@ -151,7 +98,10 @@ void vjp_Sigmoid(Node* n, const Tensor& gy){
         X->grad += gy * y * (1.0f - y);
     }
 }
-
+void vjp_Tanh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * (1.0f - n->value * n->value);
+}
 void vjp_Softplus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
@@ -160,6 +110,7 @@ void vjp_Softplus(Node* n, const Tensor& gy){
     }
 }
 
+// Smooth Activations (better gradient flow) ---
 void vjp_GELU(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
@@ -195,6 +146,7 @@ void vjp_Mish(Node* n, const Tensor& gy){
     }
 }
 
+// Parametric Activations ------
 void vjp_LeakyRelu(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     Node* Alpha = n->inputs[1].get();
@@ -218,7 +170,7 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
         X->grad += gy * mask;
     }
 }
-
+// Specialized activations -----------
 void vjp_Gaus(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
@@ -241,13 +193,66 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
         X->grad += gy * (tx + x * (1.0f - tx * tx));
     }
 }
-
-void vjp_Relumask(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * n->value; 
+// Standard Attention ---------
+void vjp_Attention(Node* n, const Tensor& gy){
+    throw std::runtime_error("VJP for Attention not implemented yet!");
 }
 
-// --- Linear Algebra ---
+// Gated activation -----------------
+void vjp_SWIGLU(Node* n, const Tensor& gy){
+    throw std::runtime_error("VJP for SWIGLU not implemented yet!");
+}
+
+//Leaf -----------
+void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
+
+//Unary Mathematical Functions ------------------
+void vjp_Exp(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * n->value;
+}
+
+void vjp_Log(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy / X->value;
+}
+
+
+void vjp_Sqrt(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * 0.5f / n->value;
+}
+
+void vjp_Reciprocal(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad -= gy / (X->value * X->value);
+}
+
+void vjp_Sign(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * 0.0f;
+}
+void vjp_Abs(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) {
+        const float epsilon = 1e-9f;
+        X->grad += gy * (X->value / (n->value + epsilon));
+    }
+}
+void vjp_Pow(Node* n, const Tensor& gy){
+    Node* A_node = n->inputs[0].get();
+    Node* B_node = n->inputs[1].get();
+    const Tensor& A = A_node->value;
+    const Tensor& B = B_node->value;
+    if (A_node->requires_grad()) {
+        A_node->grad += reduce_for_broadcast(gy * B * OwnTensor::exp((B - 1.0f) * OwnTensor::log(A, ag::current_stream()), ag::current_stream()), A);
+    }
+    if (B_node->requires_grad()) {
+        B_node->grad += reduce_for_broadcast(gy * n->value * OwnTensor::log(A, ag::current_stream()), B);
+    }
+}
+
+//Core Matrix Operations ------------------------
 void vjp_MatMul(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
@@ -260,13 +265,15 @@ void vjp_Transpose(Node* n, const Tensor& gy){
     if (X->requires_grad()) X->grad += gy.t();
 }
 
+//Fused Operations (better performance, fewer memory accesses) -------------
+
 void vjp_Linear(Node* n, const Tensor& gy){
     Node* X_node = n->inputs[0].get();
     Node* W_node = n->inputs[1].get();
     Node* b_node = n->inputs[2].get();
     if (X_node->requires_grad()) X_node->grad += OwnTensor::matmul(gy, W_node->value);
     if (W_node->requires_grad()) W_node->grad += OwnTensor::matmul(gy.t(), X_node->value);
-    if (b_node->requires_grad()) b_node->grad += OwnTensor::reduce_sum(gy, {0}, true);
+    if (b_node->requires_grad()) b_node->grad += OwnTensor::reduce_sum(gy, {0}, false);
 }
 
 void vjp_FMA(Node* n, const Tensor& gy){
@@ -278,114 +285,7 @@ void vjp_FMA(Node* n, const Tensor& gy){
     if (C->requires_grad()) C->grad += gy;
 }
 
-// --- Reductions ---
-void vjp_Sum(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy;
-}
-
-void vjp_RowSum(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy;
-}
-
-void vjp_RowMax(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for RowMax not implemented yet!");
-}
-
-void vjp_MeanAll(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) {
-        float scale = 1.0f / static_cast<float>(X->value.numel());
-        X->grad += gy * scale;
-    }
-}
-
-void vjp_SoftmaxRow(Node* n, const Tensor& gy){
-    Node* Z = n->inputs[0].get();
-    if (Z->requires_grad()) {
-        const Tensor& y = n->value;
-        Tensor dot = OwnTensor::reduce_sum(y * gy, {-1}, true);
-        Z->grad += y * (gy - dot);
-    }
-}
-
-void vjp_LogSumExpRow(Node* n, const Tensor& gy){
-    Node* Z = n->inputs[0].get();
-    if (Z->requires_grad()) {
-        const Tensor& z_val = Z->value;
-        Tensor max_val = OwnTensor::reduce_max(z_val, {-1}, true);
-        Tensor exp_z = OwnTensor::exp(z_val - max_val, ag::current_stream());
-        Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
-        Tensor softmax_z = exp_z / sum_exp_z;
-        Z->grad += gy * softmax_z;
-    }
-}
-
-// --- Normalization ---
-void vjp_LayerNorm(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) {
-        const Tensor& x = X->value;
-        const Tensor& var = *n->tape[0];
-        const Tensor& mean = *n->tape[1];
-        Tensor std_inv = 1.0f / OwnTensor::sqrt(var + 1e-5f, ag::current_stream());
-        Tensor x_hat = (x - mean) * std_inv;
-        int64_t D = x.shape().dims.back();
-        Tensor d_xhat = gy * std_inv;
-        Tensor d_var = OwnTensor::reduce_sum(gy * (x - mean) * -0.5f * (std_inv * std_inv * std_inv), {-1}, true);
-        Tensor d_mean = OwnTensor::reduce_sum(gy * (std_inv * -1.0f), {-1}, true) + d_var * OwnTensor::reduce_sum((x - mean) * -2.0f, {-1}, true) / static_cast<float>(D);
-        X->grad += d_xhat + d_var * (x - mean) * (2.0f / static_cast<float>(D)) + d_mean / static_cast<float>(D);
-    }
-}
-
-void vjp_RealLayerNorm(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for RealLayerNorm not implemented yet!");
-}
-
-void vjp_RMSNorm(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) {
-        const Tensor& x = X->value;
-        const Tensor& rsqrt_var = *n->tape[0];
-        int64_t D = x.shape().dims.back();
-        Tensor dot = OwnTensor::reduce_sum(gy * x, {-1}, true);
-        X->grad += rsqrt_var * (gy - x * (rsqrt_var * rsqrt_var) * dot / static_cast<float>(D));
-    }
-}
-
-void vjp_RealRMSNorm(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for RealRMSNorm not implemented yet!");
-}
-
-void vjp_Dyntanh(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    Node* A = n->inputs[1].get();
-    Node* B = n->inputs[2].get();
-    Node* G = n->inputs[3].get();
-    const Tensor& h = *n->tape[0];
-    Tensor th = OwnTensor::tanh(h);
-    Tensor d_th = 1.0f - th * th;
-    if (X->requires_grad()) X->grad += gy * G->value * d_th * A->value;
-    if (A->requires_grad()) A->grad += OwnTensor::reduce_sum(gy * G->value * d_th * X->value, {}, false);
-    if (B->requires_grad()) B->grad += OwnTensor::reduce_sum(gy, {}, false);
-    if (G->requires_grad()) G->grad += OwnTensor::reduce_sum(gy * th, {}, false);
-}
-
-// --- Attention ---
-void vjp_Attention(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for Attention not implemented yet!");
-}
-
-void vjp_SWIGLU(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for SWIGLU not implemented yet!");
-}
-
-void vjp_MOE(Node* n, const Tensor& gy){
-    throw std::runtime_error("VJP for MOE not implemented yet!");
-}
-
-// --- Loss Functions ---
+//Classification losses ---------------
 void vjp_CeWithLogits(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
@@ -423,6 +323,7 @@ void vjp_KLDivergence(Node* n, const Tensor& gy){
     }
 }
 
+//Regression Losses --------------
 void vjp_MSELoss(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();
     Node* Y_node = n->inputs[1].get();
@@ -444,7 +345,99 @@ void vjp_MAELoss(Node* n, const Tensor& gy){
     if (Y_node->requires_grad()) Y_node->grad -= gy * sign_diff * inv_N;
 }
 
-// --- Trigonometry ---
+//Layer Normalization ------------
+void vjp_LayerNorm(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) {
+        const Tensor& x = X->value;
+        const Tensor& var = *n->tape[0];
+        const Tensor& mean = *n->tape[1];
+        Tensor std_inv = 1.0f / OwnTensor::sqrt(var + 1e-5f, ag::current_stream());
+        Tensor x_hat = (x - mean) * std_inv;
+        int64_t D = x.shape().dims.back();
+        Tensor d_xhat = gy * std_inv;
+        Tensor d_var = OwnTensor::reduce_sum(gy * (x - mean) * -0.5f * (std_inv * std_inv * std_inv), {-1}, true);
+        Tensor d_mean = OwnTensor::reduce_sum(gy * (std_inv * -1.0f), {-1}, true) + d_var * OwnTensor::reduce_sum((x - mean) * -2.0f, {-1}, true) / static_cast<float>(D);
+        X->grad += d_xhat + d_var * (x - mean) * (2.0f / static_cast<float>(D)) + d_mean / static_cast<float>(D);
+    }
+}
+
+//RMS Normalization -------------
+void vjp_RMSNorm(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) {
+        const Tensor& x = X->value;
+        const Tensor& rsqrt_var = *n->tape[0];
+        int64_t D = x.shape().dims.back();
+        Tensor dot = OwnTensor::reduce_sum(gy * x, {-1}, true);
+        X->grad += rsqrt_var * (gy - x * (rsqrt_var * rsqrt_var) * dot / static_cast<float>(D));
+    }
+}
+
+void vjp_RealRMSNorm(Node* n, const Tensor& gy){
+    throw std::runtime_error("VJP for RealRMSNorm not implemented yet!");
+}
+
+//Dynamic Normalization --------------
+void vjp_Dyntanh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    Node* A = n->inputs[1].get();
+    Node* B = n->inputs[2].get();
+    Node* G = n->inputs[3].get();
+    const Tensor& h = *n->tape[0];
+    Tensor th = OwnTensor::tanh(h);
+    Tensor d_th = 1.0f - th * th;
+    if (X->requires_grad()) X->grad += gy * G->value * d_th * A->value;
+    if (A->requires_grad()) A->grad += OwnTensor::reduce_sum(gy * G->value * d_th * X->value, {}, false);
+    if (B->requires_grad()) B->grad += OwnTensor::reduce_sum(gy, {}, false);
+    if (G->requires_grad()) G->grad += OwnTensor::reduce_sum(gy * th, {}, false);
+}
+
+//Global Reductions -------------------
+void vjp_Sum(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy;
+}
+void vjp_MeanAll(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) {
+        float scale = 1.0f / static_cast<float>(X->value.numel());
+        X->grad += gy * scale;
+    }
+}
+//Row-wise Reductions ------------------------
+void vjp_RowSum(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy;
+}
+
+void vjp_RowMax(Node* n, const Tensor& gy){
+    throw std::runtime_error("VJP for RowMax not implemented yet!");
+}
+
+//Softmax Family ---------------
+void vjp_SoftmaxRow(Node* n, const Tensor& gy){
+    Node* Z = n->inputs[0].get();
+    if (Z->requires_grad()) {
+        const Tensor& y = n->value;
+        Tensor dot = OwnTensor::reduce_sum(y * gy, {-1}, true);
+        Z->grad += y * (gy - dot);
+    }
+}
+
+void vjp_LogSumExpRow(Node* n, const Tensor& gy){
+    Node* Z = n->inputs[0].get();
+    if (Z->requires_grad()) {
+        const Tensor& z_val = Z->value;
+        Tensor max_val = OwnTensor::reduce_max(z_val, {-1}, true);
+        Tensor exp_z = OwnTensor::exp(z_val - max_val, ag::current_stream());
+        Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
+        Tensor softmax_z = exp_z / sum_exp_z;
+        Z->grad += gy * softmax_z;
+    }
+}
+
+//Trigonometric Functions --------------------
 void vjp_Sin(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) X->grad += gy * OwnTensor::cos(X->value);
@@ -463,6 +456,17 @@ void vjp_Tan(Node* n, const Tensor& gy){
     }
 }
 
+//Hyperbolic Functions ------------------
+void vjp_Cosh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * OwnTensor::sinh(X->value);
+}
+void vjp_Sinh(Node* n, const Tensor& gy){
+    Node* X = n->inputs[0].get();
+    if (X->requires_grad()) X->grad += gy * OwnTensor::cosh(X->value);
+}
+
+//Inverse Trigonometric Functions --------------
 void vjp_Asin(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) X->grad += gy / OwnTensor::sqrt(1.0f - X->value * X->value, ag::current_stream());
@@ -478,16 +482,7 @@ void vjp_Atan(Node* n, const Tensor& gy){
     if (X->requires_grad()) X->grad += gy / (1.0f + X->value * X->value);
 }
 
-void vjp_Sinh(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * OwnTensor::cosh(X->value);
-}
-
-void vjp_Cosh(Node* n, const Tensor& gy){
-    Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->grad += gy * OwnTensor::sinh(X->value);
-}
-
+//Inverse Hyperbolic Trigonometric Functions ----------------
 void vjp_ASinh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) X->grad += gy / OwnTensor::sqrt(X->value * X->value + 1.0f, ag::current_stream());
@@ -503,7 +498,6 @@ void vjp_ATanh(Node* n, const Tensor& gy){
     if (X->requires_grad()) X->grad += gy / (1.0f - X->value * X->value);
 }
 
-void vjp_Leaf(Node*, const Tensor&){ /* no-op */ }
 
 } // namespace detail
 

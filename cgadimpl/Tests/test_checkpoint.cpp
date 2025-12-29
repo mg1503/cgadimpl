@@ -119,6 +119,12 @@ struct DeepModel {
             // Linear layer
             x = matmul(x, weights[i]) + biases[i];
             x = relu(x);
+            x = matmul(x, weights[i]) + biases[i];
+            x = gelu(x);
+            x = matmul(x, weights[i]) + biases[i];
+            x = tanh(x);
+            x = matmul(x, weights[i]) + biases[i];
+            x = sigmoid(x);
             
             // Checkpoint every 3rd layer if enabled
             if (use_checkpointing && (i > 0) && (i % 2 == 0) && (i < depth - 1)) {
