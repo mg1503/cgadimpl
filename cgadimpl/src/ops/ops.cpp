@@ -4,9 +4,7 @@
 #include "ad/ops/ops.hpp"
 #include "ad/ops/nodeops.hpp" // Include the new node-level declarations
 #include "ad/autodiff/inplace.hpp"
-#include "ad/runtime/runtime.hpp"
 #include "ad/ops/nodeops.hpp"
-#include "ad/runtime/runtime.hpp"
 #include <cuda_runtime.h>
 #include "tensor.hpp" 
 #include <unordered_map>

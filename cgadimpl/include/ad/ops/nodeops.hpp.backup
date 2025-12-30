@@ -5,6 +5,7 @@
 
 #include "ad/core/graph.hpp"
 #include "ad/autodiff/checkpoint.hpp"
+#include "ad/ops/kernels_api.hpp"
 #include "ad/utils/debug.hpp"
 
 #include "ops/TensorOps.h"
