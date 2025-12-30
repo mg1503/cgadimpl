@@ -188,6 +188,11 @@ if(true)
   add_ag_test(test_reduction                   Tests/test_reduction.cpp)
   add_ag_test(test_trigonometry                Tests/test_trigonometry.cpp)
 
+#Optim Tests
+    add_ag_test(test_adam                 Tests/test_adam.cpp)
+    add_ag_test(test_adam1                  Tests/test_adam1.cpp)
+    add_ag_test(test_adam_optim_prod                  Tests/test_adam_optim_prod.cpp)
+
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")
