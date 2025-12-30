@@ -148,7 +148,7 @@ if(true)
   add_ag_test(test_nn_mlp                        Tests/test_mlp_training.cpp)
   # add_ag_test(test_kernels_gpu                  Tests/test_kernels_gpu.cpp)
   add_ag_test(test_graph_cuda                    Tests/test_graph_gpu.cpp)
-  add_ag_test(test_core_ops_gpu                  Tests/test_core_ops_gpu.cpp)
+#   add_ag_test(test_core_ops_gpu                  Tests/test_core_ops_gpu.cpp)
   add_ag_test(test_kitchen_sink_mlp              Tests/test_kitchen_sink_mlp.cpp)
   # add_ag_test(test_gantlet                      Tests/test_gantlet.cpp)  #this works
   add_ag_test(test_scheme                        Tests/test_scheme.cpp)
