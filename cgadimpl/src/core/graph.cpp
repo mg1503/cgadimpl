@@ -2,6 +2,7 @@
 // file: cgadimpl/src/graph.cpp
 // =====================
 #include "ad/core/graph.hpp"
+#include "ad/runtime/cuda_graphs.hpp"
 #include <unordered_set>
 #include <functional>
 #include <cassert>
@@ -78,6 +79,23 @@ static std::vector<Node*> build_topo_order_impl(Node* root) {
 // --- Graph Traversal ---
 std::vector<Node*> topo_from(Node* root){
     return build_topo_order_impl(root);
+}
+
+// ... inside namespace ag
+Value::Value(float v) {
+    // Create 1-element scalar tensor
+    OwnTensor::Shape shape;
+    shape.dims = {1};
+    auto opts = OwnTensor::TensorOptions()
+        .with_dtype(OwnTensor::Dtype::Float32)
+        .with_device(OwnTensor::DeviceIndex(OwnTensor::Device::CPU)); // Default to CPU
+    
+    node = std::make_shared<Node>(
+        OwnTensor::Tensor::full(shape, opts, v), 
+        Op::Leaf, 
+        false, 
+        "scalar_literal"
+    );
 }
 
 } // namespace ag

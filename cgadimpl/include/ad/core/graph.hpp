@@ -9,7 +9,7 @@
 
 #include "tensor.hpp"
 #include "ad/core/schema.hpp"
-#include "ad/runtime/runtime.hpp"
+#include "ad/runtime/cuda_graphs.hpp"
 
 namespace ag {
 struct Node;
@@ -17,6 +17,7 @@ struct Value {
     std::shared_ptr<Node> node;
     Value();    
     explicit Value(std::shared_ptr<Node> n);
+    Value(float v);
     const std::vector<int64_t>& shape() const;
     std::pair<int, int> shape_2d() const;
     Tensor& val();

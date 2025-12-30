@@ -14,7 +14,6 @@
 //
 // Use cases in ML:
 //   - Positional encodings (sin/cos)
-//   - GCU activation (x * cos(x))
 //   - Smooth activations
 // =============================================================================
 

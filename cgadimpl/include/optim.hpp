@@ -10,8 +10,30 @@
 #include "ad/utils/debug.hpp"
 #include <math.h>
 
+#include <unordered_map>
+#include <vector>
+
 namespace ag {
 
 void SGD(const Value& root, const Tensor* grad_seed=nullptr, float learning_rate=100);
+
+class Adam {
+public:
+    Adam(const std::vector<Value>& params, float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8);
+    
+    void step();
+    void zero_grad();
+
+private:
+    std::vector<Value> params_;
+    float alpha_;
+    float beta1_;
+    float beta2_;
+    float epsilon_;
+    int t_;
+
+    std::unordered_map<Node*, Tensor> m_; // First moment
+    std::unordered_map<Node*, Tensor> v_; // Second moment
+};
 
 }

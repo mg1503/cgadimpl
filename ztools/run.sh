@@ -37,19 +37,19 @@ cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
 echo "== Building core"
 cmake --build "$CGADIMPL_BUILD" -- -j$(nproc)
 
-# --- STEP 3: Configure and build the kernel plugins ---
-echo "== Configuring kernel plugins"
-cmake -S "$KERNELS_DIR" -B "$KERNELS_BUILD" \
-  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DCGADIMPL_INCLUDE_DIR="$CGADIMPL_DIR/include"
+# # --- STEP 3: Configure and build the kernel plugins ---
+# echo "== Configuring kernel plugins"
+# cmake -S "$KERNELS_DIR" -B "$KERNELS_BUILD" \
+#   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+#   -DCGADIMPL_INCLUDE_DIR="$CGADIMPL_DIR/include"
 
-echo "== Building kernel plugins"
-cmake --build "$KERNELS_BUILD" -- -j$(nproc)
+# echo "== Building kernel plugins"
+# cmake --build "$KERNELS_BUILD" -- -j$(nproc)
 
-# --- STEP 4: Stage build artifacts for testing ---
-echo "== Copying kernel plugins to test directory"
-cp "$KERNELS_BUILD/cpu/libagkernels_cpu.so" "$CGADIMPL_BUILD/"
-cp "$KERNELS_BUILD/gpu/libagkernels_cuda.so" "$CGADIMPL_BUILD/"
+# # --- STEP 4: Stage build artifacts for testing ---
+# echo "== Copying kernel plugins to test directory"
+# cp "$KERNELS_BUILD/cpu/libagkernels_cpu.so" "$CGADIMPL_BUILD/"
+# cp "$KERNELS_BUILD/gpu/libagkernels_cuda.so" "$CGADIMPL_BUILD/"
 
 # --- STEP 5: Run tests ---
 # echo "== Staging complete. Running tests..."

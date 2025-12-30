@@ -42,3 +42,5 @@ Makefile
 *.swp
 *~
 # llvm-project
+libtorch/
+benchmark/

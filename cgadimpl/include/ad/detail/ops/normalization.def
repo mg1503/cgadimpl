@@ -24,9 +24,7 @@
 // =============================================================================
 
 // --- Layer Normalization ---
-OP(LayerNorm,     1, "layernorm")      // Basic LayerNorm (no learnable params)
-OP(RealLayerNorm, 4, "reallayernorm")  // LayerNorm with γ (gain) and β (bias)
-                                       // Arity=4: [input, gamma, beta, epsilon_placeholder]
+OP(LayerNorm,     1, "layernor")      // Basic LayerNorm (no learnable params)
 
 // --- RMS Normalization (faster, used in modern LLMs) ---
 OP(RMSNorm,       1, "rmsnorm")        // x / sqrt(mean(x²) + ε)

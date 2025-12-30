@@ -31,7 +31,3 @@ OP(Attention,      4, "attention")       // Full attention: (X, Wq, Wk, Wv)
 // --- Gated Activations (transformer FFN blocks) ---
 OP(SWIGLU,         1, "swiglu")          // SwiGLU: swish(xW) ⊙ (xV)
                                          // Used in LLaMA, PaLM FFN blocks
-
-// --- Mixture of Experts ---
-OP(MOE,            3, "moe")             // Mixture of Experts layer
-                                         // Arity=3: (input, expert_weights, bias)
