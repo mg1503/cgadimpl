@@ -193,6 +193,8 @@ if(true)
     add_ag_test(test_adam1                  Tests/test_adam1.cpp)
     add_ag_test(test_adam_optim_prod                  Tests/test_adam_optim_prod.cpp)
 
+    add_ag_test(test_nodiscard                     Tests/test_nodiscard.cpp)
+    add_ag_test(test_nodiscard1                    Tests/test_nodiscard1.cpp)
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

@@ -10,10 +10,11 @@
 #include "tensor.hpp"
 #include "ad/core/schema.hpp"
 #include "ad/runtime/runtime.hpp"
+#include "ad/core/nodiscard.hpp"
 
 namespace ag {
 struct Node;
-struct Value {
+struct AG_NODISCARD Value {
     std::shared_ptr<Node> node;
     Value();    
     explicit Value(std::shared_ptr<Node> n);

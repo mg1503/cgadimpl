@@ -153,7 +153,7 @@ void run_memory_savings_test() {
     
     int depth = 50;
     int hidden_dim = 256;
-    int batch_size = 128;
+    int batch_size = 64;
     
     std::cout << "Model Config:\n";
     std::cout << "  - Depth: " << depth << " layers\n";
