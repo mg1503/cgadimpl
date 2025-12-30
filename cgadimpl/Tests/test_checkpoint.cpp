@@ -152,7 +152,7 @@ void run_memory_savings_test() {
     std::cout << "==================================================\n\n";
     
     int depth = 50;
-    int hidden_dim = 1024;
+    int hidden_dim = 256;
     int batch_size = 128;
     
     std::cout << "Model Config:\n";
