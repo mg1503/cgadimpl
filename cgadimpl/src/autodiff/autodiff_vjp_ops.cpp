@@ -153,20 +153,23 @@ void vjp_LeakyRelu(Node* n, const Tensor& gy){
     if (X->requires_grad()) {
         float alpha = Alpha->value.to_cpu().data<float>()[0];
         Tensor mask = OwnTensor::Tensor::zeros(X->value.shape(), ag::options(X->value));
-        dispatch_by_dtype(X->value.dtype(), [&](auto dummy){
-            using T = decltype(dummy);
-            const T* x_ptr = X->value.data<T>();
-            T* m_ptr = mask.data<T>();
-            for(int64_t i=0; i<X->value.numel(); ++i) {
-                if constexpr (std::is_same_v<T, OwnTensor::complex32_t> || 
-                              std::is_same_v<T, OwnTensor::complex64_t> || 
-                              std::is_same_v<T, OwnTensor::complex128_t>) {
-                    m_ptr[i] = (x_ptr[i].real() > 0) ? T(1.0f) : T(alpha);
-                } else {
-                    m_ptr[i] = (x_ptr[i] > T(0)) ? T(1.0f) : T(alpha);
+        if (X->value.is_cpu()) {
+            dispatch_by_dtype(X->value.dtype(), [&](auto dummy){
+                using T = decltype(dummy);
+                const T* x_ptr = X->value.data<T>();
+                T* m_ptr = mask.data<T>();
+                for(int64_t i=0; i<X->value.numel(); ++i) {
+                    if constexpr (std::is_same_v<T, OwnTensor::complex32_t> || 
+                                  std::is_same_v<T, OwnTensor::complex64_t> || 
+                                  std::is_same_v<T, OwnTensor::complex128_t>) {
+                        m_ptr[i] = (x_ptr[i].real() > 0) ? T(1.0f) : T(alpha);
+                    } else {
+                        m_ptr[i] = (x_ptr[i] > T(0)) ? T(1.0f) : T(alpha);
+                    }
                 }
-            }
-        });
+            });
+        }
+        // TODO: Add CUDA kernel for LeakyRelu gradient
         X->grad += gy * mask;
     }
 }

@@ -134,21 +134,29 @@ void test_cuda_graph(Device device) {
     std::cout << "Beginning capture of the forward pass...\n";
     runner.begin_capture();
     
-    // CRITICAL: This forward pass should NOT allocate any new memory.
-    // It reuses the memory allocated during warmup.
-    Value y_captured = model(x_tensor);
-    
-    runner.end_capture();
-    std::cout << "Capture successful.\n";
+    {
+        // CRITICAL: This forward pass should NOT allocate any new memory.
+        // It reuses the memory allocated during warmup.
+        Value y_captured = model(x_tensor);
+        
+        runner.end_capture();
+        std::cout << "Capture successful.\n";
 
-    std::cout << "Replaying graph...\n";
-    bool ok = runner.replay();
-    
-    // Synchronize to ensure replay is complete
-    cudaDeviceSynchronize();
+        std::cout << "Replaying graph...\n";
+        bool ok = runner.replay();
+        
+        // Synchronize to ensure replay is complete
+        //cudaDeviceSynchronize();
 
-    std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
-    assert(ok);
+        std::cout << "Replay " << (ok ? "successful" : "failed") << ".\n";
+        assert(ok);
+
+        // Ensure we free on the capture stream
+        OwnTensor::cuda::setCurrentStream(runner.get_stream());
+    }
+    // Reset stream to default after y_captured is destroyed
+    OwnTensor::cuda::setCurrentStream(nullptr);
+
 
     std::cout << "CUDA Graph test completed successfully.\n";
 }
