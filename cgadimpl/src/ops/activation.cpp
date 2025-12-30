@@ -841,6 +841,8 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
 
     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
     n->inputs = {x};
+    if(x) x->child_grad_count++;
+
     ag::debug::on_node_created(n);
     return n;
 
