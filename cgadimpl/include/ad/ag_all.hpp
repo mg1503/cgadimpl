@@ -6,5 +6,4 @@
 #include "ad/utils/debug.hpp"   
 #include "ad/runtime/cuda_graphs.hpp"
 #include "nn/nn.hpp"
-#include "ad/ops/kernels_api.hpp"
 #include <cuda_runtime.h>
