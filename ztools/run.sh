@@ -28,7 +28,21 @@ echo "== Using CUDA CXX: $(which nvcc)"
 echo "== Building tensor library"
 cd "${TENSOR_DIR}"
 make -j$(nproc)
-cd "${ROOT}"
+
+# --- STEP 1.5: Build and Install Nova Compiler ---
+NOVA_DIR="$ROOT/Nova-Compiler"
+NOVA_BUILD="$NOVA_DIR/build"
+NOVA_INSTALL="$NOVA_DIR/install"
+
+echo "== Configuring Nova Compiler"
+cmake -S "$NOVA_DIR" -B "$NOVA_BUILD" \
+    -DCMAKE_BUILD_TYPE="Release" \
+    -DCMAKE_INSTALL_PREFIX="$NOVA_INSTALL"
+
+echo "== Installing Nova Compiler"
+# This builds AND installs to the local install/ directory
+cmake --build "$NOVA_BUILD" --target install -- -j$(nproc)
+
 
 # --- STEP 2: Configure and build the core cgadimpl library ---
 echo "== Configuring core"
