@@ -8,17 +8,9 @@
 
 namespace ag {
 
-void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) {
-    auto order = topo_from(root.node.get());
-    for (Node* n : order) {
-        if (n->op == Op::Leaf && n->requires_grad()) {
-            n->value += -learning_rate * n->grad;
-        }
-    }
-}
 
-SGDOptimizer::SGDOptimizer(const std::vector<Value>& params, float learning_rate)
-    : params_(params), learning_rate_(learning_rate) {
+
+Optimizer::Optimizer(const std::vector<Value>& params) : params_(params) {
     for (const auto& p : params_) {
         Node* n = p.node.get();
         if (n->requires_grad() && n->value.dtype() != Dtype::Float32) {
@@ -26,6 +18,26 @@ SGDOptimizer::SGDOptimizer(const std::vector<Value>& params, float learning_rate
         }
     }
 }
+
+void Optimizer::zero_grad() {
+    for (const auto& p : params_) {
+        Node* n = p.node.get();
+        if (n->requires_grad() && n->grad.is_valid()) {
+            n->grad = Tensor::zeros(n->grad.shape(), TensorOptions().with_dtype(n->grad.dtype()).with_device(n->grad.device()));
+        }
+    }
+}
+
+const Tensor* Optimizer::get_master_weight(const Value& v) const {
+    auto it = master_params_.find(v.node.get());
+    if (it != master_params_.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+SGDOptimizer::SGDOptimizer(const std::vector<Value>& params, float learning_rate)
+    : Optimizer(params), learning_rate_(learning_rate) {}
 
 void SGDOptimizer::step() {
     for (const auto& p : params_) {
@@ -47,39 +59,17 @@ void SGDOptimizer::step() {
     }
 }
 
-void SGDOptimizer::zero_grad() {
-    for (const auto& p : params_) {
-        Node* n = p.node.get();
-        if (n->requires_grad() && n->grad.is_valid()) {
-            n->grad = Tensor::zeros(n->grad.shape(), TensorOptions().with_dtype(n->grad.dtype()).with_device(n->grad.device()));
-        }
-    }
-}
-
-const Tensor* SGDOptimizer::get_master_weight(const Value& v) const {
-    auto it = master_params_.find(v.node.get());
-    if (it != master_params_.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
 Adam::Adam(const std::vector<Value>& params, float alpha, float beta1, float beta2, float epsilon)
-    : params_(params), alpha_(alpha), beta1_(beta1), beta2_(beta2), epsilon_(epsilon), t_(0) {
+    : Optimizer(params), alpha_(alpha), beta1_(beta1), beta2_(beta2), epsilon_(epsilon), t_(0) {
     
     for (const auto& p : params_) {
         Node* n = p.node.get();
         if (n->requires_grad()) {
-            // Initialize moments and master parameters in Float32
+            // Initialize moments in Float32
             TensorOptions opts_f32 = options(n->value).with_dtype(Dtype::Float32);
             
             m_[n] = Tensor::zeros(n->value.shape(), opts_f32);
             v_[n] = Tensor::zeros(n->value.shape(), opts_f32);
-            
-            // If the parameter is not Float32, we need a master copy in Float32
-            if (n->value.dtype() != Dtype::Float32) {
-                master_params_[n] = n->value.as_type(Dtype::Float32);
-            }
         }
     }
 }
@@ -125,23 +115,6 @@ void Adam::step() {
             n->value -= update;
         }
     }
-}
-
-void Adam::zero_grad() {
-    for (const auto& p : params_) {
-        Node* n = p.node.get();
-        if (n->requires_grad() && n->grad.is_valid()) {
-            n->grad = Tensor::zeros(n->grad.shape(), TensorOptions().with_dtype(n->grad.dtype()).with_device(n->grad.device()));
-        }
-    }
-}
-
-const Tensor* Adam::get_master_weight(const Value& v) const { // returns the master weight of the parameter
-    auto it = master_params_.find(v.node.get()); // find the master weight of the parameter
-    if (it != master_params_.end()) { // if the parameter is found
-        return &it->second; // return the master weight
-    }
-    return nullptr; // if the parameter is not found
 }
 
 } // namespace ag

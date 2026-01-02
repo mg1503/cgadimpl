@@ -15,32 +15,38 @@
 
 namespace ag {
 
-void SGD(const Value& root, const Tensor* grad_seed=nullptr, float learning_rate=100);
 
-class SGDOptimizer {
+class Optimizer {
 public:
-    SGDOptimizer(const std::vector<Value>& params, float learning_rate = 0.01);
-    
-    void step();
-    void zero_grad();
-    const Tensor* get_master_weight(const Value& v) const; // returns the master weight of the parameter
+    Optimizer(const std::vector<Value>& params);
+    virtual ~Optimizer() = default;
 
-private:
+    virtual void step() = 0;
+    void zero_grad();
+    const Tensor* get_master_weight(const Value& v) const;
+
+protected:
     std::vector<Value> params_;
-    float learning_rate_;
     std::unordered_map<Node*, Tensor> master_params_; // Master copy of parameters (Always Float32)
 };
 
-class Adam {
+class SGDOptimizer : public Optimizer {
+public:
+    SGDOptimizer(const std::vector<Value>& params, float learning_rate = 0.01);
+    
+    void step() override;
+
+private:
+    float learning_rate_;
+};
+
+class Adam : public Optimizer {
 public:
     Adam(const std::vector<Value>& params, float alpha = 0.001, float beta1 = 0.9, float beta2 = 0.999, float epsilon = 1e-8);
     
-    void step();
-    void zero_grad();
-    const Tensor* get_master_weight(const Value& v) const; // returns the master weight of the parameter
+    void step() override;
 
 private:
-    std::vector<Value> params_;
     float alpha_;
     float beta1_;
     float beta2_;
@@ -49,7 +55,6 @@ private:
 
     std::unordered_map<Node*, Tensor> m_;             // First moment (Always Float32)
     std::unordered_map<Node*, Tensor> v_;             // Second moment (Always Float32)
-    std::unordered_map<Node*, Tensor> master_params_; // Master copy of parameters (Always Float32) stored in the optimizer
 };
 
 }
