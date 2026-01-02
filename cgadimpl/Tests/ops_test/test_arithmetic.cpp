@@ -67,7 +67,7 @@ void test_add_sub() {
         std::cout << "❌ Failed Backward (b)\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_mul_div() {
@@ -108,7 +108,7 @@ void test_mul_div() {
         std::cout << "❌ Failed Backward (b)\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_fmab() {
@@ -139,7 +139,7 @@ void test_fmab() {
     }
     
     backward(sum(y));
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_edge_cases() {
@@ -169,7 +169,7 @@ void test_edge_cases() {
         return;
     }
     
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {

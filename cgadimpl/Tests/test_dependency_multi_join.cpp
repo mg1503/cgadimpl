@@ -61,7 +61,7 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, true);
     
-    std::cout << "✅ Parallel backward completed!\n" << std::endl;
+    std::cout << "  Parallel backward completed!\n" << std::endl;
     
     // Verify gradients computed
     std::cout << "Gradient verification:" << std::endl;
@@ -82,12 +82,12 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, false);
     
-    std::cout << "✅ Sequential backward completed!\n" << std::endl;
+    std::cout << "  Sequential backward completed!\n" << std::endl;
     std::cout << "  w1 gradient: " << (w1.grad().numel() > 0 ? "✓ Computed" : "✗ Missing") << std::endl;
     std::cout << "  w2 gradient: " << (w2.grad().numel() > 0 ? "✓ Computed" : "✗ Missing") << std::endl;
     
     std::cout << "\n========================================" << std::endl;
-    std::cout << "✅ Multi-Join Test PASSED!" << std::endl;
+    std::cout << "  Multi-Join Test PASSED!" << std::endl;
     std::cout << "   Complex graph with multiple convergence" << std::endl;
     std::cout << "   points handled correctly by dependency" << std::endl;
     std::cout << "   counter in both sequential and parallel!" << std::endl;

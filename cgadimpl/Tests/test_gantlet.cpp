@@ -167,7 +167,7 @@ void test_large_model_training() {
     assert(final_loss < initial_loss);
     // assert(final_loss < initial_loss / 2.0); // Assert that the loss at least halved
 
-    std::cout << "\n✅ 'The Gauntlet' training test passed!\n";
+    std::cout << "\n  'The Gauntlet' training test passed!\n";
     std::cout << "   Loss decreased significantly, indicating stable and correct gradient flow.\n";
 }
 

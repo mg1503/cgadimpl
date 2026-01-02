@@ -45,4 +45,4 @@ cmake --build "$CGADIMPL_BUILD" -- -j$(nproc)
 # ctest --output-on-failure
 # cd "$ROOT"
 
-echo "✅ Build and test run process finished."
+echo "  Build and test run process finished."

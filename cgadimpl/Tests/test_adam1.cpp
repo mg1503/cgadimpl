@@ -108,7 +108,7 @@ int main() {
     std::cout << "Final Loss:   " << final_loss << "\n";
 
     if (final_loss < initial_loss) {
-        std::cout << "✅ SUCCESS: Loss decreased with mixed activations.\n";
+        std::cout << "  SUCCESS: Loss decreased with mixed activations.\n";
     } else {
         std::cout << "❌ FAILURE: Loss did not decrease.\n";
     }

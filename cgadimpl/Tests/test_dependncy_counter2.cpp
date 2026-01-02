@@ -55,6 +55,6 @@ int main(){
     
     ag::backward(loss, nullptr, true);  // enable_parallel = true
     
-    std::cout << "\n✅ Backward pass completed!" << std::endl;
+    std::cout << "\n  Backward pass completed!" << std::endl;
     return 0;
 }

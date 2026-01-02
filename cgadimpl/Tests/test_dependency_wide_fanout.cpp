@@ -66,7 +66,7 @@ int main() {
     auto end_parallel = std::chrono::high_resolution_clock::now();
     auto duration_parallel = std::chrono::duration_cast<std::chrono::milliseconds>(end_parallel - start_parallel);
     
-    std::cout << "✅ Parallel backward completed!" << std::endl;
+    std::cout << "  Parallel backward completed!" << std::endl;
     std::cout << "   Time: " << duration_parallel.count() << " ms" << std::endl;
     std::cout << "   Gradient of x computed: " << (x.grad().numel() > 0 ? "✓" : "✗") << std::endl;
     
@@ -78,7 +78,7 @@ int main() {
     auto end_seq = std::chrono::high_resolution_clock::now();
     auto duration_seq = std::chrono::duration_cast<std::chrono::milliseconds>(end_seq - start_seq);
     
-    std::cout << "✅ Sequential backward completed!" << std::endl;
+    std::cout << "  Sequential backward completed!" << std::endl;
     std::cout << "   Time: " << duration_seq.count() << " ms" << std::endl;
     std::cout << "   Gradient of x computed: " << (x.grad().numel() > 0 ? "✓" : "✗") << std::endl;
     

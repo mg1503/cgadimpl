@@ -48,7 +48,7 @@ void test_attention_op() {
         }
         
         backward(sum(out));
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }

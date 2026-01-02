@@ -111,7 +111,7 @@ void test_manual_mlp_training() {
     assert(final_loss < initial_loss);
     assert(!std::isnan(final_loss) && !std::isinf(final_loss));
 
-    std::cout << "\n✅ Training successful. Loss decreased, confirming core graph and autodiff functionality.\n";
+    std::cout << "\n  Training successful. Loss decreased, confirming core graph and autodiff functionality.\n";
 }
 
 int main() {

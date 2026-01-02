@@ -52,7 +52,7 @@ void test_sin_cos() {
         std::cout << "❌ Failed Backward\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {

@@ -75,7 +75,7 @@ void test_numerical_parity() {
     if (compare_tensors(grad_x_ref, x.node->grad) &&
         compare_tensors(grad_w1_ref, w1.node->grad) &&
         compare_tensors(grad_w2_ref, w2.node->grad)) {
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } else {
         std::cout << "❌ Failed: Gradient mismatch\n";
     }
@@ -110,7 +110,7 @@ void test_deep_graph() {
     
     try {
         backward(loss);
-        std::cout << "✅ Passed (Depth: " << depth << ")\n";
+        std::cout << "  Passed (Depth: " << depth << ")\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }
@@ -134,7 +134,7 @@ void test_diamond_pattern() {
     
     try {
         backward(loss);
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }
@@ -162,7 +162,7 @@ void test_nested_checkpointing() {
     
     try {
         backward(loss);
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }
@@ -183,7 +183,7 @@ void test_leaf_checkpointing() {
     
     try {
         backward(loss);
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }
@@ -224,7 +224,7 @@ void test_inplace_interaction() {
         backward(loss);
         
         // If backward succeeded, it means the system handled the missing/stale value.
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }
@@ -250,7 +250,7 @@ void test_memory_pressure() {
     
     try {
         backward(loss);
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } catch (const std::exception& e) {
         std::cout << "❌ Failed: " << e.what() << "\n";
     }

@@ -43,7 +43,7 @@
 //         visited.insert(n.get());
 
 //         if (n->is_checkpoint) {
-//             std::cout << "Found marked checkpoint node: " << n->debug_name << " ✅\n";
+//             std::cout << "Found marked checkpoint node: " << n->debug_name << "  \n";
 //             marked_count++;
 //         }
 
@@ -242,7 +242,7 @@ void run_memory_savings_test() {
     std::cout << "--------------------------------------------------\n";
     
     if (saved > 0) {
-        std::cout << "\n✅ SUCCESS: Checkpointing successfully reduced memory usage!\n";
+        std::cout << "\n  SUCCESS: Checkpointing successfully reduced memory usage!\n";
     } else {
         std::cout << "\n❌ FAILURE: No memory savings observed.\n";
     }

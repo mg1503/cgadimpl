@@ -24,7 +24,7 @@ void test_layernorm() {
     }
     
     backward(sum(y));
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_rms() {
@@ -35,7 +35,7 @@ void test_rms() {
     Value y = rms(x);
     
     backward(sum(y));
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {

@@ -56,7 +56,7 @@ void test_mse() {
         std::cout << "❌ Failed Backward\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_cross_entropy() {
@@ -88,7 +88,7 @@ void test_cross_entropy() {
     float g2 = grad.data<float>()[1];
     
     if (std::abs(g1 + 0.2689f) < 1e-3 && std::abs(g2 - 0.2689f) < 1e-3) {
-        std::cout << "✅ Passed\n";
+        std::cout << "  Passed\n";
     } else {
         std::cout << "❌ Failed Backward. Got " << g1 << ", " << g2 << "\n";
     }

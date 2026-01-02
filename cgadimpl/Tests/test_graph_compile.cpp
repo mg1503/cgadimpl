@@ -74,7 +74,7 @@ int main() {
     std::cout << "Compiled Result: " << compiled_val << "\n";
 
     if (std::abs(eager_val - compiled_val) < 1e-5f) {
-        std::cout << "✅ PASS: Eager and compiled results match.\n";
+        std::cout << "  PASS: Eager and compiled results match.\n";
     } else {
         std::cout << "❌ FAIL: Results do not match.\n";
     }

@@ -59,7 +59,7 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, true);
     
-    std::cout << "✅ Backward pass completed!\n" << std::endl;
+    std::cout << "  Backward pass completed!\n" << std::endl;
     
     auto grad_w = w.grad();
     std::cout << "Gradient verification:" << std::endl;
@@ -86,7 +86,7 @@ int main() {
     std::cout << "    → Embedding gradient comes from both sides" << std::endl;
     std::cout << "\n  • Siamese Networks: Same CNN weights for both inputs" << std::endl;
     std::cout << "    → Weight gradient = sum from both branches" << std::endl;
-    std::cout << "\n✅ The dependency counter handles all these cases!" << std::endl;
+    std::cout << "\n  The dependency counter handles all these cases!" << std::endl;
     std::cout << "========================================" << std::endl;
     
     return 0;

@@ -66,7 +66,7 @@ int main() {
     Tensor grad1_par = x1_par.grad();
     
     bool test1_pass = tensors_close(grad1_seq, grad1_par);
-    std::cout << "  Result: " << (test1_pass ? "✅ PASS" : "❌ FAIL") << std::endl;
+    std::cout << "  Result: " << (test1_pass ? "  PASS" : "❌ FAIL") << std::endl;
     all_tests_passed &= test1_pass;
 
     // ========================================
@@ -114,7 +114,7 @@ int main() {
     Tensor grad2_par = x2_par.grad();
     
     bool test2_pass = tensors_close(grad2_seq, grad2_par);
-    std::cout << "  Result: " << (test2_pass ? "✅ PASS" : "❌ FAIL") << std::endl;
+    std::cout << "  Result: " << (test2_pass ? "  PASS" : "❌ FAIL") << std::endl;
     all_tests_passed &= test2_pass;
 
     // ========================================
@@ -157,7 +157,7 @@ int main() {
     
     bool test3_pass = tensors_close(grad3_w1_seq, grad3_w1_par) && 
                       tensors_close(grad3_w2_seq, grad3_w2_par);
-    std::cout << "  Result: " << (test3_pass ? "✅ PASS" : "❌ FAIL") << std::endl;
+    std::cout << "  Result: " << (test3_pass ? "  PASS" : "❌ FAIL") << std::endl;
     all_tests_passed &= test3_pass;
 
     // ========================================
@@ -168,7 +168,7 @@ int main() {
     std::cout << "========================================" << std::endl;
     
     if (all_tests_passed) {
-        std::cout << "✅✅✅ ALL TESTS PASSED! ✅✅✅" << std::endl;
+        std::cout << "    ALL TESTS PASSED!    " << std::endl;
         std::cout << "\n🎉 The dependency counter implementation is" << std::endl;
         std::cout << "   MATHEMATICALLY CORRECT!" << std::endl;
         std::cout << "\n   Sequential and parallel backward passes" << std::endl;

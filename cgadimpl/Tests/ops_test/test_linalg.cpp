@@ -57,7 +57,7 @@ void test_matmul() {
         std::cout << "❌ Failed Backward (A)\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_transpose() {
@@ -88,7 +88,7 @@ void test_transpose() {
         std::cout << "\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_linear() {
@@ -116,7 +116,7 @@ void test_linear() {
     }
     
     backward(sum(y));
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {

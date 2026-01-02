@@ -47,7 +47,7 @@ void test_sum() {
         std::cout << "❌ Failed Backward\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_rowsum() {
@@ -76,7 +76,7 @@ void test_rowsum() {
         std::cout << "❌ Failed Backward\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_softmax_row() {
@@ -103,7 +103,7 @@ void test_softmax_row() {
         std::cout << "❌ Failed Backward\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {

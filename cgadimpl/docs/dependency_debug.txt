@@ -44,5 +44,5 @@ ReadyQueue.hpp
 autodiff.cpp
  - Fixed all logic bugs
 Test Results
-✅ test_ag - Passes
-✅ test_mlp - Passes
+  test_ag - Passes
+  test_mlp - Passes

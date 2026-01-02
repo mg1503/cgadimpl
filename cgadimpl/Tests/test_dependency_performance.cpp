@@ -84,7 +84,7 @@ int main() {
     auto end_seq = std::chrono::high_resolution_clock::now();
     auto duration_seq = std::chrono::duration_cast<std::chrono::milliseconds>(end_seq - start_seq);
     
-    std::cout << "✅ Sequential backward completed!" << std::endl;
+    std::cout << "  Sequential backward completed!" << std::endl;
     std::cout << "   Time: " << duration_seq.count() << " ms" << std::endl;
     
     // ========================================
@@ -101,7 +101,7 @@ int main() {
     auto end_par = std::chrono::high_resolution_clock::now();
     auto duration_par = std::chrono::duration_cast<std::chrono::milliseconds>(end_par - start_par);
     
-    std::cout << "✅ Parallel backward completed!" << std::endl;
+    std::cout << "  Parallel backward completed!" << std::endl;
     std::cout << "   Time: " << duration_par.count() << " ms" << std::endl;
     
     // ========================================

@@ -44,7 +44,7 @@ void CudaGraphRunner::begin_capture() {
         return;
     }
     is_capturing_ = true;
-    std::cout << "✅ Capture started successfully" << std::endl;
+    std::cout << "  Capture started successfully" << std::endl;
 }
 
 void CudaGraphRunner::end_capture() {

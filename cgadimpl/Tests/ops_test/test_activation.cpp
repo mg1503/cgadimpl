@@ -75,7 +75,7 @@ void test_relu() {
          return;
     }
 
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_sigmoid() {
@@ -110,7 +110,7 @@ void test_sigmoid() {
         std::cout << "\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_tanh() {
@@ -144,7 +144,7 @@ void test_tanh() {
         std::cout << "\n";
         return;
     }
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 void test_edge_cases() {
@@ -163,7 +163,7 @@ void test_edge_cases() {
         return;
     }
     
-    std::cout << "✅ Passed\n";
+    std::cout << "  Passed\n";
 }
 
 int main() {
