@@ -17,9 +17,10 @@ The library has the **foundational building blocks** (datatypes and kernels) for
     - Matrix Multiplication (`Matmul`) in `tensor/src/Kernels/cuda/GenMatmul.cu` supports these types, using `float` as an accumulator for better precision.
 
 ### 3. Casting Operations
-- **Status**: ⚠️ **Partial / Inefficient**
+- **Status**: ✅ **Ready (CPU)** / ⚠️ **Inefficient (GPU)**
 - **Details**: 
-    - The `as_type(Dtype)` method exists but uses a **CPU-fallback strategy** for CUDA tensors (GPU → CPU → Convert → GPU). This is a major bottleneck for mixed precision training where casting happens every iteration.
+    - **CPU Support**: On CPU, `as_type(Dtype)` works natively and efficiently. It uses standard C++ casting (via `static_cast` and custom conversion operators) to convert between types like `Float32`, `Bfloat16`, and `Float16` without any overhead.
+    - **GPU Bottleneck**: For CUDA tensors, it currently uses a **CPU-fallback strategy** (GPU → CPU → Convert → GPU). This is a major bottleneck for mixed precision training where casting happens every iteration.
     - Native CUDA casting kernels exist for some paths in `ConversionKernels.cu`, but they are not yet fully integrated into a unified GPU-native `as_type` path.
 
 ### 4. Optimizer Support (cgadimpl)

@@ -26,7 +26,15 @@ namespace ag {
 
 void zero_grad(const Value& root){
     auto order = topo_from(root.node.get());
-    for (Node* n : order) if (n->requires_grad()) n->grad = Tensor::zeros(n->value.shape(), ag::options(n->value));
+    for (Node* n : order) {
+        if (n->requires_grad()) {
+            Dtype grad_dtype = n->value.dtype();
+            if (is_float(grad_dtype)) {
+                grad_dtype = Dtype::Float32;
+            }
+            n->grad = Tensor::zeros(n->value.shape(), TensorOptions().with_dtype(grad_dtype).with_device(n->value.device()));
+        }
+    }
 }
 
 #pragma omp parallel for
@@ -53,7 +61,11 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
         if(grad_seed){
             root.node->grad = *grad_seed;
         }else{
-            auto opts = ag::options(root.node->value);
+            Dtype grad_dtype = root.node->value.dtype();
+            if (is_float(grad_dtype)) {
+                grad_dtype = Dtype::Float32;
+            }
+            auto opts = TensorOptions().with_dtype(grad_dtype).with_device(root.node->value.device());
             if (root.node->value.numel() == 1) {
                 root.node->grad = OwnTensor::Tensor::ones(Shape{{1}}, opts);
             } else {

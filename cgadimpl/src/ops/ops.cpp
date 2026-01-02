@@ -337,8 +337,19 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         }
         // case Op::Sigmoid: {
         //     const Tensor &X = node->inputs[0]->value;
-        // //     return Tensor::sigmoid(X);
+        //     return ag::sigmoid(X);
         // }
+
+        case Op::GELU: {
+            const Tensor &x = node->inputs[0]->value;
+            // GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+            float k = std::sqrt(2.0f / 3.14159265358979323846f);
+            auto x3 = OwnTensor::pow(x, 3.0f, ag::current_stream());
+            auto inner = (x + x3 * 0.044715f) * k;
+            auto tanh_inner = OwnTensor::tanh(inner, ag::current_stream());
+            return x * 0.5f * (tanh_inner + 1.0f);
+        }
+
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
             return tanh(X);

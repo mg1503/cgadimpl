@@ -25,15 +25,13 @@ Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm)
     creation_context.device = v.device();
     
     if (requires_grad_flag_) {
-        // CORRECT WAY:
-        // 1. Create a TensorOptions object with the correct properties.
-        // TensorOptions opts = TensorOptions()
-        //                         .with_dtype(v.dtype())
-        //                         .with_device(v.device());
-        
-        // 2. Call the 'zeros' factory with the correct signature (shape, opts).
-        grad = OwnTensor::Tensor::zeros(v.shape(), ag::options(v));
-    }/*else {
+        Dtype grad_dtype = v.dtype(); // dtype of grad should be same as value
+        if (is_float(grad_dtype)) {
+            grad_dtype = Dtype::Float32;
+        }
+        grad = OwnTensor::Tensor::zeros(v.shape(), TensorOptions().with_dtype(grad_dtype).with_device(v.device()));
+    }
+/*else {
         // If no grad is required, grad can be an empty tensor.
         // grad = Tensor(Shape{}, TensorOptions().with_dtype(v.dtype()).with_device(v.device()));
     }*/

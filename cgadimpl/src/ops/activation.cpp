@@ -40,14 +40,7 @@ std::shared_ptr<Node> tanh_nodeops(const std::shared_ptr<Node>& x){
     ag::debug::on_node_created(n);
     return n;
 }
-// std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
-//     Tensor y = OwnTensor::log(1.0f + OwnTensor::exp(x->value, ag::current_stream()), ag::current_stream());
-//     auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
-//     n->inputs = {x};
-//     if(x) x->child_grad_count++;
-//     ag::debug::on_node_created(n);
-//     return n;
-// }
+
 
 std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
     // All ops automatically use the stream from the context.

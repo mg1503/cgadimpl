@@ -4,7 +4,7 @@
 #include <cassert>
 #include <iomanip>
 #include "ad/ag_all.hpp"
-#include "optim.hpp"
+#include "ad/optimizer/optim.hpp"
 
 using namespace ag;
 using namespace OwnTensor;
@@ -582,10 +582,10 @@ int main() {
     
     std::cout << "\n===========================================================\n";
     if (all_pass) {
-        std::cout << "RESULT: ALL TESTS PASSED ✅" << std::endl;
+        std::cout << "RESULT: ALL TESTS PASSED" << std::endl;
         return 0;
     } else {
-        std::cout << "RESULT: SOME TESTS FAILED ❌" << std::endl;
+        std::cout << "RESULT: SOME TESTS FAILED" << std::endl;
         return 1;
     }
 }

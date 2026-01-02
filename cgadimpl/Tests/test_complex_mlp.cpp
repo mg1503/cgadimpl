@@ -22,7 +22,7 @@ int main() {
     // ---------- Data ----------
     // Inputs are constants (requires_grad=false, which is the default)
     Tensor Xt = Tensor::randn(Shape{{B, In}}, TensorOptions());
-    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions()), "X");
+    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions().with_dtype(Dtype::Bfloat16)), "X");
 
     // One-hot labels Y[B,Out]
     Tensor Yt(Shape{{B, Out}}, TensorOptions());
@@ -39,7 +39,7 @@ int main() {
 
     // ---------- Parameters ----------
     // Parameters are trainable (requires_grad=true)
-    auto opts_param = TensorOptions().with_req_grad(true);
+    auto opts_param = TensorOptions().with_req_grad(true).with_dtype(Dtype::Bfloat16);
     auto W1 = make_tensor(Tensor::randn(Shape{{In, H1}}, opts_param), "W1");
     auto b1 = make_tensor(Tensor::zeros(Shape{{1, H1}}, opts_param), "b1");
     auto W2 = make_tensor(Tensor::randn(Shape{{H1, H2}}, opts_param), "W2");
