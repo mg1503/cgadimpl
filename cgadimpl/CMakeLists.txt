@@ -7,11 +7,6 @@ set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
 project(cgadimpl LANGUAGES CXX CUDA)
 
-# --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
-set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
-
-project(cgadimpl LANGUAGES CXX CUDA)
-
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -64,11 +59,27 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 target_include_directories(cgadimpl PRIVATE /usr/local/cuda/include)
 # target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
+
+# Filter out /usr/include to avoid system header issues
+if(LLVM_INCLUDE_DIRS)
+    list(REMOVE_ITEM LLVM_INCLUDE_DIRS "/usr/include")
+endif()
+if(MLIR_INCLUDE_DIRS)
+    list(REMOVE_ITEM MLIR_INCLUDE_DIRS "/usr/include")
+endif()
+
 target_include_directories(cgadimpl PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${LLVM_INCLUDE_DIRS}
     ${MLIR_INCLUDE_DIRS}
+    ${NOVA_INCLUDE_DIRS}
+    # Manual Include for Runtime (since not installed yet)
+    /home/blu-bridge006/Desktop/mlir-compiler/include
 )
+
+# Prevent -isystem /usr/include which breaks header search order (fixes stdlib.h error)
+set_target_properties(cgadimpl PROPERTIES NO_SYSTEM_FROM_IMPORTED ON)
+
 target_link_libraries(cgadimpl PUBLIC 
     OwnTensor::tensor 
     dl
@@ -79,6 +90,12 @@ target_link_libraries(cgadimpl PUBLIC
     MlirCompiler::CompilerTransforms
     MlirCompiler::MLIRNova
     MlirCompiler::AffineTransforms
+    
+    # Nova Runtime (Manual Link due to missing export)
+    # MlirCompiler::NovaRuntimeCore --- MISSING EXPORT
+    /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Core/libNovaRuntimeCore.a
+    /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Executor/libNovaRuntimeExecutor.a
+    # /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Kernels/libNovaRuntimeKernels.a  <- Not needed for JIT Bridge
     
     # MLIR Conversion/Transforms
     MLIRReconcileUnrealizedCasts
@@ -124,6 +141,7 @@ if(true)
   function(add_ag_test name src)
     add_executable(${name} ${src})
     target_link_libraries(${name} PRIVATE cgadimpl::cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
+    set_target_properties(${name} PROPERTIES NO_SYSTEM_FROM_IMPORTED ON)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   

@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <chrono>
 #include "ad/autodiff/autodiff.hpp"
+#include <functional>
 
 namespace ag::debug {
 

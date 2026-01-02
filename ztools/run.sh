@@ -5,7 +5,7 @@ set -euo pipefail
 BUILD_TYPE="Debug"
 
 # This is the most reliable way to tell CMake which compiler to use.
-export CUDACXX=/usr/local/cuda-13.0/bin/nvcc
+export CUDACXX=/usr/local/cuda-12.9/bin/nvcc
 
 # --- Path Setup ---
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,7 +32,7 @@ cd "${ROOT}"
 
 # --- STEP 2: Configure and build the core cgadimpl library ---
 echo "== Configuring core"
-cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -Dmlir-compiler_DIR="$ROOT/Nova-Compiler/install/lib/cmake/mlir-compiler"
 
 echo "== Building core"
 cmake --build "$CGADIMPL_BUILD" -- -j$(nproc)

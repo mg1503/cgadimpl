@@ -10,6 +10,9 @@
 #include <cassert>
 #include <sstream>
 
+#include "Runtime/Executor/ExecutionEngine.h"
+#include "Runtime/Kernels/KernelRegistration.h"
+
 namespace ag::jit {
 
 using ag::Op;
@@ -314,10 +317,100 @@ Compiled compile(const Value& output,
     return c;
 }
 
+// --- Bridge to Nova Runtime ---
+// Includes moved to top of file to avoid namespace pollution
+// See top of file for #include "Runtime/Executor/ExecutionEngine.h"
+
+// Wrapper to make the legacy 'run' look like a JIT compiled function
+// Signature: void* func(void** args)
+// args[0] = Compiled::Impl* (context)
+// args[1] = std::vector<Tensor*>* (inputs)
+// args[2] = std::vector<Tensor*>* (params)
+// Returns: Tensor* (result)
+extern "C" void* LegacyInterpWrapper(void** args) {
+    auto* impl = static_cast<Compiled::Impl*>(args[0]);
+    auto* inputs = static_cast<const std::vector<Tensor*>*>(args[1]);
+    auto* params = static_cast<const std::vector<Tensor*>*>(args[2]);
+    
+    Tensor* out = new Tensor();
+    bool success = impl->run(*inputs, *params, *out);
+    if (!success) {
+        delete out;
+        return nullptr; // Signal failure?
+    }
+    return out;
+}
+
 bool Compiled::run(const std::vector<Tensor*>& inputs,
                    const std::vector<Tensor*>& params,
                    Tensor& out) const {
-    return p->run(inputs, params, out);
+    
+    // 1. Setup Runtime Engine
+    // In a real app, HostContext should be a global singleton or passed in.
+    static nova::runtime::HostContext host(4); 
+    nova::runtime::ExecutionEngine engine(&host);
+
+    // 2. Build Execution Plan (Single JIT Task)
+    nova::runtime::RuntimeExecutionPlan plan;
+    plan.output_task_id = 0;
+
+    nova::runtime::AsyncTask task;
+    task.task_id = 0;
+    task.op_name = "jit.bridge"; // generic name
+    task.device = nova::runtime::Device::CPU;
+    
+    // We pass the context, inputs, and params as "Literal" arguments acting as opaque pointers
+    // In a real JIT, these would be unwrapped tensors.
+    // Here we cheat and pass the whole vectors to the wrapper.
+    // Argument 0: Impl pointer
+    // Argument 1: Inputs vector pointer
+    // Argument 2: Params vector pointer
+    
+    // To pass these through the engine, we need them to appear as void* inputs.
+    // We will construct a "JIT Call Frame" manually.
+    
+    // Wait, the JITLauncher expects `void*` arguments from `inputs` or `intermediate_values`.
+    // It calls `func(raw_args.data())`.
+    // So `raw_args` will contain what we pass.
+    
+    // Let's bundle everything into a context struct if possible, or just pass pointers.
+    // We'll treat Impl*, Inputs*, Params* as the "execution inputs".
+    
+    std::vector<void*> exec_inputs;
+    exec_inputs.push_back(const_cast<Compiled::Impl*>(p.get()));
+    exec_inputs.push_back(const_cast<std::vector<Tensor*>*>(&inputs));
+    exec_inputs.push_back(const_cast<std::vector<Tensor*>*>(&params));
+    
+    task.args = { 
+        nova::runtime::ArgInput{0}, 
+        nova::runtime::ArgInput{1}, 
+        nova::runtime::ArgInput{2} 
+    };
+    
+    // Set the Function Pointer
+    task.jit_function = reinterpret_cast<void*>(&LegacyInterpWrapper);
+    
+    plan.tasks.push_back(task);
+
+    // 3. Execute
+    auto* result_av = engine.Execute(plan, exec_inputs, {});
+    result_av->Await();
+
+    // 4. Retrieve Result
+    if (result_av->IsError()) {
+        std::cerr << "Runtime Integration Error: " << result_av->GetError() << "\n";
+        return false;
+    }
+
+    auto* concrete = dynamic_cast<nova::runtime::ConcreteAsyncValue<void*>*>(result_av);
+    if (!concrete) return false;
+    
+    Tensor* result_tensor = static_cast<Tensor*>(concrete->get());
+    if (!result_tensor) return false;
+
+    out = std::move(*result_tensor);
+    delete result_tensor; // We took ownership via move, delete the container
+    return true;
 }
 
 const std::string& Compiled::getMLIRSource() const {
