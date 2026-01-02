@@ -169,6 +169,8 @@ if(true)
   add_ag_test(test_dag_analysis                               Tests/test_dag_analysis.cpp)
   add_ag_test(test_warmup                                     Tests/test_warmup.cpp)
   add_ag_test(test_memory_                                    Tests/benchmark_memory_approaches.cpp )
+  
+  add_ag_test(test_autograd_hooks                             Tests/autograd_hooks_testing/test_hooks.cpp)
 
 endif()
 
