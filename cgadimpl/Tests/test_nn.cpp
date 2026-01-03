@@ -75,9 +75,9 @@ int main() {
     std::cout << "Model created with " << model.parameters().size() << " parameter tensors.\n\n";
 
     // 3. --- Generate Random Data ---
-    Tensor x_tensor = Tensor::randn(Shape{{batch_size, input_features}}, TensorOptions().with_req_grad(true));
+    // Tensor x_tensor = 
     Tensor y_tensor = Tensor::randn(Shape{{batch_size, output_features}}, TensorOptions().with_req_grad(true));
-    Value X = make_tensor(x_tensor, "X_data");
+    Value X = make_tensor(Tensor::randn(Shape{{batch_size, input_features}}, TensorOptions().with_req_grad(true)), "X_data");
     Value Y = make_tensor(y_tensor, "Y_target");
 
     // 4. --- The Training Loop ---

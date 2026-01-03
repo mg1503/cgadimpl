@@ -67,8 +67,6 @@ public:
      */
     bool replay();
 
-    cudaStream_t get_stream() const { return stream_; }
-
 private:
     cudaStream_t stream_ = nullptr;
     cudaGraph_t graph_ = nullptr;
