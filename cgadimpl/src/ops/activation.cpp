@@ -85,6 +85,15 @@ std::shared_ptr<Node> softplus_nodeops(const std::shared_ptr<Node>& x){
     if(x) x->child_grad_count++;
     ag::debug::on_node_created(n);
     return n;
+
+    // auto n = std::make_shared<Node>(y, Op::Softplus, x->requires_grad(), "softplus");
+    // n->inputs = {x};
+
+    // //new code lines --> dependency counter
+    // if(x) x->child_grad_count++;
+
+    // ag::debug::on_node_created(n);
+    // return n;
 }
 std::shared_ptr<Node> gelu_nodeops(const std::shared_ptr<Node>& x){
     const float c1 = 0.7978845608f; 

@@ -13,6 +13,8 @@
 
 namespace ag {
 struct Node;
+using HookFn = std::function<void(Node*)>;
+
 struct Value {
     std::shared_ptr<Node> node;
     Value();    
@@ -24,6 +26,7 @@ struct Value {
     const Tensor& val() const;
     Tensor& grad();
     const Tensor& grad() const;
+    void register_hook(HookFn hook);
 };
 
 struct Node : std::enable_shared_from_this<Node> {
@@ -53,6 +56,10 @@ struct Node : std::enable_shared_from_this<Node> {
     std::atomic<int> child_grad_count{0};
     std::mutex grad_mutex;
 
+    std::vector<HookFn> post_acc_grad_hooks;
+    void register_hook(HookFn hook) {
+        post_acc_grad_hooks.push_back(hook);
+    }
     struct ExecutionContext {
         ag_cuda_stream_t stream{nullptr};
         DeviceIndex device;
@@ -72,4 +79,9 @@ inline Value make_tensor(const Tensor& v, const char* name = "") {
 
 std::vector<Node*> topo_from(Node* root);
     
+
+inline void Value::register_hook(HookFn hook) {
+    if (node) node->register_hook(hook);
+}
+
 } // namespace ag

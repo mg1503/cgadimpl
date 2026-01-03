@@ -50,6 +50,8 @@ public:
      * @return True if replay was successful, false otherwise.
      */
     bool replay();
+    
+    cudaStream_t get_stream() const { return stream_; }
 
     cudaStream_t get_stream() const { return stream_; }
 

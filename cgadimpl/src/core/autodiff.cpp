@@ -87,6 +87,10 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             
             VjpFn fn = vjp_lookup(n->op);
             if (fn) fn(n, gy);
+
+            for (auto& hook : n->post_acc_grad_hooks) {
+                hook(n);
+            }
         }
         return;
     }
@@ -96,9 +100,16 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
     readyqueue rq;
     // Push all nodes that are initially ready (no children waiting to send gradients)
-    for (Node* n : order) {
-        if (n->requires_grad() && !n->is_leaf && n->child_grad_count == 0){
-            rq.push(n);
+     for (Node* n : order) {
+        if (n->requires_grad() && n->child_grad_count == 0){
+            // Trigger hooks for initial ready nodes (like root or independent leaves)
+            for (auto& hook : n->post_acc_grad_hooks) hook(n);
+
+            if (!n->is_leaf) {
+                rq.push(n);
+            } else {
+                pending_tasks--;
+            }
         }
     }
     
@@ -132,6 +143,7 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
                 // Decrement counter 
                 if (parent->child_grad_count.fetch_sub(1) == 1){
+                    for (auto& hook : parent->post_acc_grad_hooks) hook(parent);
                     rq.push(parent);
                 }
             }

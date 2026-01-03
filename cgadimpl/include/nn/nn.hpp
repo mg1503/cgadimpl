@@ -20,6 +20,12 @@ public:
 
     void to(Device dev);
     void zero_grad();
+    void register_backward_hook(HookFn hook) {
+        for (auto& p : params_) {
+            p.register_hook(hook);
+        }
+
+    }
 
 protected:
     std::vector<Value> params_;
