@@ -132,7 +132,17 @@ target_link_libraries(cgadimpl PUBLIC
     MLIRSupport
     LLVMSupport
 )
+# --- FIX: Prioritize Local NovaCompiler Includes ---
+# We derive the include path from the mlir-compiler_DIR which is passed as
+# <install_prefix>/lib/cmake/mlir-compiler. We need <install_prefix>/include.
+get_filename_component(NOVA_CMAKE_DIR "${mlir-compiler_DIR}" ABSOLUTE)
+get_filename_component(NOVA_LIB_DIR "${NOVA_CMAKE_DIR}" DIRECTORY)
+get_filename_component(NOVA_LIB_DIR "${NOVA_LIB_DIR}" DIRECTORY) # up to lib
+get_filename_component(NOVA_INSTALL_PREFIX "${NOVA_LIB_DIR}" DIRECTORY) # up to install prefix
+set(NOVA_INCLUDE_DIR "${NOVA_INSTALL_PREFIX}/include")
 
+include_directories(BEFORE "${NOVA_INCLUDE_DIR}")
+message(STATUS "Forcing NovaCompiler include dir: ${NOVA_INCLUDE_DIR}")
 # ---- Tests ----
 if(true)
   enable_testing()
@@ -143,7 +153,7 @@ if(true)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   
-  set(CUDA_TEST_SOURCES Tests/test_kernels_gpu.cpp Tests/test_graph_gpu.cpp Tests/test_end_to_end_gpu.cpp)
+  set(CUDA_TEST_SOURCES Tests/test_graph_gpu.cpp Tests/test_end_to_end_gpu.cpp)
   set_source_files_properties(${CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
         
   add_ag_test(test_ag                                         Tests/test_ag.cpp)
@@ -187,6 +197,21 @@ if(true)
   add_ag_test(test_memory_                                    Tests/benchmark_memory_approaches.cpp )
   
   add_ag_test(test_autograd_hooks                             Tests/autograd_hooks_testing/test_hooks.cpp)
+ 
+  # Ops Tests
+#   add_ag_test(test_activation                  Tests/ops_test/test_activation.cpp)
+#   add_ag_test(test_arithmetic                  Tests/ops_test/test_arithmetic.cpp)
+#   add_ag_test(test_attention                   Tests/ops_test/test_attention.cpp)
+#   add_ag_test(test_linalg                      Tests/ops_test/test_linalg.cpp)
+#   add_ag_test(test_loss                        Tests/ops_test/test_loss.cpp)
+#   add_ag_test(test_normalization               Tests/ops_test/test_normalization.cpp)
+#   add_ag_test(test_reduction                   Tests/ops_test/test_reduction.cpp)
+#   add_ag_test(test_trigonometry                Tests/ops_test/test_trigonometry.cpp)
+
+# #Optim Tests
+#     add_ag_test(test_adam                 Tests/test_adam.cpp)
+#     add_ag_test(test_adam1                  Tests/test_adam1.cpp)
+#     add_ag_test(test_adam_optim_prod                  Tests/test_adam_optim_prod.cpp)
 
 endif()
 

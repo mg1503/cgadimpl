@@ -14,7 +14,6 @@
 //
 // Use cases in ML:
 //   - Positional encodings (sin/cos)
-//   - GCU activation (x * cos(x))
 //   - Smooth activations
 // =============================================================================
 
@@ -31,3 +30,8 @@ OP(Cosh,      1,    "cosh")        // cosh(x) = (e^x + e^-x) / 2
 OP(Asin,      1,    "asin")        // asin(x)
 OP(Acos,      1,    "acos")        // acos(x)
 OP(Atan,      1,    "atan")        // atan(x)
+
+// --- Inverse Hyperbolic Trigonometric Functions ---
+OP(ASinh,      1,    "asinh")        // asinh(x)
+OP(ACosh,      1,    "acosh")        // acosh(x)
+OP(ATanh,      1,    "atanh")        // atanh(x)

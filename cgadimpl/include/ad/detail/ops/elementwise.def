@@ -30,3 +30,5 @@ OP(Log,       1,    "log")         // ln(x), natural logarithm
 OP(Sqrt,      1,    "sqrt")        // √x, square root
 OP(Reciprocal,1,    "reciprocal")  // 1/x
 OP(Sign,      1,    "sign")        // sign(x) ∈ {-1, 0, 1}
+OP(Abs,       1,    "abs")         // only +ve
+OP(Pow,       2,    "pow")         // pow(4, 5)

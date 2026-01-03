@@ -1,6 +1,6 @@
 #pragma once
 #include "ad/core/graph.hpp"
-#include "ad/runtime/runtime.hpp"
+#include "ad/runtime/cuda_graphs.hpp"
 #include "ad/core/mlir_emitter.hpp"
 #include <vector>
 #include <variant>

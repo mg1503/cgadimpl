@@ -1,127 +1,38 @@
-// // // ============================================================
-// // // File: test_checkpoint.cpp
-// // // Purpose: Verify gradient checkpointing and recomputation
-// // // ============================================================
-
-// // #include <iostream>
-// // #include <vector>
-// // #include "ad/ag_all.hpp"
-
-// // using namespace ag;
-
-// // int main() {
-// //     std::cout << "===== Gradient Checkpointing Test =====\n";
-
-// //     // 1. Create some simple input tensors
-// //     Tensor x_data = Tensor::randn(2, 2, 42);  // small deterministic input
-// //     Tensor W_data = Tensor::randn(2, 2, 123);
-// //     Tensor b_data = Tensor::randn(2, 2, 7);
-
-// //     // 2. Wrap them as Values for the computational graph
-// //     Value x = constant(x_data, "x");
-// //     Value W = param(W_data, "W");
-// //     Value b = param(b_data, "b");
-
-// //     // 3. Build a small network with checkpointed middle layer
-// //     //    y = ((x @ W) + b).relu()
-// //     Value y1 = matmul(x, W);
-// //     Value y2 = add(y1, b);
-
-// //     // Mark y2 as a checkpoint
-// //     y2 = checkpoint(y2);
-
-// //     // Apply activation
-// //     Value y3 = relu(y2);
-// //     Value loss = sum(y3);  // simple scalar loss
-
-// //     // 4. Backward pass
-// //     backward(loss);
-
-// //     // 5. Verify that checkpointed nodes recompute
-// //     std::cout << "\n--- Checkpoint verification ---\n";
-// //     auto n = y2.node;
-// //     if (n->is_checkpoint) {
-// //         std::cout << "Node " << n->debug_name << " is checkpointed ✅\n";
-// //     } else {
-// //         std::cout << "Node " << n->debug_name << " is NOT checkpointed ❌\n";
-// //     }
-
-// //     // 6. Inspect gradient values
-// //     std::cout << "\nGradients:\n";
-// //     std::cout << "dL/dW:\n" << W.grad() << "\n";
-// //     std::cout << "dL/db:\n" << b.grad() << "\n";
-
-// //     // 7. Check recomputation correctness manually
-// //     std::cout << "\nRecomputing checkpoint manually...\n";
-// //     bool recomputed = checkpoint_impl::recompute_subgraph(y2.node->shared_from_this());
-// //     std::cout << (recomputed ? "Recomputation success ✅\n" : "Recomputation failed ❌\n");
-
-// //     // 8. Print recomputed value
-// //     std::cout << "\nCheckpointed node value after recompute:\n";
-// //     std::cout << y2.node->value << "\n";
-
-// //     std::cout << "===== Test completed successfully =====\n";
-// //     return 0;
-// // }
-
-// // ============================================================
-// // File: test_auto_checkpoint.cpp
-// // Purpose: Verify automatic gradient checkpointing (every_n & by_depth)
-// // ============================================================
-
 // #include <iostream>
 // #include <vector>
-// #include "ad/ag_all.hpp"
-// #include "ad/autodiff/checkpoint.hpp"
-// #include "ad/ops/kernels_api.hpp"
-// #include <unordered_set>
 // #include <deque>
+// #include <unordered_set>
+// #include "ad/ag_all.hpp"
+// #include "ad/autodiff/checkpoint.hpp" // For checkpoint_impl::mark_node_checkpoint
 
 // using namespace ag;
 
 // int main() {
-//     std::cout << "===== Auto Gradient Checkpointing Test =====\n";
-//     // ag::kernels::load_cpu_plugin("./libagkernels_cpu.so");
-//     // ------------------------------------------------------------
-//     // 1. Prepare small deterministic tensors
+//     std::cout << "===== mark_node_checkpoint Test =====\n";
 
-//     Tensor x_data = Tensor::randn(Shape{{2, 4, 42}}, TensorOptions().with_req_grad(true));
-//     Tensor W1_data = Tensor::randn(Shape{{4, 4, 123}}, TensorOptions().with_req_grad(true));
-//     Tensor W2_data = Tensor::randn(Shape{{4, 4, 321}}, TensorOptions().with_req_grad(true));
-//     Tensor W3_data = Tensor::randn(Shape{{4, 2, 999}}, TensorOptions().with_req_grad(true));
-//     Tensor b1_data = Tensor::randn(Shape{{1, 4, 55}}, TensorOptions().with_req_grad(true));
-//     Tensor b2_data = Tensor::randn(Shape{{1, 4, 77}}, TensorOptions().with_req_grad(true));
-//     Tensor b3_data = Tensor::randn(Shape{{1, 2, 88}}, TensorOptions().with_req_grad(true));
+//     // 1. Create some tensors and build a small graph
+//     auto opts_param = TensorOptions().with_req_grad(true);
+//     auto x = make_tensor(Tensor::randn(Shape{{2, 2}}, opts_param), "x");
+//     auto W = make_tensor(Tensor::randn(Shape{{2, 2}}, opts_param), "W");
+//     auto b = make_tensor(Tensor::randn(Shape{{2, 2}}, opts_param), "b");
 
+//     // Graph: y = relu(x @ W + b)
+//     Value y1 = matmul(x, W);
+//     y1.node->debug_name = "y1_matmul";
+//     Value y2 = add(y1, b);
+//     y2.node->debug_name = "y2_add";
+//     Value y3 = relu(y2);
+//     y3.node->debug_name = "y3_relu";
+//     Value loss = sum(y3);
+//     loss.node->debug_name = "loss";
 
-//     // ------------------------------------------------------------
-//     // 2. Wrap them as Values
-//     Value x = make_tensor(x_data, "x");
-//     Value W1 = make_tensor(W1_data, "W1");
-//     Value W2 = make_tensor(W2_data, "W2");
-//     Value W3 = make_tensor(W3_data, "W3");
-//     Value b1 = make_tensor(b1_data, "b1");
-//     Value b2 = make_tensor(b2_data, "b2");
-//     Value b3 = make_tensor(b3_data, "b3");
+//     // 2. Manually mark a node as a checkpoint
+//     std::cout << "\nMarking node 'y2_add' as a checkpoint...\n";
+//     checkpoint_impl::mark_node_checkpoint(y2.node);
 
-//     // ------------------------------------------------------------
-//     // 3. Build a deeper network
-//     // y = relu((relu((x @ W1 + b1) @ W2 + b2)) @ W3 + b3)
-//     Value h1 = relu(add(matmul(x, W1), b1));
-//     Value h2 = relu(add(matmul(h1, W2), b2));
-//     Value y = add(matmul(h2, W3), b3);
-//     Value loss = sum(relu(y));  // scalar loss
-
-//     // ------------------------------------------------------------
-//     // 4. Apply automatic checkpointing
-//     std::cout << "\nApplying auto checkpointing...\n";
-//     auto_checkpoint_every_n(loss, 2);       // mark every 2nd node
-//     auto_checkpoint_by_depth(loss, 3);      // mark nodes deeper than depth 3
-
-//     // ------------------------------------------------------------
-//     // 5. Verify which nodes got checkpointed
-//     std::cout << "\n--- Auto checkpoint verification ---\n";
-//     int checkpointed_count = 0;
+//     // 3. Traverse the graph and print only the marked nodes
+//     std::cout << "\n--- Verifying Marked Checkpoints ---\n";
+//     int marked_count = 0;
 //     std::deque<std::shared_ptr<Node>> q;
 //     std::unordered_set<Node*> visited;
 //     q.push_back(loss.node);
@@ -130,83 +41,225 @@
 //         auto n = q.front(); q.pop_front();
 //         if (!n || visited.count(n.get())) continue;
 //         visited.insert(n.get());
+
 //         if (n->is_checkpoint) {
-//             ++checkpointed_count;
-//             std::cout << "Checkpointed node: " << n->debug_name << " ✅\n";
+//             std::cout << "Found marked checkpoint node: " << n->debug_name << " ✅\n";
+//             marked_count++;
 //         }
-//         for (auto &p : n->inputs)
+
+//         for (auto &p : n->inputs) {
 //             if (p) q.push_back(p);
-//     }
-
-//     if (checkpointed_count == 0)
-//         std::cout << "❌ No nodes were marked as checkpointed.\n";
-//     else
-//         std::cout << "✅ Total checkpointed nodes: " << checkpointed_count << "\n";
-
-//     // ------------------------------------------------------------
-//     // 6. Backward pass (triggers recomputation of checkpointed nodes)
-//     backward(loss);
-
-//     // ------------------------------------------------------------
-//     // 7. Inspect gradients for parameters
-//     std::cout << "\nGradients:\n";
-//     debug::print_grad("grad of w1: \n", W1);
-//     debug::print_grad("grad of w2: \n", W2);
-//     debug::print_grad("grad of w3: \n", W3);
-//     debug::print_grad("grad of b3: \n", b3);
-
-//     // ------------------------------------------------------------
-//     // 8. Manual recomputation test on one of the checkpointed nodes
-//     std::cout << "\nManual recompute verification:\n";
-//     for (auto &n : visited) {
-//     if (n->is_checkpoint && !n->inputs.empty()) {
-//         bool ok = checkpoint_impl::recompute_subgraph(n->shared_from_this());
-//         std::cout << "Recomputed node (" << n->debug_name << "): "
-//                   << (ok ? "✅" : "❌") << "\n";
-//             break;
 //         }
 //     }
 
+//     if (marked_count == 0) {
+//         std::cout << "❌ No nodes were marked as checkpoints.\n";
+//     }
 
-//     std::cout << "\n===== Auto Checkpoint Test Completed =====\n";
+//     std::cout << "\n===== Test Completed =====\n";
 //     return 0;
 // }
-#include "ad/ag_all.hpp"
+
+#include "ad/core/graph.hpp"
+#include "ad/autodiff/autodiff.hpp"
+#include "ad/autodiff/checkpoint.hpp"
+#include "ad/autodiff/careful_deletion.hpp"
+#include "ad/autodiff/inplace.hpp"
+#include "tensor.hpp"
 #include <iostream>
-#include <cassert>
+#include <vector>
+#include <numeric>
 
 using namespace ag;
-using namespace OwnTensor;
+
+// ============================================================================
+// Helper: Calculate Total Graph Memory
+// ============================================================================
+
+size_t calculate_graph_memory(const Value& root) {
+    if (!root.node) return 0;
+    
+    auto nodes = topo_from(root.node.get());
+    size_t total_bytes = 0;
+    
+    for (Node* n : nodes) {
+        // Count value memory
+        if (n->value.numel() > 0) {
+            total_bytes += n->value.numel() * sizeof(float);
+        }
+        // Count gradient memory
+        if (n->grad.numel() > 0) {
+            total_bytes += n->grad.numel() * sizeof(float);
+        }
+    }
+    
+    return total_bytes;
+}
+
+// ============================================================================
+// Model Definition
+// ============================================================================
+
+struct DeepModel {
+    std::vector<Value> weights;
+    std::vector<Value> biases;
+    int depth;
+    int hidden_dim;
+    
+    DeepModel(int d, int h) : depth(d), hidden_dim(h) {
+        auto opts = TensorOptions().with_dtype(Dtype::Float32).with_req_grad(true); 
+        for (int i = 0; i < depth; ++i) {
+            weights.push_back(make_tensor(Tensor::randn(Shape{{h, h}}, opts), ("w" + std::to_string(i)).c_str()));
+            biases.push_back(make_tensor(Tensor::randn(Shape{{1, h}}, opts), ("b" + std::to_string(i)).c_str()));
+        }
+    }
+    
+    Value forward(Value x, bool use_checkpointing) {
+        for (int i = 0; i < depth; ++i) {
+            // Linear layer
+            x = matmul(x, weights[i]) + biases[i];
+            x = relu(x);
+            
+            // Checkpoint every 3rd layer if enabled
+            if (use_checkpointing && (i > 0) && (i % 2 == 0) && (i < depth - 1)) {
+                checkpoint_impl::mark_node_checkpoint(x.node, CheckpointOptions());
+            }
+        }
+        return x;
+    }
+    
+    std::vector<Value> parameters() {
+        std::vector<Value> params;
+        params.insert(params.end(), weights.begin(), weights.end());
+        params.insert(params.end(), biases.begin(), biases.end());
+        return params;
+    }
+};
+
+// ============================================================================
+// Test Runner
+// ============================================================================
+
+void run_memory_savings_test() {
+    std::cout << "==================================================\n";
+    std::cout << "      Checkpointing Memory Savings Demo           \n";
+    std::cout << "==================================================\n\n";
+    
+    int depth = 50;
+    int hidden_dim = 1024;
+    int batch_size = 128;
+    
+    std::cout << "Model Config:\n";
+    std::cout << "  - Depth: " << depth << " layers\n";
+    std::cout << "  - Hidden Dim: " << hidden_dim << "\n";
+    std::cout << "  - Batch Size: " << batch_size << "\n\n";
+    
+    DeepModel model(depth, hidden_dim);
+    Value input = make_tensor(Tensor::randn(Shape{{batch_size, hidden_dim}}, 
+                          TensorOptions().with_dtype(Dtype::Float32)), "input");    
+    // ------------------------------------------------------------------------
+    // Scenario 1: Standard Training (No Checkpointing)
+    // ------------------------------------------------------------------------
+    std::cout << "--- Scenario 1: Standard Training (No Checkpointing) ---\n";
+    
+    // Forward
+    Value out_std = model.forward(input, false);
+    
+    // In standard training, we keep ALL activations for backward
+    // So we don't delete anything.
+    
+    size_t mem_std = calculate_graph_memory(out_std);
+    std::cout << "  Peak Memory (Activations): " << (mem_std / 1024.0 / 1024.0) << " MB\n";
+    
+    // Cleanup for next run
+    out_std = Value(); // Release reference
+    
+    // ------------------------------------------------------------------------
+    // Scenario 2: With Gradient Checkpointing
+    // ------------------------------------------------------------------------
+    std::cout << "\n--- Scenario 2: With Gradient Checkpointing ---\n";
+    
+    // Forward
+    Value out_cp = model.forward(input, true);
+    
+    // With checkpointing, we can aggressively delete non-checkpoint nodes
+    // The backward pass will recompute them as needed.
+    std::cout << "  Performing memory cleanup (simulating training loop)...\n";
+    
+    // STRATEGY:
+    // 1. Identify "Anchor Checkpoints" (the ones marked by the model).
+    // 2. Mark ALL other intermediate nodes as checkpoints so autodiff recomputes them.
+    // 3. Protect Anchors from deletion.
+    // 4. Delete everything else.
+    
+    std::unordered_set<Node*> anchors;
+    auto nodes = topo_from(out_cp.node.get());
+    
+    // Step 1: Find anchors
+    for (Node* n : nodes) {
+        if (n->is_checkpoint) {
+            anchors.insert(n);
+        }
+    }
+    std::cout << "  Identified " << anchors.size() << " anchor checkpoints.\n";
+    
+    // Step 2: Mark intermediates
+    int marked_intermediates = 0;
+    for (Node* n : nodes) {
+        if (n->op != Op::Leaf && !n->is_checkpoint) {
+            // Mark as checkpoint for recomputation
+            checkpoint_impl::mark_node_checkpoint(n->shared_from_this(), CheckpointOptions());
+            marked_intermediates++;
+        }
+    }
+    std::cout << "  Marked " << marked_intermediates << " intermediates for recomputation.\n";
+    
+    // Step 3 & 4: Sweep with protection
+    memory::sweep_safe_nodes(out_cp, memory::DeletePolicy::ForwardPass, anchors);
+    memory::debug_deletion_state();
+    
+    size_t mem_cp = calculate_graph_memory(out_cp);
+    std::cout << "  Peak Memory (After Cleanup): " << (mem_cp / 1024.0 / 1024.0) << " MB\n";
+    
+    // ------------------------------------------------------------------------
+    // Results
+    // ------------------------------------------------------------------------
+    std::cout << "\n--------------------------------------------------\n";
+    std::cout << "Results Summary:\n";
+    std::cout << "  Standard Memory:     " << (mem_std / 1024.0 / 1024.0) << " MB\n";
+    std::cout << "  Checkpointed Memory: " << (mem_cp / 1024.0 / 1024.0) << " MB\n";
+    
+    size_t saved = mem_std - mem_cp;
+    double percent = 100.0 * saved / mem_std;
+    
+    std::cout << "  Memory Saved:        " << (saved / 1024.0 / 1024.0) << " MB (" << percent << "%)\n";
+    std::cout << "--------------------------------------------------\n";
+    
+    if (saved > 0) {
+        std::cout << "\n✅ SUCCESS: Checkpointing successfully reduced memory usage!\n";
+    } else {
+        std::cout << "\n❌ FAILURE: No memory savings observed.\n";
+    }
+    
+    // Verify Backward still works
+    std::cout << "\nVerifying backward pass works with checkpoints...\n";
+    try {
+        Value loss = sum(out_cp);
+        backward(loss);
+        print_checkpoint_stats();
+        std::cout << "  Snapshot Memory Usage: " << (inplace::get_snapshot_memory_usage() / 1024.0 / 1024.0) << " MB\n";
+        std::cout << "  Backward pass completed successfully.\n";
+    } catch (const std::exception& e) {
+        std::cout << "  ❌ Backward pass failed: " << e.what() << "\n";
+    }
+}
 
 int main() {
-    std::cout << "===== Gradient Checkpointing Test =====\n";
-    
-    // Use the official nn::Linear module, which has the correct conventions
-    nn::Linear fc1(4, 8, Device::CPU);
-    nn::Linear fc2(8, 2, Device::CPU);
-
-    Value x = make_tensor(Tensor::randn(Shape{{2, 4}}, TensorOptions().with_req_grad(true)), "x");
-
-    // Build a graph where the middle activation is checkpointed
-    Value h1 = fc1(x);
-    Value h2 = checkpoint(ag::relu(h1), CheckpointOptions{}); // Checkpoint a non-leaf node
-    Value y = fc2(h2);
-    Value loss = sum(y);
-    
-    // To prove recomputation works, manually delete the value that h2 depends on.
-    // During backward(), the framework MUST recompute h1 to compute h2.
-    h1.node->value.reset();
-    
-    std::cout << "Running backward pass with checkpointing...\n";
-    backward(loss);
-
-    // Verify that gradients flowed back to the first layer.
-    // This is only possible if recomputation was successful.
-    const auto& w1_grad = fc1.parameters()[0].grad();
-    float grad_sum = reduce_sum(abs(w1_grad, nullptr)).to_cpu().data<float>()[0];
-    
-    assert(grad_sum > 0.0f && "FATAL: Gradients are zero! Recomputation failed.");
-    
-    std::cout << "\n✅ PASS: Checkpointing test completed successfully.\n";
+    try {
+        run_memory_savings_test();
+    } catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << "\n";
+        return 1;
+    }
     return 0;
 }

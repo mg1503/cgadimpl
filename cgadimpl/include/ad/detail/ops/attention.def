@@ -18,9 +18,7 @@
 //
 // Variants implemented:
 //   - Attention: Standard scaled dot-product attention
-//   - AlibiAttention: With ALiBi positional bias (no learned pos embeddings)
-//   - RELUAtt: ReLU instead of softmax (linear attention approximation)
-//   - SigAtt: Sigmoid instead of softmax
+
 //
 // These operations SAVE Q, K, V, scores on tape for backward pass!
 // =============================================================================
@@ -29,20 +27,7 @@
 OP(Attention,      4, "attention")       // Full attention: (X, Wq, Wk, Wv)
                                          // Computes: softmax(XWq @ (XWk).T / √d) @ XWv
 
-// --- Attention Variants ---
-OP(AlibiAttention, 3, "alibiattention")  // Attention + ALiBi positional bias
-                                         // Arity=3: bias parameter included
-
-OP(RELUAtt,        4, "reluatt")         // ReLU attention (sparse, faster)
-                                         // Uses ReLU instead of softmax
-
-OP(SigAtt,         4, "sigatt")          // Sigmoid attention
-                                         // Uses sigmoid instead of softmax
 
 // --- Gated Activations (transformer FFN blocks) ---
 OP(SWIGLU,         1, "swiglu")          // SwiGLU: swish(xW) ⊙ (xV)
                                          // Used in LLaMA, PaLM FFN blocks
-
-// --- Mixture of Experts ---
-OP(MOE,            3, "moe")             // Mixture of Experts layer
-                                         // Arity=3: (input, expert_weights, bias)

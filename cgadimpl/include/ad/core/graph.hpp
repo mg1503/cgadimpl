@@ -20,6 +20,7 @@ struct Value {
     std::shared_ptr<Node> node;
     Value();    
     explicit Value(std::shared_ptr<Node> n);
+    Value(float v);
     const std::vector<int64_t>& shape() const;
     std::pair<int, int> shape_2d() const;
     Tensor& val();
@@ -69,6 +70,12 @@ struct Node : std::enable_shared_from_this<Node> {
     bool requires_grad_flag_{false};
     bool requires_grad() const { return requires_grad_flag_; }
     const std::vector<int64_t>& shape() const { return value.shape().dims; }
+    
+    // Thread-safe gradient accumulation for parallel backward pass
+    // Locks grad_mutex to prevent race conditions when multiple threads
+    // accumulate gradients into this node simultaneously
+    void accumulate_grad(const Tensor& grad_contribution);
+    
     Node(const Tensor& v, Op op_, bool req_grad, const char* nm="");
     Node() = default;
 };

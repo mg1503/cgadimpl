@@ -15,9 +15,9 @@ namespace ag {
  *  This header defines the interface and configuration for **activation checkpointing**
  *  — a technique used to trade computation for memory efficiency during backpropagation.
  *
- *  During training, we sometimes “checkpoint” certain nodes in the computational graph.
+ *  During training, we sometimes "checkpoint" certain nodes in the computational graph.
  *  Instead of storing all intermediate activations for the backward pass,
- *  we store only a few “checkpoint” activations and recompute others as needed.
+ *  we store only a few "checkpoint" activations and recompute others as needed.
  *
  *  Checkpointing helps reduce GPU/CPU memory usage during training of large models.
  *
@@ -90,6 +90,74 @@ void auto_checkpoint_every_n(const Value &root, int n);
  *      - depth_threshold: Depth (distance from root) after which nodes are checkpointed.
  */
 void auto_checkpoint_by_depth(const Value& root, int depth_threshold);
+
+/*
+ *  Smart Checkpoint Selection APIs:
+ *  ---------------------------------
+ *  These functions use intelligent policies to select which nodes to checkpoint
+ *  based on memory usage, recomputation cost, and graph structure.
+ */
+
+/*
+ *  auto_checkpoint_memory_optimal():
+ *  ---------------------------------
+ *  Selects checkpoints to maximize memory savings.
+ *  Prefers nodes with large memory footprint and high reuse (many descendants).
+ *
+ *  Parameters:
+ *      - root: Root of the computation graph
+ *      - ratio: Fraction of nodes to checkpoint (0.0 to 1.0, default 0.2 = 20%)
+ */
+void auto_checkpoint_memory_optimal(const Value& root, double ratio = 0.2);
+
+/*
+ *  auto_checkpoint_speed_optimal():
+ *  --------------------------------
+ *  Selects checkpoints to minimize recomputation overhead.
+ *  Prefers nodes with large memory but fewer descendants (less recomputation).
+ *
+ *  Parameters:
+ *      - root: Root of the computation graph
+ *      - ratio: Fraction of nodes to checkpoint (0.0 to 1.0, default 0.2 = 20%)
+ */
+void auto_checkpoint_speed_optimal(const Value& root, double ratio = 0.2);
+
+/*
+ *  auto_checkpoint_balanced():
+ *  ---------------------------
+ *  Balanced checkpoint selection policy.
+ *  Balances between memory savings and recomputation cost.
+ *
+ *  Parameters:
+ *      - root: Root of the computation graph
+ *      - ratio: Fraction of nodes to checkpoint (0.0 to 1.0, default 0.2 = 20%)
+ */
+void auto_checkpoint_balanced(const Value& root, double ratio = 0.2);
+
+/*
+ *  Statistics and Monitoring:
+ *  --------------------------
+ *  Functions to track and display checkpoint performance metrics.
+ */
+
+/*
+ *  print_checkpoint_stats():
+ *  -------------------------
+ *  Prints current checkpoint statistics including:
+ *  - Total checkpoints created
+ *  - Successful/failed recomputes
+ *  - Estimated memory saved
+ *  - Recompute success rate
+ */
+void print_checkpoint_stats();
+
+/*
+ *  reset_checkpoint_stats():
+ *  -------------------------
+ *  Resets all checkpoint statistics to zero.
+ *  Useful for benchmarking different checkpoint strategies.
+ */
+void reset_checkpoint_stats();
 
 /*
  *  Internal namespace `checkpoint_impl`

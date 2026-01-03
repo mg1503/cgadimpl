@@ -8,31 +8,74 @@
 
 namespace ag {
 
-void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) { // Changed to float for consistency
+void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) {
     auto order = topo_from(root.node.get());
-
-    // NOTE: The 'backward' function is responsible for seeding the initial gradient.
-    // The SGD optimizer's job is just to update the weights.
-    // Therefore, the "seed" block is not actually needed here, as backward() must
-    // have been called first, which would have already populated all the gradients.
-    // We can remove it for a cleaner implementation.
-
-    // The loop now correctly iterates forward to find Leaf nodes that are parameters.
     for (Node* n : order) {
-        // We only update nodes that are trainable parameters.
-        // In our design, these are Leaf nodes that require a gradient.
         if (n->op == Op::Leaf && n->requires_grad()) {
-            
-            // --- THE FIX: Use the new, stream-aware operators ---
-            
-            // 1. (-learning_rate * n->grad)
-            // This calls the overloaded operator*(float, Tensor), which correctly
-            // gets the stream from the context for GPU operations.
-            
-            // 2. n->value += ...
-            // This calls the overloaded operator+=, which also correctly
-            // gets the stream from the context for GPU operations.
             n->value += -learning_rate * n->grad;
+        }
+    }
+}
+
+Adam::Adam(const std::vector<Value>& params, float alpha, float beta1, float beta2, float epsilon)
+    : params_(params), alpha_(alpha), beta1_(beta1), beta2_(beta2), epsilon_(epsilon), t_(0) {
+    
+    for (const auto& p : params_) {
+        Node* n = p.node.get();
+        if (n->requires_grad()) {
+            // Initialize moments with zeros on the same device as the parameter
+            m_[n] = Tensor::zeros(n->value.shape(), options(n->value));
+            v_[n] = Tensor::zeros(n->value.shape(), options(n->value));
+        }
+    }
+}
+
+void Adam::step() {
+    t_++;
+    float bias_corr1 = 1.0f - std::pow(beta1_, t_);
+    float bias_corr2 = 1.0f - std::pow(beta2_, t_);
+
+    for (const auto& p : params_) {
+        Node* n = p.node.get();
+        if (!n->requires_grad()) continue;
+
+        Tensor& grad = n->grad;
+        Tensor& m = m_[n];
+        Tensor& v = v_[n];
+
+        // M  = beta1*M + (1-beta1)*grads;
+        // Using in-place to avoid unnecessary allocations
+        m *= beta1_;
+        m += (1.0f - beta1_) * grad;
+
+        // V  = beta2*V + (1-beta2)*grads.^2;
+        v *= beta2_;
+        v += (1.0f - beta2_) * square(grad);
+
+        // M2 = M / (1-beta1^iT);
+        // V2 = V / (1-beta2^iT);
+        // alpha_eff = alpha * sqrt(1-beta2^iT)/(1-beta1^iT);
+        // params = params - alpha_eff * m / (sqrt(v) + epsilon);
+        
+        // Note: The MATLAB implementation is equivalent to the standard bias-corrected update:
+        // params = params - alpha * (m / bias_corr1) / (sqrt(v / bias_corr2) + epsilon)
+        
+        float alpha_eff = alpha_ * std::sqrt(bias_corr2) / bias_corr1;
+        
+        // We add epsilon inside the sqrt context matching the MATLAB logic: sqrt(V2) + epsilon
+        // Since V2 = V / bias_corr2, sqrt(V2) = sqrt(V) / sqrt(bias_corr2)
+        // Thus: m_hat / (sqrt(v_hat) + epsilon) = (m/bias_corr1) / (sqrt(v)/sqrt(bias_corr2) + epsilon)
+        // = (m * sqrt(bias_corr2) / bias_corr1) / (sqrt(v) + epsilon * sqrt(bias_corr2))
+        
+        n->value -= alpha_eff * m / (sqrt(v) + epsilon_ * std::sqrt(bias_corr2));
+    }
+}
+
+void Adam::zero_grad() {
+    for (const auto& p : params_) {
+        Node* n = p.node.get();
+        if (n->requires_grad()) {
+            n->grad.fill(0.0f);
         }
     }
 }
