@@ -1,11 +1,9 @@
-
-
 cmake_minimum_required(VERSION 3.20)
 
 # --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
 set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
-project(cgadimpl LANGUAGES CXX CUDA)
+project(cgadimpl LANGUAGES C CXX CUDA)
 
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
@@ -44,11 +42,11 @@ endif()
 # List source files explicitly for proper incremental compilation
 # (similar to how the tensor team's Makefile uses pattern rules)
 file(GLOB CGADIMPL_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-file(GLOB CGADIMPL_SRC_SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cpp")
+file(GLOB CGADIMPL_SRC_SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/src//.cpp")
 set(CGADIMPL_SRC ${CGADIMPL_SRC_ROOT} ${CGADIMPL_SRC_SUBDIRS})
 
 # Alternative: If you have deeper nesting, uncomment this and comment out the above:
-# file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # ---- Library Definition ----
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
@@ -74,7 +72,7 @@ target_include_directories(cgadimpl PUBLIC
     ${MLIR_INCLUDE_DIRS}
     ${NOVA_INCLUDE_DIRS}
     # Manual Include for Runtime (since not installed yet)
-    /home/blu-bridge006/Desktop/mlir-compiler/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/include
 )
 
 # Prevent -isystem /usr/include which breaks header search order (fixes stdlib.h error)
@@ -93,9 +91,9 @@ target_link_libraries(cgadimpl PUBLIC
     
     # Nova Runtime (Manual Link due to missing export)
     # MlirCompiler::NovaRuntimeCore --- MISSING EXPORT
-    /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Core/libNovaRuntimeCore.a
-    /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Executor/libNovaRuntimeExecutor.a
-    # /home/blu-bridge006/Desktop/mlir-compiler/build/lib/Runtime/Kernels/libNovaRuntimeKernels.a  <- Not needed for JIT Bridge
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Core/libNovaRuntimeCore.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Executor/libNovaRuntimeExecutor.a
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Kernels/libNovaRuntimeKernels.a  <- Not needed for JIT Bridge
     
     # MLIR Conversion/Transforms
     MLIRReconcileUnrealizedCasts
