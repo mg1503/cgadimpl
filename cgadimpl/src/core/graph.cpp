@@ -40,6 +40,12 @@ Node::Node(const Tensor& v, Op op_, bool req_grad, const char* nm)
     }*/
 }
 
+// Thread-safe gradient accumulation
+void Node::accumulate_grad(const Tensor& grad_contribution) {
+    std::lock_guard<std::mutex> lock(grad_mutex);
+    grad += grad_contribution;
+}
+
 // --- Value Implementation ---
 // ADDED: Implement the Value helper functions
 Tensor& Value::val() { return node->value; }
