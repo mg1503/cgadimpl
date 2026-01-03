@@ -4,267 +4,246 @@
 #include "ad/ops/ops.hpp"
 #include "ad/ops/nodeops.hpp" // Include the new node-level declarations
 #include "ad/autodiff/inplace.hpp"
-#include "ad/runtime/runtime.hpp"
+#include "ad/ops/nodeops.hpp"
+#include <cuda_runtime.h>
+#include "tensor.hpp" 
+#include <unordered_map>
+#include <cmath> 
+#include <type_traits> 
 
 namespace ag {
+
+    Value checkpoint(const Value &v, const CheckpointOptions &opts) {
+    if (!v.node) return v;
+    ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);
+    return v;
+}
     Value inplace_checkpoint(const Value& v) {
         if (!v.node) return v;
         ag::inplace::mark_inplace_checkpoint(v.node);
         return v;
     }
 
+// Binary arith -----------------
     Value add(const Value& a, const Value& b){ 
         return Value(ag::detail::add_nodeops(a.node, b.node)); 
     }
-
     Value sub(const Value& a, const Value& b){ 
-        
         return Value(ag::detail::sub_nodeops(a.node, b.node)); 
     }
-
-
-
     Value mul(const Value& a, const Value& b){ 
         return Value(ag::detail::mul_nodeops(a.node, b.node)); 
     }
-
     Value div(const Value& a, const Value& b){ 
-        
         return Value(ag::detail::div_nodeops(a.node, b.node)); 
     }
 
-    Value sign(const Value& a, const Value& b){ 
-        return Value(ag::detail::sign_nodeops(a.node)); 
-    }
-
-    Value sinh(const Value& a, const Value& b){ 
-        return Value(ag::detail::sinh_nodeops(a.node)); 
-    }
-
-    Value cosh(const Value& a, const Value& b){ 
-        return Value(ag::detail::cosh_nodeops(a.node)); 
-    }
-
-    Value sin(const Value& a, const Value& b){ 
-        return Value(ag::detail::sin_nodeops(a.node)); 
-    }
-
-    Value cos(const Value& a, const Value& b){ 
-        return Value(ag::detail::cos_nodeops(a.node)); 
-    }
-
-
-    Value flomul(const Value& a, float b){ 
-        return Value(ag::detail::flomul_nodeops(a.node, b));
-    }
-
-    Value floadd(const Value& a, float b){ 
-        return Value(ag::detail::floadd_nodeops(b, a.node));
-    }
-
-     Value flodiv(const Value& a, float b){ 
-        return Value(ag::detail::flodiv_nodeops(b, a.node));
-    }
-
+// Classic Activations ---------------
     Value relu(const Value& x){ 
-      
         return Value(ag::detail::relu_nodeops(x.node));
     }
-
-    Value reci(const Value& x){ 
-      
-        return Value(ag::detail::reci_nodeops(x.node));
-    }
-
-    Value cos(const Value& x){ 
-      
-        return Value(ag::detail::cos_nodeops(x.node));
-    }
-
-    Value sinh(const Value& x){ 
-      
-        return Value(ag::detail::sinh_nodeops(x.node));
-    }
-
-    Value cosh(const Value& x){ 
-      
-        return Value(ag::detail::cosh_nodeops(x.node));
-    }
-
-
-
-
-
-
-    Value linear(const Value& a, const Value& b, const Value& c){ 
-        return Value(ag::detail::linear_nodeops(a.node, b.node, c.node)); 
-    }
-
-
-
-
-
-
-    Value matmul(const Value& a, const Value& b){ 
-         return Value(ag::detail::matmul_nodeops(a.node, b.node)); 
-    }
-
-    Value fmab(const Value& a, const Value& b, const Value& c){ 
-        return Value(ag::detail::fmab_nodeops(a.node, b.node, c.node)); 
-    }
-
-
-    Value attention(const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(ag::detail::attention_nodeops(a.node, b.node, c.node, d.node));
-    }
-
-
-
-
-
-    Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d){ 
-    return Value(ag::detail::swiglu_nodeops(x.node, a.node, b.node, c.node, d.node));
-    }
-
-
-    Value sum(const Value& x){ 
-        return Value(ag::detail::sum_nodeops(x.node));
-    }
-
-    Value transpose(const Value& x){ 
-        return Value(ag::detail::transpose_nodeops(x.node));
-    }
-
-    Value exp(const Value& x){ 
-        return Value(ag::detail::exp_nodeops(x.node));
-    }
-    
-    Value log(const Value& x){ 
-        return Value(ag::detail::log_nodeops(x.node));
-    }
-
-
-    Value mish(const Value& x){ 
-        return Value(ag::detail::mish_nodeops(x.node));
-    }
-    
-    Value tanh(const Value& x){ 
-        return Value(ag::detail::tanh_nodeops(x.node));
-    }
-
-    // Value tan(const Value& x){ 
-    //     return Value(ag::detail::tan_nodeops(x.node));
-    // }
-
-    // Value asin(const Value& x){ 
-    //     return Value(ag::detail::asin_nodeops(x.node));
-    // }
-
-    // Value acos(const Value& x){ 
-    //     return Value(ag::detail::acos_nodeops(x.node));
-    // }
-
-    // Value atan(const Value& x){ 
-    //     return Value(ag::detail::atan_nodeops(x.node));
-    // }
-
-    
-
     Value sigmoid(const Value& x){ 
         return Value(ag::detail::sigmoid_nodeops(x.node));
     }
-    
+    Value tanh(const Value& x){ 
+        return Value(ag::detail::tanh_nodeops(x.node));
+    }
     Value softplus(const Value& x){ 
         return Value(ag::detail::softplus_nodeops(x.node));
     }
 
-    Value gaus(const Value& x){ 
-        return Value(ag::detail::gaus_nodeops(x.node));
-    }
-    
+// Smooth Activations (better gradient flow) ---
     Value gelu(const Value& x){ 
         return Value(ag::detail::gelu_nodeops(x.node));
     }
-
-
-
-    Value gcu(const Value& x){ 
-        return Value(ag::detail::gcu_nodeops(x.node));
-    }
-    
     Value silu(const Value& x){ 
         return Value(ag::detail::silu_nodeops(x.node));
     }
-
-    Value parcon(const Value& x){ 
-        return Value(ag::detail::parcon_nodeops(x.node));
+    Value mish(const Value& x){ 
+        return Value(ag::detail::mish_nodeops(x.node));
     }
 
-    Value lisht(const Value& x){ 
-        return Value(ag::detail::lisht_nodeops(x.node));
-    }
-    
+// Parametric Activations ------
     Value leaky_relu(const Value& x, float alpha){ 
         return Value(ag::detail::leaky_relu_nodeops(x.node, alpha));
     }
 
+// Specialized activations -----------
+    Value gaus(const Value& x){ 
+        return Value(ag::detail::gaus_nodeops(x.node));
+    }
+    Value parcon(const Value& x){ 
+        return Value(ag::detail::parcon_nodeops(x.node));
+    }
+    Value lisht(const Value& x){ 
+        return Value(ag::detail::lisht_nodeops(x.node));
+    }
+// Standard Attention ---------
+    Value attention(const Value& a, const Value& b, const Value& c, const Value& d){ 
+        return Value(ag::detail::attention_nodeops(a.node, b.node, c.node, d.node));
+    }
+// Gated activation -----------------
+    Value swiglu(const Value& x, const Value& a, const Value& b, const Value& c, const Value& d){ 
+        return Value(ag::detail::swiglu_nodeops(x.node, a.node, b.node, c.node, d.node));
+    }
+//Leaf -----------
 
-    Value rowsum(const Value& x){ 
-        return Value(ag::detail::rowsum_nodeops(x.node));
+//Unary Mathematical Functions ------------------
+    Value exp(const Value& x){ 
+        return Value(ag::detail::exp_nodeops(x.node));
     }
-    
-    Value rowmax(const Value& x){ 
-        return Value(ag::detail::rowmax_nodeops(x.node));
+    Value log(const Value& x){ 
+        return Value(ag::detail::log_nodeops(x.node));
     }
-
-    Value rms(const Value& x){ 
-return Value(ag::detail::rms_nodeops(x.node));
+    Value sqrt(const Value& x){
+        return Value(ag::detail::sqrt_nodeops(x.node));
     }
-
-    Value realrms(const Value& x, float g){ 
-return Value(ag::detail::realrms_nodeops(x.node, g));
+    Value reci(const Value& x){ 
+        return Value(ag::detail::reci_nodeops(x.node));
     }
-
-    Value laynor(const Value& x){ 
-        return Value(ag::detail::laynor_nodeops(x.node));
+    Value sign(const Value& a){ 
+        return Value(ag::detail::sign_nodeops(a.node)); 
     }
-
-    
-    Value mean_all(const Value& x){ 
-        return Value(ag::detail::mean_all_nodeops(x.node));
+    Value abs(const Value& x){
+        return Value(ag::detail::abs_nodeops(x.node));
+    }
+    Value pow(const Value& a, const Value& b){ 
+        return Value(ag::detail::pow_nodeops(a.node, b.node)); 
     }
 
-    Value dyntanh(const Value& x, float a, float b, float g){ 
-        return Value(ag::detail::dyntanh_nodeops(x.node, a, b, g));
+//Core Matrix Operations ------------------------
+    Value matmul(const Value& a, const Value& b){ 
+         return Value(ag::detail::matmul_nodeops(a.node, b.node)); 
     }
-    
-    Value softmax_row(const Value& z){ 
-        return Value(ag::detail::softmax_row_nodeops(z.node));
-    }
-    
-    Value logsumexp_row(const Value& z){ 
-        return Value(ag::detail::logsumexp_row_nodeops(z.node));
+    Value transpose(const Value& x){ 
+        return Value(ag::detail::transpose_nodeops(x.node));
     }
 
+//Fused Operations (better performance, fewer memory accesses) ---------------
+    Value linear(const Value& a, const Value& b, const Value& c){ 
+        return Value(ag::detail::linear_nodeops(a.node, b.node, c.node)); 
+    }
+    Value fmab(const Value& a, const Value& b, const Value& c){ 
+        return Value(ag::detail::fmab_nodeops(a.node, b.node, c.node)); 
+    }
 
+//Classification losses ---------------
     Value cross_entropy_with_logits(const Value& logits, const Value& onehot){
-    // Stable CE = mean( -sum(onehot * _nodeops(logits - logsumexp_row_nodeops(logits))) )
         return Value(ag::detail::cross_entropy_with_logits_nodeops(logits.node, onehot.node));
     }
-
-
     Value kldivergence(const Value& logits, const Value& onehot){
         return Value(ag::detail::kldivergence_nodeops(logits.node, onehot.node));
     }
 
+//Regression Losses --------------
     Value mse_loss(const Value& pred, const Value& target) {
-    return Value(ag::detail::mse_loss_nodeops(pred.node, target.node));
-}
-
- 
+        return Value(ag::detail::mse_loss_nodeops(pred.node, target.node));
+    }
     Value mae_loss(const Value& pred, const Value& target) {
-    return Value(ag::detail::mae_loss_nodeops(pred.node, target.node));
-}
+        return Value(ag::detail::mae_loss_nodeops(pred.node, target.node));
+    }
+
+//Layer Normalization ------------
+    Value laynor(const Value& x){ 
+        return Value(ag::detail::laynor_nodeops(x.node));
+    }
+
+//RMS Normalization -------------
+    Value rms(const Value& x){ 
+        return Value(ag::detail::rms_nodeops(x.node));
+    }
+    Value realrms(const Value& x, float g){ 
+        return Value(ag::detail::realrms_nodeops(x.node, g));
+    }
+
+//Dynamic Normalization --------------
+    Value dyntanh(const Value& x, float a, float b, float g){ 
+        return Value(ag::detail::dyntanh_nodeops(x.node, a, b, g));
+    }
+
+
+//Global Reductions -------------------
+    Value sum(const Value& x){ 
+        return Value(ag::detail::sum_nodeops(x.node));
+    }
+    Value mean_all(const Value& x){ 
+        return Value(ag::detail::mean_all_nodeops(x.node));
+    }
+
+//Row-wise Reductions ------------------------
+    Value rowsum(const Value& x){ 
+        return Value(ag::detail::rowsum_nodeops(x.node));
+    }
+    Value rowmax(const Value& x){ 
+        return Value(ag::detail::rowmax_nodeops(x.node));
+    }
+
+//Softmax Family ---------------
+    Value softmax_row(const Value& z){ 
+        return Value(ag::detail::softmax_row_nodeops(z.node));
+    }
+    Value logsumexp_row(const Value& z){ 
+        return Value(ag::detail::logsumexp_row_nodeops(z.node));
+    }
+
+//Trigonometric Functions --------------------
+    Value sin(const Value& x){
+        return Value(ag::detail::sin_nodeops(x.node));
+    }
+    Value cos(const Value& x){ 
+        return Value(ag::detail::cos_nodeops(x.node));
+    }
+    Value tan(const Value& x){ 
+        return Value(ag::detail::tan_nodeops(x.node));
+    }
+
+
+//Hyperbolic Functions ------------------
+    Value cosh(const Value& x){ 
+        return Value(ag::detail::cosh_nodeops(x.node));
+    }
+    Value sinh(const Value& x){ 
+        return Value(ag::detail::sinh_nodeops(x.node));
+    }
+
+//Inverse Trigonometric Functions --------------
+    Value asin(const Value& x){ 
+        return Value(ag::detail::asin_nodeops(x.node));
+    }
+    Value acos(const Value& x){ 
+        return Value(ag::detail::acos_nodeops(x.node));
+    }
+    Value atan(const Value& x){ 
+        return Value(ag::detail::atan_nodeops(x.node));
+    }
+
+//Inverse Hyperbolic Trigonometric Functions ----------------
+    Value asinh(const Value& x){ 
+        return Value(ag::detail::asinh_nodeops(x.node));
+    }
+    Value acosh(const Value& x){ 
+        return Value(ag::detail::acosh_nodeops(x.node));
+    }
+    Value atanh(const Value& x){ 
+        return Value(ag::detail::atanh_nodeops(x.node));
+    }
+
+    
+
+
+
+
+
+
+
+    
+
+
+    
+
+
+
+
 
 //  The implementation of **forward evaluation logic** for a single
 // computational graph node (`Node`) in the autodiff system.
@@ -358,8 +337,19 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         }
         // case Op::Sigmoid: {
         //     const Tensor &X = node->inputs[0]->value;
-        // //     return Tensor::sigmoid(X);
+        //     return ag::sigmoid(X);
         // }
+
+        case Op::GELU: {
+            const Tensor &x = node->inputs[0]->value;
+            // GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+            float k = std::sqrt(2.0f / 3.14159265358979323846f);
+            auto x3 = OwnTensor::pow(x, 3.0f, ag::current_stream());
+            auto inner = (x + x3 * 0.044715f) * k;
+            auto tanh_inner = OwnTensor::tanh(inner, ag::current_stream());
+            return x * 0.5f * (tanh_inner + 1.0f);
+        }
+
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
             return tanh(X);
@@ -461,10 +451,6 @@ Tensor forward_eval_node(Node* node) {
  *      Tensor loss = mse(y, target);
  *      backward(loss);
  */
-Value checkpoint(const Value &v, const CheckpointOptions &opts) {
-    if (!v.node) return v;
-    ag::checkpoint_impl::mark_node_checkpoint(v.node, opts);
-    return v;
-}
+
 
 } // namespace ag

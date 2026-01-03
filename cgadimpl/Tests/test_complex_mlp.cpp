@@ -22,11 +22,11 @@ int main() {
     // ---------- Data ----------
     // Inputs are constants (requires_grad=false, which is the default)
     Tensor Xt = Tensor::randn(Shape{{B, In}}, TensorOptions());
-    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions()), "X");
+    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions().with_dtype(Dtype::Bfloat16)), "X");
 
     // One-hot labels Y[B,Out]
     Tensor Yt(Shape{{B, Out}}, TensorOptions());
-    float* yt_data = Yt.data<float>(); // Get data pointer to fill
+    bfloat16_t* yt_data = Yt.data<bfloat16_t>(); // Get data pointer to fill
     std::mt19937 gen(42);
     std::uniform_int_distribution<int> pick(0, Out - 1);
     for (int i = 0; i < B; ++i) {
@@ -39,7 +39,7 @@ int main() {
 
     // ---------- Parameters ----------
     // Parameters are trainable (requires_grad=true)
-    auto opts_param = TensorOptions().with_req_grad(true);
+    auto opts_param = TensorOptions().with_req_grad(true).with_dtype(Dtype::Bfloat16);
     auto W1 = make_tensor(Tensor::randn(Shape{{In, H1}}, opts_param), "W1");
     auto b1 = make_tensor(Tensor::zeros(Shape{{1, H1}}, opts_param), "b1");
     auto W2 = make_tensor(Tensor::randn(Shape{{H1, H2}}, opts_param), "W2");
@@ -76,15 +76,15 @@ int main() {
 
     // ---------- Report ----------
     // To get a scalar value, move to CPU and get the data pointer
-    float loss_val = loss.val().to_cpu().data<float>()[0];
+    bfloat16_t loss_val = loss.val().to_cpu().data<bfloat16_t>()[0];
     std::cout << "loss = " << loss_val << "\n";
 
     // Show a few logits + softmax probs for the first row
     Value probs = softmax_row(logits);
     Tensor probs_cpu = probs.val().to_cpu();
     Tensor logits_cpu = logits.val().to_cpu();
-    const float* probs_data = probs_cpu.data<float>();
-    const float* logits_data = logits_cpu.data<float>();
+    const bfloat16_t* probs_data = probs_cpu.data<bfloat16_t>();
+    const bfloat16_t* logits_data = logits_cpu.data<bfloat16_t>();
 
     std::cout << "logits[0,:5] = ";
     for (int j = 0; j < std::min(5, Out); ++j)

@@ -281,7 +281,7 @@ int main() {
 
         test_all_ops();
 
-        std::cout << "\n✅ All tests passed!\n";
+        std::cout << "\n  All tests passed!\n";
 
     } catch (const std::exception& e) {
         std::cerr << "\nCaught exception: " << e.what() << std::endl;

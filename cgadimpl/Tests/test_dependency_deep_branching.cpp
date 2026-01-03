@@ -80,7 +80,7 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, true);
     
-    std::cout << "✅ Parallel backward completed!\n" << std::endl;
+    std::cout << "  Parallel backward completed!\n" << std::endl;
     
     auto grad_w = w.grad();
     std::cout << "Gradient verification:" << std::endl;
@@ -101,7 +101,7 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, false);
     
-    std::cout << "✅ Sequential backward completed!\n" << std::endl;
+    std::cout << "  Sequential backward completed!\n" << std::endl;
     std::cout << "  W gradient computed: " << (w.grad().numel() > 0 ? "✓" : "✗") << std::endl;
     
     std::cout << "\n========================================" << std::endl;
@@ -111,7 +111,7 @@ int main() {
     std::cout << "\n  • ResNet: Skip connections branch from main path" << std::endl;
     std::cout << "  • U-Net: Encoder features skip to decoder" << std::endl;
     std::cout << "  • DenseNet: Dense connections from all previous" << std::endl;
-    std::cout << "\n✅ Dependency counter handles these architectures!" << std::endl;
+    std::cout << "\n  Dependency counter handles these architectures!" << std::endl;
     std::cout << "   Sequential parts maintain order," << std::endl;
     std::cout << "   parallel parts exploit concurrency!" << std::endl;
     std::cout << "========================================" << std::endl;

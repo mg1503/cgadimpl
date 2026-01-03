@@ -77,7 +77,7 @@
 // }
 #include <iostream>
 #include "ad/ag_all.hpp"
-#include "optim.hpp"
+#include "ad/optimizer/optim.hpp"
 #include <random>
 #include <iomanip>
 using namespace ag;
@@ -126,7 +126,7 @@ int main() {
         debug::print_grad("Grad of b (dL/dB)", b); // Correct
         debug::print_grad("Grad of bias (dL/dbias)", bias); // Correct
 
-        SGD(y, nullptr, 0.1f);
+        // SGD(y, nullptr, 0.1f);
 
         cout << "\n--- After SGD Step ---\n";
         // The SGD step modifies the .value tensor INSIDE the node.

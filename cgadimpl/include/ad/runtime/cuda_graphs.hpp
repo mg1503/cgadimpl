@@ -3,7 +3,21 @@
 // ===================================================
 #pragma once
 
-#include "ad/runtime/runtime.hpp" // For ag_cuda_stream_t
+// //#include "ad/runtime/runtime.hpp" // For ag_cuda_stream_t
+// pragma once
+
+// Opaque CUDA stream type so core doesn’t include CUDA headers.
+extern "C" { typedef struct CUstream_st* ag_cuda_stream_t; }
+
+namespace ag {
+  // Get the stream ops should use for CUDA launches.
+  // For now (no CUDA yet) this will return nullptr = default stream.
+  ag_cuda_stream_t current_stream();
+
+  // Set the current stream (you’ll use this later for CUDA Graph capture/replay).
+  void set_current_stream(ag_cuda_stream_t s);
+}
+
 #include <cuda_runtime.h>
 
 namespace ag {
@@ -35,6 +49,8 @@ public:
      * @return True if replay was successful, false otherwise.
      */
     bool replay();
+
+    cudaStream_t get_stream() const { return stream_; }
 
 private:
     cudaStream_t stream_ = nullptr;

@@ -117,7 +117,7 @@ int main() {
     ag::memory::sweep_safe_nodes(loss, ag::memory::DeletePolicy::AlwaysSafe);
     std::cout << "  ✔ Safe deletion completed.\n";
     std::cout << "  Check if checkpoint node is still protected: "
-              << (l1.node->is_checkpoint ? "✅ yes\n" : "❌ no\n");
+              << (l1.node->is_checkpoint ? "  yes\n" : "❌ no\n");
 
     // -------------------------------------------------------------
     // 5️⃣ SIMULATE VALUE DROPS AND RECOMPUTE
@@ -130,8 +130,8 @@ int main() {
     bool ok1 = ag::checkpoint_impl::recompute_subgraph(l1.node);
     // For in-place, the correct recompute function is different
     bool ok3 = ag::inplace::recompute_inplace(l3.node); 
-    std::cout << "  Layer1 recompute: " << (ok1 ? "✅ success\n" : "❌ fail\n");
-    std::cout << "  Layer3 recompute: " << (ok3 ? "✅ success\n" : "❌ fail\n");
+    std::cout << "  Layer1 recompute: " << (ok1 ? "  success\n" : "❌ fail\n");
+    std::cout << "  Layer3 recompute: " << (ok3 ? "  success\n" : "❌ fail\n");
 
     if (ok1) {
         debug::print_value("l1 (recomputed)", l1);
@@ -149,15 +149,15 @@ int main() {
     bool ok1b = ag::checkpoint_impl::recompute_subgraph(l1.node);
     bool ok3b = ag::inplace::recompute_inplace(l3.node);
     std::cout << "  After aggressive deletion:\n";
-    std::cout << "    Layer1 recompute: " << (ok1b ? "✅ success" : "⚠️ failed (metadata removed)") << "\n";
-    std::cout << "    Layer3 recompute: " << (ok3b ? "✅ success" : "⚠️ failed (metadata removed)") << "\n";
+    std::cout << "    Layer1 recompute: " << (ok1b ? "  success" : "⚠️ failed (metadata removed)") << "\n";
+    std::cout << "    Layer3 recompute: " << (ok3b ? "  success" : "⚠️ failed (metadata removed)") << "\n";
 
     // -------------------------------------------------------------
     // 7️⃣ ALIAS CONSISTENCY CHECK
     // -------------------------------------------------------------
     std::cout << "\n[Alias Consistency Check]\n";
     if (allclose(l1.val(), l2.val()))
-        std::cout << "✅ Alias values consistent after recompute.\n";
+        std::cout << "  Alias values consistent after recompute.\n";
     else
         std::cout << "❌ Alias values diverged.\n";
 
@@ -293,7 +293,7 @@ int main() {
 //     ag::memory::sweep_safe_nodes(loss, ag::memory::DeletePolicy::AlwaysSafe);
 //     std::cout << "  ✔ Safe deletion completed.\n";
 //     std::cout << "  Check if checkpoint node is still protected: "
-//               << (l1.node->is_checkpoint ? "✅ yes\n" : "❌ no\n");
+//               << (l1.node->is_checkpoint ? "  yes\n" : "❌ no\n");
 
 //     // -------------------------------------------------------------
 //     // 5️⃣ SIMULATE VALUE DROPS AND RECOMPUTE
@@ -306,8 +306,8 @@ int main() {
 //     bool ok1 = ag::checkpoint_impl::recompute_subgraph(l1.node);
 //     // For in-place, the correct recompute function is different
 //     bool ok3 = ag::inplace::recompute_inplace(l3.node); 
-//     std::cout << "  Layer1 recompute: " << (ok1 ? "✅ success\n" : "❌ fail\n");
-//     std::cout << "  Layer3 recompute: " << (ok3 ? "✅ success\n" : "❌ fail\n");
+//     std::cout << "  Layer1 recompute: " << (ok1 ? "  success\n" : "❌ fail\n");
+//     std::cout << "  Layer3 recompute: " << (ok3 ? "  success\n" : "❌ fail\n");
 
 //     // TODO: Debug prints disabled due to tensor shape issues after recomputation
 //     // The recomputation is succeeding but producing tensors with incorrect shapes
@@ -328,8 +328,8 @@ int main() {
 //     bool ok1b = ag::checkpoint_impl::recompute_subgraph(l1.node);
 //     bool ok3b = ag::inplace::recompute_inplace(l3.node);
 //     std::cout << "  After aggressive deletion:\n";
-//     std::cout << "    Layer1 recompute: " << (ok1b ? "✅ success" : "⚠️ failed (metadata removed)") << "\n";
-//     std::cout << "    Layer3 recompute: " << (ok3b ? "✅ success" : "⚠️ failed (metadata removed)") << "\n";
+//     std::cout << "    Layer1 recompute: " << (ok1b ? "  success" : "⚠️ failed (metadata removed)") << "\n";
+//     std::cout << "    Layer3 recompute: " << (ok3b ? "  success" : "⚠️ failed (metadata removed)") << "\n";
 
 //     // -------------------------------------------------------------
 //     // 7️⃣ ALIAS CONSISTENCY CHECK
@@ -337,7 +337,7 @@ int main() {
 //     std::cout << "\n[Alias Consistency Check]\n";
 //     // TODO: Disabled due to tensor shape issues after recomputation
 //     // if (allclose(l1.val(), l2.val()))
-//     //     std::cout << "✅ Alias values consistent after recompute.\n";
+//     //     std::cout << "  Alias values consistent after recompute.\n";
 //     // else
 //     //     std::cout << "❌ Alias values diverged.\n";
 //     std::cout << "⚠️  Alias check skipped (tensor shape issues)\n";

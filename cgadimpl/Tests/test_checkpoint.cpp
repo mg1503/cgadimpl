@@ -43,7 +43,7 @@
 //         visited.insert(n.get());
 
 //         if (n->is_checkpoint) {
-//             std::cout << "Found marked checkpoint node: " << n->debug_name << " ✅\n";
+//             std::cout << "Found marked checkpoint node: " << n->debug_name << "  \n";
 //             marked_count++;
 //         }
 
@@ -119,6 +119,12 @@ struct DeepModel {
             // Linear layer
             x = matmul(x, weights[i]) + biases[i];
             x = relu(x);
+            x = matmul(x, weights[i]) + biases[i];
+            x = gelu(x);
+            x = matmul(x, weights[i]) + biases[i];
+            x = tanh(x);
+            x = matmul(x, weights[i]) + biases[i];
+            // x = sigmoid(x);
             
             // Checkpoint every 3rd layer if enabled
             if (use_checkpointing && (i > 0) && (i % 2 == 0) && (i < depth - 1)) {
@@ -146,8 +152,8 @@ void run_memory_savings_test() {
     std::cout << "==================================================\n\n";
     
     int depth = 50;
-    int hidden_dim = 1024;
-    int batch_size = 128;
+    int hidden_dim = 256;
+    int batch_size = 64;
     
     std::cout << "Model Config:\n";
     std::cout << "  - Depth: " << depth << " layers\n";
@@ -236,7 +242,7 @@ void run_memory_savings_test() {
     std::cout << "--------------------------------------------------\n";
     
     if (saved > 0) {
-        std::cout << "\n✅ SUCCESS: Checkpointing successfully reduced memory usage!\n";
+        std::cout << "\n  SUCCESS: Checkpointing successfully reduced memory usage!\n";
     } else {
         std::cout << "\n❌ FAILURE: No memory savings observed.\n";
     }

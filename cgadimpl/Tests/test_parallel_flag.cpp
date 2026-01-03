@@ -36,7 +36,7 @@ int main() {
     std::cout << "   Time: " << duration2.count() << " μs" << std::endl;
     std::cout << "   Grad A computed: " << (a.grad().numel() > 0 ? "✓" : "✗") << std::endl;
     
-    std::cout << "\n✅ Both methods work! User can choose based on graph size." << std::endl;
+    std::cout << "\n  Both methods work! User can choose based on graph size." << std::endl;
     
     return 0;
 }

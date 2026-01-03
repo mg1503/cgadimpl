@@ -39,7 +39,7 @@ int main() {
     zero_grad(loss);
     backward(loss, nullptr, true);
     
-    std::cout << "✅ Backward pass completed!" << std::endl;
+    std::cout << "  Backward pass completed!" << std::endl;
     std::cout << "\nGradient verification:" << std::endl;
     
     // Print gradient
@@ -59,11 +59,11 @@ int main() {
     backward(loss, nullptr, false);
     
     auto grad_x_seq = x.grad();
-    std::cout << "✅ Sequential backward also completed!" << std::endl;
+    std::cout << "  Sequential backward also completed!" << std::endl;
     std::cout << "  Gradient of x computed: " << (grad_x_seq.numel() > 0 ? "✓" : "✗") << std::endl;
     
     std::cout << "\n========================================" << std::endl;
-    std::cout << "✅ Diamond Pattern Test PASSED!" << std::endl;
+    std::cout << "  Diamond Pattern Test PASSED!" << std::endl;
     std::cout << "   Dependency counter correctly handled" << std::endl;
     std::cout << "   convergence of two paths!" << std::endl;
     std::cout << "========================================" << std::endl;

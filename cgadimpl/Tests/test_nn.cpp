@@ -107,7 +107,7 @@ int main() {
         delete layer;
     }
 
-    std::cout << "\n✅ Training finished successfully.\n";
+    std::cout << "\n  Training finished successfully.\n";
     return 0;
 }
 
