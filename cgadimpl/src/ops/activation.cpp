@@ -1,5 +1,6 @@
 // =====================
 // file: cgadimpl/src/ops/activation.cpp
+// file: cgadimpl/src/ops/activation.cpp
 // =====================
 #include "ad/ops/nodeops.hpp"
 #include <cuda_runtime.h>
@@ -10,6 +11,7 @@
 
 namespace ag {
 namespace detail {
+
 
 
 
@@ -29,6 +31,7 @@ std::shared_ptr<Node> sigmoid_nodeops(const std::shared_ptr<Node>& x){
     auto n = std::make_shared<Node>(y, Op::Sigmoid, x->requires_grad(), "sigmoid"); 
     n->inputs={x}; 
     if(x) x->child_grad_count++;
+    ag::debug::on_node_created(n);  
     ag::debug::on_node_created(n);  
     return n;
 }
@@ -122,7 +125,6 @@ std::shared_ptr<Node> leaky_relu_nodeops(const std::shared_ptr<Node>& x, float a
     ag::debug::on_node_created(n);  
     return n;
 }
-
 std::shared_ptr<Node> gaus_nodeops(const std::shared_ptr<Node>& x){
     Tensor x_squared = x->value * x->value;
     Tensor y = OwnTensor::exp(x_squared * -1.0f, ag::current_stream());

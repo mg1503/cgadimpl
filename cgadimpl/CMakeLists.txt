@@ -148,9 +148,9 @@ if(true)
   add_ag_test(test_checkpoint                    Tests/test_checkpoint.cpp)
   add_ag_test(test_checkpoint_advanced           Tests/test_checkpoint_advanced.cpp)
   add_ag_test(test_inplace                    Tests/test_inplace.cpp)
-  # add_ag_test(test_careful_deletion                    Tests/test_careful_deletion.cpp)
+  add_ag_test(test_careful_deletion                    Tests/test_careful_deletion.cpp)
   add_ag_test(test_nn                    Tests/test_nn.cpp)
-  # add_ag_test(test_version                    Tests/test_version.cpp)
+  add_ag_test(test_version                    Tests/test_version.cpp)
   add_ag_test(test_nodeops                    Tests/test_nodeops.cpp)
 
   add_ag_test(test_vjp_kernels                    Tests/test_end_to_end_gpu.cpp)
@@ -163,18 +163,19 @@ if(true)
   add_ag_test(test_scheme                    Tests/test_scheme.cpp)
   add_ag_test(test_phase1_metadata            Tests/test_phase1_metadata.cpp)  # Phase 1 critical metadata
   add_ag_test(test_phase1_advanced            Tests/test_phase1_advanced.cpp)  # Phase 1 advanced edge cases
-  add_ag_test(test_dependency_counter                         Tests/test_dependency_counter.cpp )
-  add_ag_test(test_dependncy_counter2                        Tests/test_dependncy_counter2.cpp)
   
   # Comprehensive dependency counter test suite
-  add_ag_test(test_dependency_diamond            Tests/test_dependency_diamond.cpp)
-  add_ag_test(test_dependency_wide_fanout        Tests/test_dependency_wide_fanout.cpp)
-  add_ag_test(test_dependency_multi_join         Tests/test_dependency_multi_join.cpp)
-  add_ag_test(test_dependency_correctness        Tests/test_dependency_correctness.cpp)
-  add_ag_test(test_dependency_performance        Tests/test_dependency_performance.cpp)
-  add_ag_test(test_dependency_weight_tying       Tests/test_dependency_weight_tying.cpp)
-  add_ag_test(test_dependency_deep_branching     Tests/test_dependency_deep_branching.cpp)
+  add_ag_test(test_dependency_counter                         Tests/dependency_counter_correctness/test_dependency_counter.cpp)
+  add_ag_test(test_dependncy_counter2                        Tests/dependency_counter_correctness/test_dependncy_counter2.cpp)
+  add_ag_test(test_dependency_diamond            Tests/dependency_counter_correctness/test_dependency_diamond.cpp)
+  add_ag_test(test_dependency_wide_fanout        Tests/dependency_counter_correctness/test_dependency_wide_fanout.cpp)
+  add_ag_test(test_dependency_multi_join         Tests/dependency_counter_correctness/test_dependency_multi_join.cpp)
+  add_ag_test(test_dependency_correctness        Tests/dependency_counter_correctness/test_dependency_correctness.cpp)
+  add_ag_test(test_dependency_performance        Tests/dependency_counter_correctness/test_dependency_performance.cpp)
+  add_ag_test(test_dependency_weight_tying       Tests/dependency_counter_correctness/test_dependency_weight_tying.cpp)
+  add_ag_test(test_dependency_deep_branching     Tests/dependency_counter_correctness/test_dependency_deep_branching.cpp)
   add_ag_test(time_estimation                   Tests/test_time_execution.cpp)
+
   add_ag_test(test_dag_analysis                Tests/test_dag_analysis.cpp)
   add_ag_test(test_warmup                      Tests/test_warmup.cpp)
 
@@ -195,9 +196,11 @@ if(true)
 
     add_ag_test(test_mixed_precision                  Tests/test_mixed_precision.cpp)
     add_ag_test(test_mixed_precision_mlp              Tests/test_mixed_precision_mlp.cpp)
-
+#nodiscard
     add_ag_test(test_nodiscard                     Tests/test_nodiscard.cpp)
     add_ag_test(test_nodiscard1                    Tests/test_nodiscard1.cpp)
+#autograd_hooks
+    add_ag_test(test_hooks                  Tests/autograd_hooks_testing/test_hooks.cpp)  
 endif()
 
 message(STATUS "cgadimpl build mode: ${CMAKE_BUILD_TYPE}")

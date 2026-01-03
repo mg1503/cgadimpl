@@ -2,6 +2,7 @@
 // file: cgadimpl/src/graph.cpp
 // =====================
 #include "ad/core/graph.hpp"
+#include "ad/runtime/cuda_graphs.hpp"
 #include <unordered_set>
 #include <functional>
 #include <cassert>
@@ -78,5 +79,6 @@ static std::vector<Node*> build_topo_order_impl(Node* root) {
 std::vector<Node*> topo_from(Node* root){
     return build_topo_order_impl(root);
 }
+
 
 } // namespace ag

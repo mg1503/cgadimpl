@@ -85,9 +85,10 @@ void test_manual_mlp_training() {
         // c. Compute the loss.
         Value loss = mse_loss(y_pred, y_target);
 
-
-        ag::debug::dump_dot(loss, "graph_loss.jpg");
-
+        // Dump graph visualization only once on first epoch
+        if (epoch == 0) {
+            ag::debug::dump_dot(loss, "graph_loss.jpg");
+        }
         
         // d. Backward pass: compute gradients for all parameters.
         backward(loss);

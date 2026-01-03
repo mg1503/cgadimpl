@@ -3,8 +3,9 @@
 // ====================================================================
 
 #include "ad/detail/autodiff_ops.hpp"
-#include "ad/runtime/runtime.hpp"
+#include "ad/runtime/cuda_graphs.hpp"
 #include <cmath>
+#include <stdexcept> 
 #include <stdexcept> 
 
 namespace ag {

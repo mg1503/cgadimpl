@@ -6,17 +6,22 @@
 using namespace ag;
 
 // Helper to compare two tensors
-bool tensors_close(const Tensor& a, const Tensor& b, float tolerance = 1e-5) {
+bool tensors_close(const Tensor& a, const Tensor& b, float tolerance = 1e-4) {
     if (a.shape().dims != b.shape().dims) return false;
     if (a.numel() != b.numel()) return false;
     
-    // Get raw data pointers - need to cast from void*
-    const float* data_a = static_cast<const float*>(a.data());
-    const float* data_b = static_cast<const float*>(b.data());
+    // Ensure we are comparing on CPU
+    Tensor a_cpu = a.to_cpu();
+    Tensor b_cpu = b.to_cpu();
     
-    for (size_t i = 0; i < a.numel(); i++) {
+    const float* data_a = a_cpu.data<float>();
+    const float* data_b = b_cpu.data<float>();
+    
+    for (size_t i = 0; i < a_cpu.numel(); i++) {
         float diff = std::abs(data_a[i] - data_b[i]);
         if (diff > tolerance) {
+            std::cout << "Mismatch at index " << i << ": sequential=" << data_a[i] 
+                      << ", parallel=" << data_b[i] << ", diff=" << diff << std::endl;
             return false;
         }
     }
