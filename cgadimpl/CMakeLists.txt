@@ -1,14 +1,9 @@
-
-
 cmake_minimum_required(VERSION 3.20)
 
 # --- FIX #2: Set the CUDA architecture BEFORE the project() command ---
 set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA SMs" FORCE)
 
-project(cgadimpl LANGUAGES CXX CUDA)
-
-set(MLIR_DIR "/home/blubridge-029/Desktop/llvm-project/build/lib/cmake/mlir")
-set(mlir-compiler_DIR "/home/blubridge-029/Downloads/cgad/cgadimpl_/Nova-Compiler/install/lib/cmake/mlir-compiler")
+project(cgadimpl LANGUAGES C CXX CUDA)
 
 # --- Compiler, CUDA, and OpenMP Setup ---
 find_package(CUDAToolkit REQUIRED)
@@ -47,11 +42,11 @@ endif()
 # List source files explicitly for proper incremental compilation
 # (similar to how the tensor team's Makefile uses pattern rules)
 file(GLOB CGADIMPL_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
-file(GLOB CGADIMPL_SRC_SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cpp")
+file(GLOB CGADIMPL_SRC_SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/src//.cpp")
 set(CGADIMPL_SRC ${CGADIMPL_SRC_ROOT} ${CGADIMPL_SRC_SUBDIRS})
 
 # Alternative: If you have deeper nesting, uncomment this and comment out the above:
-# file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE CGADIMPL_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # ---- Library Definition ----
 add_library(cgadimpl STATIC ${CGADIMPL_SRC})
@@ -62,11 +57,27 @@ add_library(cgadimpl::cgadimpl ALIAS cgadimpl)
 target_include_directories(cgadimpl PRIVATE /usr/local/cuda/include)
 # target_link_libraries(cgadimpl PUBLIC OwnTensor::tensor dl)
 target_compile_definitions(cgadimpl PUBLIC WITH_CUDA)
+
+# Filter out /usr/include to avoid system header issues
+if(LLVM_INCLUDE_DIRS)
+    list(REMOVE_ITEM LLVM_INCLUDE_DIRS "/usr/include")
+endif()
+if(MLIR_INCLUDE_DIRS)
+    list(REMOVE_ITEM MLIR_INCLUDE_DIRS "/usr/include")
+endif()
+
 target_include_directories(cgadimpl PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${LLVM_INCLUDE_DIRS}
     ${MLIR_INCLUDE_DIRS}
+    ${NOVA_INCLUDE_DIRS}
+    # Manual Include for Runtime (since not installed yet)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/include
 )
+
+# Prevent -isystem /usr/include which breaks header search order (fixes stdlib.h error)
+set_target_properties(cgadimpl PROPERTIES NO_SYSTEM_FROM_IMPORTED ON)
+
 target_link_libraries(cgadimpl PUBLIC 
     OwnTensor::tensor 
     dl
@@ -77,6 +88,12 @@ target_link_libraries(cgadimpl PUBLIC
     MlirCompiler::CompilerTransforms
     MlirCompiler::MLIRNova
     MlirCompiler::AffineTransforms
+    
+    # Nova Runtime (Manual Link due to missing export)
+    # MlirCompiler::NovaRuntimeCore --- MISSING EXPORT
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Core/libNovaRuntimeCore.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Executor/libNovaRuntimeExecutor.a
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../Nova-Compiler/build/lib/Runtime/Kernels/libNovaRuntimeKernels.a  <- Not needed for JIT Bridge
     
     # MLIR Conversion/Transforms
     MLIRReconcileUnrealizedCasts
@@ -132,6 +149,7 @@ if(true)
   function(add_ag_test name src)
     add_executable(${name} ${src})
     target_link_libraries(${name} PRIVATE cgadimpl::cgadimpl CUDA::cudart OpenMP::OpenMP_CXX)
+    set_target_properties(${name} PROPERTIES NO_SYSTEM_FROM_IMPORTED ON)
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
   

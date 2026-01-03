@@ -5,7 +5,7 @@ set -euo pipefail
 BUILD_TYPE="Debug"
 
 # This is the most reliable way to tell CMake which compiler to use.
-export CUDACXX=/usr/local/cuda-13.0/bin/nvcc
+export CUDACXX=/usr/local/cuda-12.9/bin/nvcc
 
 # --- Path Setup ---
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,11 +28,25 @@ echo "== Using CUDA CXX: $(which nvcc)"
 echo "== Building tensor library"
 cd "${TENSOR_DIR}"
 make -j$(nproc)
-cd "${ROOT}"
+
+# --- STEP 1.5: Build and Install Nova Compiler ---
+NOVA_DIR="$ROOT/Nova-Compiler"
+NOVA_BUILD="$NOVA_DIR/build"
+NOVA_INSTALL="$NOVA_DIR/install"
+
+echo "== Configuring Nova Compiler"
+cmake -S "$NOVA_DIR" -B "$NOVA_BUILD" \
+    -DCMAKE_BUILD_TYPE="Release" \
+    -DCMAKE_INSTALL_PREFIX="$NOVA_INSTALL"
+
+echo "== Installing Nova Compiler"
+# This builds AND installs to the local install/ directory
+cmake --build "$NOVA_BUILD" --target install -- -j$(nproc)
+
 
 # --- STEP 2: Configure and build the core cgadimpl library ---
 echo "== Configuring core"
-cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
+cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -Dmlir-compiler_DIR="$ROOT/Nova-Compiler/install/lib/cmake/mlir-compiler"
 
 echo "== Building core"
 cmake --build "$CGADIMPL_BUILD" -- -j$(nproc)

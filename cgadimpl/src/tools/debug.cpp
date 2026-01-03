@@ -10,6 +10,7 @@
 #include <chrono>
 #include <functional>
 #include "ad/autodiff/autodiff.hpp"
+#include <functional>
 
 namespace ag::debug {
 

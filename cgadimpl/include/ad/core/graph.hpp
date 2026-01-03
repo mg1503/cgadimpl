@@ -10,6 +10,7 @@
 #include "tensor.hpp"
 #include "ad/core/schema.hpp"
 #include "ad/runtime/cuda_graphs.hpp"
+#include <functional>
 
 namespace ag {
 struct Node;
