@@ -30,8 +30,8 @@ static void print_header(const std::string& name) {
 void test_gradient_checkpointing() {
     print_header("Gradient Checkpointing");
     auto opts = TensorOptions().with_req_grad(true);
-    Tensor Ta = Tensor::randn(Shape{{3, 4}}, opts);
-    Tensor Tb = Tensor::randn(Shape{{4, 2}}, opts);
+    Tensor Ta = Tensor::randn<float>(Shape{{3, 4}}, opts);
+    Tensor Tb = Tensor::randn<float>(Shape{{4, 2}}, opts);
 
     Value a = make_tensor(Ta, "a");
     Value b = make_tensor(Tb, "b");
@@ -109,8 +109,8 @@ void test_alias_tracking() {
 void test_combined_system() {
     print_header("Combined System Test");
     auto opts = TensorOptions().with_req_grad(true);
-    Tensor Ta = Tensor::randn(Shape{{3, 4}}, opts);
-    Tensor Tb = Tensor::randn(Shape{{4, 2}}, opts);
+    Tensor Ta = Tensor::randn<float>(Shape{{3, 4}}, opts);
+    Tensor Tb = Tensor::randn<float>(Shape{{4, 2}}, opts);
     Tensor Tc = Tensor::ones(Shape{{3, 2}}, opts) * 0.5f;
 
     Value a = make_tensor(Ta, "a");

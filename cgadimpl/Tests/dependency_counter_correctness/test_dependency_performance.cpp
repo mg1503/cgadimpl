@@ -35,9 +35,9 @@ int main() {
     // Create weights for each branch
     std::vector<Value> weights;
     for (int b = 0; b < NUM_BRANCHES; b++) {
-        Tensor W = Tensor::randn(Shape{{HIDDEN_SIZE, HIDDEN_SIZE}}, 
+        Tensor W = Tensor::randn<float>(Shape{{HIDDEN_SIZE, HIDDEN_SIZE}}, 
                                  TensorOptions().with_req_grad(true));
-        Tensor B = Tensor::randn(Shape{{1, HIDDEN_SIZE}}, 
+        Tensor B = Tensor::randn<float>(Shape{{1, HIDDEN_SIZE}}, 
                                  TensorOptions().with_req_grad(true));
         weights.push_back(make_tensor(W, ("w" + std::to_string(b)).c_str()));
     }
@@ -45,7 +45,7 @@ int main() {
     // Create inputs for each branch
     std::vector<Value> branches;
     for (int b = 0; b < NUM_BRANCHES; b++) {
-        Tensor X = Tensor::randn(Shape{{1, HIDDEN_SIZE}}, 
+        Tensor X = Tensor::randn<float>(Shape{{1, HIDDEN_SIZE}}, 
                                 TensorOptions().with_req_grad(false));
         auto x = make_tensor(X, ("x" + std::to_string(b)).c_str());
         

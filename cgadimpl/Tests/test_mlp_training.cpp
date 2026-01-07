@@ -141,7 +141,7 @@ int main() {
         std::cout << "CPU Model created successfully.\n";
 
         auto cpu_opts = OwnTensor::TensorOptions().with_device(Device::CPU);
-        ag::Value input = ag::make_tensor(OwnTensor::Tensor::randn(OwnTensor::Shape{{batch_size, in_features}}, cpu_opts), "input");
+        ag::Value input = ag::make_tensor(OwnTensor::Tensor::randn<float>(OwnTensor::Shape{{batch_size, in_features}}, cpu_opts), "input");
         ag::Value labels = ag::make_tensor(OwnTensor::Tensor::zeros(OwnTensor::Shape{{batch_size, out_features}}, cpu_opts), "labels");
         
         // --- Initial Pass ---

@@ -19,7 +19,7 @@ int main() {
     std::cout << "========================================\n" << std::endl;
 
     // Create the diamond pattern
-    Tensor X = Tensor::randn(Shape{{3, 3}}, TensorOptions().with_req_grad(true));
+    Tensor X = Tensor::randn<float>(Shape{{3, 3}}, TensorOptions().with_req_grad(true));
     auto x = make_tensor(X, "x");
     
     // Two different paths from x

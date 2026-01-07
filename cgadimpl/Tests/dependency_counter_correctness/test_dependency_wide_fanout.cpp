@@ -22,7 +22,7 @@ int main() {
     const int NUM_CHILDREN = 100;
     
     // Create shared parameter
-    Tensor X = Tensor::randn(Shape{{10, 10}}, TensorOptions().with_req_grad(true));
+    Tensor X = Tensor::randn<float>(Shape{{10, 10}}, TensorOptions().with_req_grad(true));
     auto x = make_tensor(X, "x");
     
     std::cout << "Building graph with " << NUM_CHILDREN << " independent operations..." << std::endl;

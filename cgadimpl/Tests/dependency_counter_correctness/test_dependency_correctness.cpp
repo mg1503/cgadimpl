@@ -47,7 +47,7 @@ int main() {
     std::cout << "Test 1: Diamond Pattern" << std::endl;
     std::cout << "  Building graph..." << std::endl;
     
-    Tensor X1 = Tensor::randn(Shape{{5, 5}}, TensorOptions().with_req_grad(true));
+    Tensor X1 = Tensor::randn<float>(Shape{{5, 5}}, TensorOptions().with_req_grad(true));
     auto x1_seq = make_tensor(X1, "x1");
     auto f1_seq = relu(x1_seq);
     auto g1_seq = x1_seq * x1_seq;
@@ -80,7 +80,7 @@ int main() {
     std::cout << "\nTest 2: Wide Fan-out (50 children)" << std::endl;
     std::cout << "  Building graph..." << std::endl;
     
-    Tensor X2 = Tensor::randn(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
+    Tensor X2 = Tensor::randn<float>(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
     auto x2_seq = make_tensor(X2, "x2");
     auto x2_par = make_tensor(X2, "x2_par");
     
@@ -128,9 +128,9 @@ int main() {
     std::cout << "\nTest 3: Multi-layer Network" << std::endl;
     std::cout << "  Building graph..." << std::endl;
     
-    Tensor W1 = Tensor::randn(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
-    Tensor W2 = Tensor::randn(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
-    Tensor X3 = Tensor::randn(Shape{{1, 8}}, TensorOptions().with_req_grad(false));
+    Tensor W1 = Tensor::randn<float>(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    Tensor W2 = Tensor::randn<float>(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    Tensor X3 = Tensor::randn<float>(Shape{{1, 8}}, TensorOptions().with_req_grad(false));
     
     // Sequential
     auto w1_seq = make_tensor(W1, "w1");

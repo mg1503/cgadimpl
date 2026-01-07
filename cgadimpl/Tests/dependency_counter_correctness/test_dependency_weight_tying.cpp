@@ -20,7 +20,7 @@ int main() {
     const int NUM_USES = 4;
     
     // Single shared weight
-    Tensor W = Tensor::randn(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
+    Tensor W = Tensor::randn<float>(Shape{{8, 8}}, TensorOptions().with_req_grad(true));
     auto w = make_tensor(W, "W_shared");
     
     std::cout << "Creating " << NUM_USES << " different uses of the same weight W..." << std::endl;
@@ -28,7 +28,7 @@ int main() {
     // Create different inputs
     std::vector<Value> inputs;
     for (int i = 0; i < NUM_USES; i++) {
-        Tensor X = Tensor::randn(Shape{{1, 8}}, TensorOptions().with_req_grad(false));
+        Tensor X = Tensor::randn<float>(Shape{{1, 8}}, TensorOptions().with_req_grad(false));
         inputs.push_back(make_tensor(X, ("x" + std::to_string(i)).c_str()));
     }
 

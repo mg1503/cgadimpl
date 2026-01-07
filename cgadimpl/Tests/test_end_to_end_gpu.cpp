@@ -33,7 +33,7 @@ void test_e2e_on_device(Device dev) {
 
     // --- FIX: Use the convenient Module::operator()(const Tensor&) overload ---
     // This automatically handles the conversion from Tensor to Value.
-    Tensor x_tensor = Tensor::randn(Shape{{4, 10}}, TensorOptions().with_device(dev));
+    Tensor x_tensor = Tensor::randn<float>(Shape{{4, 10}}, TensorOptions().with_device(dev));
     Value y = model(x_tensor);
     // --- END FIX ---
 

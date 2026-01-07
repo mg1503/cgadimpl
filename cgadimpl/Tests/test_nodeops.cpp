@@ -6,8 +6,8 @@ using namespace ag;
 using namespace OwnTensor; // For Shape, TensorOptions
 
 int main() {
-  Tensor A = Tensor::randn(Shape{{4,3}}, TensorOptions().with_req_grad(true));
-  Tensor B = Tensor::randn(Shape{{3,2}}, TensorOptions().with_req_grad(true));
+  Tensor A = Tensor::randn<float>(Shape{{4,3}}, TensorOptions().with_req_grad(true));
+  Tensor B = Tensor::randn<float>(Shape{{3,2}}, TensorOptions().with_req_grad(true));
   
   // --- FIX: Use the correct 3-argument Node constructor ---
   auto na = std::make_shared<Node>(A, Op::Leaf, "A");

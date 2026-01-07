@@ -115,37 +115,37 @@ void test_all_ops() {
 
     // --- Unary Ops ---
     run_test("ReLU", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return relu(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
     run_test("Exp", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return exp(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
      run_test("Log", [&](){
-        Value a = make_tensor(Tensor::rand(Shape{{4, 5}}, opts) + 0.1); // Ensure positive
+        Value a = make_tensor(Tensor::rand<float>(Shape{{4, 5}}, opts) + 0.1); // Ensure positive
         auto f = [&](){ return log(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
     run_test("Tanh", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return tanh(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
     run_test("Sigmoid", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return sigmoid(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
      run_test("GELU", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return gelu(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f), 1e-2)); // GELU is an approx
@@ -180,32 +180,32 @@ void test_all_ops() {
 
     // --- Binary Ops with Broadcasting ---
     run_test("Add (Broadcast)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
-        Value b = make_tensor(Tensor::randn(Shape{{1, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
+        Value b = make_tensor(Tensor::randn<float>(Shape{{1, 5}}, opts));
         auto f = [&](){ return a + b; };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
         assert(check_grad(b.grad(), numerical_gradient(b, f)));
     });
     run_test("Sub (Broadcast)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
-        Value b = make_tensor(Tensor::randn(Shape{{1, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
+        Value b = make_tensor(Tensor::randn<float>(Shape{{1, 5}}, opts));
         auto f = [&](){ return a - b; };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
         assert(check_grad(b.grad(), numerical_gradient(b, f)));
     });
     run_test("Mul (Broadcast)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
-        Value b = make_tensor(Tensor::randn(Shape{{1, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
+        Value b = make_tensor(Tensor::randn<float>(Shape{{1, 5}}, opts));
         auto f = [&](){ return a * b; };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
         assert(check_grad(b.grad(), numerical_gradient(b, f)));
     });
     run_test("Div (Broadcast)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
-        Value b = make_tensor(Tensor::rand(Shape{{1, 5}}, opts) + 1.0); // Avoid division by zero
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
+        Value b = make_tensor(Tensor::rand<float>(Shape{{1, 5}}, opts) + 1.0); // Avoid division by zero
         auto f = [&](){ return a / b; };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
@@ -214,19 +214,19 @@ void test_all_ops() {
 
     // --- Reductions ---
     run_test("Sum (all)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return sum(a); };
         backward(f()); // Loss is already a scalar
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
     run_test("Mean (all)", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return mean_all(a); };
         backward(f());
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
     run_test("RowSum", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 5}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 5}}, opts));
         auto f = [&](){ return rowsum(a); };
         backward(sum(f())); // Sum again to get scalar loss
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
@@ -234,17 +234,17 @@ void test_all_ops() {
 
     // --- MatMul and Linear ---
     run_test("MatMul", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{16, 32}}, opts));
-        Value b = make_tensor(Tensor::randn(Shape{{32, 8}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{16, 32}}, opts));
+        Value b = make_tensor(Tensor::randn<float>(Shape{{32, 8}}, opts));
         auto f = [&](){ return matmul(a, b); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f), 1e-2));
         assert(check_grad(b.grad(), numerical_gradient(b, f), 1e-2));
     });
     run_test("Linear", [&](){
-        Value x = make_tensor(Tensor::randn(Shape{{16, 32}}, opts));
-        Value w = make_tensor(Tensor::randn(Shape{{8, 32}}, opts)); // (out, in)
-        Value b = make_tensor(Tensor::randn(Shape{{1, 8}}, opts));
+        Value x = make_tensor(Tensor::randn<float>(Shape{{16, 32}}, opts));
+        Value w = make_tensor(Tensor::randn<float>(Shape{{8, 32}}, opts)); // (out, in)
+        Value b = make_tensor(Tensor::randn<float>(Shape{{1, 8}}, opts));
         auto f = [&](){ return linear(x, w, b); };
         backward(sum(f()));
         assert(check_grad(x.grad(), numerical_gradient(x, f), 1e-2));
@@ -254,13 +254,13 @@ void test_all_ops() {
 
     // --- Normalization ---
     run_test("LayerNorm", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 10}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 10}}, opts));
         auto f = [&](){ return laynor(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));
     });
      run_test("RMSNorm", [&](){
-        Value a = make_tensor(Tensor::randn(Shape{{4, 10}}, opts));
+        Value a = make_tensor(Tensor::randn<float>(Shape{{4, 10}}, opts));
         auto f = [&](){ return rms(a); };
         backward(sum(f()));
         assert(check_grad(a.grad(), numerical_gradient(a, f)));

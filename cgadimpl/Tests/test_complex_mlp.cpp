@@ -21,8 +21,8 @@ int main() {
 
     // ---------- Data ----------
     // Inputs are constants (requires_grad=false, which is the default)
-    Tensor Xt = Tensor::randn(Shape{{B, In}}, TensorOptions());
-    Value  X  = make_tensor(Tensor::randn(Shape{{B, In}}, TensorOptions()), "X");
+    Tensor Xt = Tensor::randn<float>(Shape{{B, In}}, TensorOptions());
+    Value  X  = make_tensor(Tensor::randn<float>(Shape{{B, In}}, TensorOptions()), "X");
 
     // One-hot labels Y[B,Out]
     Tensor Yt(Shape{{B, Out}}, TensorOptions());
@@ -40,15 +40,15 @@ int main() {
     // ---------- Parameters ----------
     // Parameters are trainable (requires_grad=true)
     auto opts_param = TensorOptions().with_req_grad(true);
-    auto W1 = make_tensor(Tensor::randn(Shape{{In, H1}}, opts_param), "W1");
+    auto W1 = make_tensor(Tensor::randn<float>(Shape{{In, H1}}, opts_param), "W1");
     auto b1 = make_tensor(Tensor::zeros(Shape{{1, H1}}, opts_param), "b1");
-    auto W2 = make_tensor(Tensor::randn(Shape{{H1, H2}}, opts_param), "W2");
+    auto W2 = make_tensor(Tensor::randn<float>(Shape{{H1, H2}}, opts_param), "W2");
     auto b2 = make_tensor(Tensor::zeros(Shape{{1, H2}}, opts_param), "b2");
-    auto W3 = make_tensor(Tensor::randn(Shape{{H2, H3}}, opts_param), "W3");
+    auto W3 = make_tensor(Tensor::randn<float>(Shape{{H2, H3}}, opts_param), "W3");
     auto b3 = make_tensor(Tensor::zeros(Shape{{1, H3}}, opts_param), "b3");
-    auto W4 = make_tensor(Tensor::randn(Shape{{H3, H4}}, opts_param), "W4");
+    auto W4 = make_tensor(Tensor::randn<float>(Shape{{H3, H4}}, opts_param), "W4");
     auto b4 = make_tensor(Tensor::zeros(Shape{{1, H4}}, opts_param), "b4");
-    auto W5 = make_tensor(Tensor::randn(Shape{{H4, Out}}, opts_param), "W5");
+    auto W5 = make_tensor(Tensor::randn<float>(Shape{{H4, Out}}, opts_param), "W5");
     auto b5 = make_tensor(Tensor::zeros(Shape{{1, Out}}, opts_param), "b5");
     
     // ---------- Forward: 4 hidden layers + logits ----------

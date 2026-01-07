@@ -4,13 +4,15 @@
 #include <unordered_map>
 #include <cmath> 
 #include <type_traits> 
+#include "mlp/loss.h"
 
 namespace ag {
 namespace detail {
 std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
-    Tensor diff = pred->value - target->value;
-    Tensor sq   = diff * diff;
-    Tensor loss = OwnTensor::reduce_mean(sq); 
+    // Tensor diff = pred->value - target->value;
+    // Tensor sq   = diff * diff;
+    // Tensor loss = OwnTensor::reduce_mean(sq); 
+    Tensor loss = OwnTensor::mlp_forward::mse_loss(pred->value, target->value);
     auto n = std::make_shared<Node>(loss, Op::MSELoss, (pred->requires_grad()), "mseloss");
     n->inputs = {pred, target};
     if (pred) pred->child_grad_count++;
@@ -19,9 +21,10 @@ std::shared_ptr<Node> mse_loss_nodeops(const std::shared_ptr<Node>& pred, const 
     return n;
 }
 std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
-    Tensor diff = pred->value - target->value;
-    Tensor abs_diff = OwnTensor::abs(diff, ag::current_stream());
-    Tensor loss = OwnTensor::reduce_mean(abs_diff);
+    // Tensor diff = pred->value - target->value;
+    // Tensor abs_diff = OwnTensor::abs(diff, ag::current_stream());
+    // Tensor loss = OwnTensor::reduce_mean(abs_diff);
+    Tensor loss = OwnTensor::mlp_forward::mae_loss(pred->value, target->value);
     auto n = std::make_shared<Node>(loss, Op::MAELoss, (pred->requires_grad() || target->requires_grad()), "maeloss");
     n->inputs = {pred, target};
     if (pred) pred->child_grad_count++;
@@ -29,6 +32,42 @@ std::shared_ptr<Node> mae_loss_nodeops(const std::shared_ptr<Node>& pred, const 
     ag::debug::on_node_created(n);
     return n;
 }
+
+std::shared_ptr<Node> binary_cross_entropy_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
+
+    // Tensor diff = pred->value - target->value;
+    // Tensor sq   = diff * diff;
+    // // --- THIS IS THE BUG ---
+    // // It should be reduce_mean, not reduce_sum. reduce_mean correctly
+    // // computes the VJP for the mean operation. sum has a different VJP.
+    // Tensor loss = OwnTensor::reduce_mean(sq); 
+    Tensor loss = OwnTensor::mlp_forward::binary_cross_entropy(pred->value, target->value);
+    // --- END BUG ---
+
+    auto n = std::make_shared<Node>(loss, Op::BinaryCrossEntropy, (pred->requires_grad() || target->requires_grad()), "binary_cross_entropy");
+    n->inputs = {pred, target};
+
+    if (pred) pred->child_grad_count++;
+    if (target) target->child_grad_count++;
+
+    ag::debug::on_node_created(n);
+    return n;
+}
+
+std::shared_ptr<Node> categorical_cross_entropy_nodeops(const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target) {
+
+    Tensor loss = OwnTensor::mlp_forward::categorical_cross_entropy(pred->value, target->value);
+
+    auto n = std::make_shared<Node>(loss, Op::CategoricalCrossEntropy, (pred->requires_grad() || target->requires_grad()), "categorical_cross_entropy");
+    n->inputs = {pred, target};
+
+    if (pred) pred->child_grad_count++;
+    if (target) target->child_grad_count++;
+
+    ag::debug::on_node_created(n);
+    return n;
+}
+
 std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<Node>& logits, const std::shared_ptr<Node>& onehot){
     const Tensor& Z = logits->value;
     const Tensor& Y = onehot->value;

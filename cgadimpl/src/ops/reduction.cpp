@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <cmath> 
 #include <type_traits> 
+#include "mlp/activation.h"
 namespace ag {
 namespace detail {
     std::shared_ptr<Node> sum_nodeops(const std::shared_ptr<Node>& x){
@@ -40,11 +41,12 @@ std::shared_ptr<Node> rowmax_nodeops(const std::shared_ptr<Node>& x){
 }
 
 std::shared_ptr<Node> softmax_row_nodeops(const std::shared_ptr<Node>& z){ 
-    Tensor max_val = OwnTensor::reduce_max(z->value, {-1}, true);
-    Tensor z_shifted = z->value - max_val;
-    Tensor exp_z = OwnTensor::exp(z_shifted, ag::current_stream());
-    Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
-    Tensor y = exp_z / sum_exp_z;
+    // Tensor max_val = OwnTensor::reduce_max(z->value, {-1}, true);
+    // Tensor z_shifted = z->value - max_val;
+    // Tensor exp_z = OwnTensor::exp(z_shifted, ag::current_stream());
+    // Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
+    // Tensor y = exp_z / sum_exp_z;
+    Tensor y = OwnTensor::mlp_forward::softmax(z->value);
     auto n = std::make_shared<Node>(y, Op::SoftmaxRow, z->requires_grad(), "softmax_row"); 
     n->inputs = {z}; 
     if (z) z->child_grad_count++;

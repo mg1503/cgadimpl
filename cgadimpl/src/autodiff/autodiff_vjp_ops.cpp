@@ -120,7 +120,7 @@ void vjp_GELU(Node* n, const Tensor& gy){
         Tensor x = X->value;
         Tensor x3 = x * x * x;
         Tensor u = c1 * (x + c2 * x3);
-        Tensor tu = OwnTensor::tanh(u);
+        Tensor tu = OwnTensor::trig::tanh(u);
         Tensor d_tu = 1.0f - tu * tu;
         Tensor du_dx = c1 * (1.0f + 3.0f * c2 * x * x);
         X->accumulate_grad(gy * (0.5f * (1.0f + tu) + 0.5f * x * d_tu * du_dx));
@@ -141,7 +141,7 @@ void vjp_Mish(Node* n, const Tensor& gy){
     if (X->requires_grad()) {
         Tensor x = X->value;
         Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(x, ag::current_stream()), ag::current_stream());
-        Tensor tsp = OwnTensor::tanh(sp);
+        Tensor tsp = OwnTensor::trig::tanh(sp);
         Tensor sig = 1.0f / (1.0f + OwnTensor::exp(x * -1.0f, ag::current_stream()));
         X->accumulate_grad( gy * (tsp + x * (1.0f - tsp * tsp) * sig));
     }
@@ -191,7 +191,7 @@ void vjp_LiSHT(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
         Tensor x = X->value;
-        Tensor tx = OwnTensor::tanh(x);
+        Tensor tx = OwnTensor::trig::tanh(x);
         X->accumulate_grad(gy * (tx + x * (1.0f - tx * tx)));
     }
 }
@@ -278,6 +278,31 @@ void vjp_Linear(Node* n, const Tensor& gy){
     if (b_node->requires_grad()) b_node->accumulate_grad(OwnTensor::reduce_sum(gy, {0}, false));
 }
 
+void vjp_Flatten(Node* n, const Tensor& gy) {
+    Node* X_node = n->inputs[0].get();
+    if (!X_node->requires_grad()) return;
+    const Shape& original_shape = X_node->value.shape();
+
+    Tensor reshaped_grad = gy.reshape(original_shape);
+
+    if (X_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(X_node->grad_mutex);
+        X_node->grad += reshaped_grad;
+    }
+}
+
+void vjp_Dropout(Node* n, const Tensor& gy) {
+    Node* X_node = n->inputs[0].get();
+    if (!X_node->requires_grad()) return;
+
+    const Tensor& mask = *n->tape[0];
+
+    if (X_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(X_node->grad_mutex);
+        X_node->grad += gy * mask; 
+    }
+}
+
 void vjp_FMA(Node* n, const Tensor& gy){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
@@ -347,6 +372,42 @@ void vjp_MAELoss(Node* n, const Tensor& gy){
     if (Y_node->requires_grad()) Y_node->accumulate_grad(gy * sign_diff * inv_N);
 }
 
+void vjp_BinaryCrossEntropy(Node* n, const Tensor& gy) {
+    Node* Y_pred_node = n->inputs[0].get();
+    Node* Y_true_node = n->inputs[1].get(); 
+    
+    const Tensor& y_pred = Y_pred_node->value;
+    const Tensor& y_true = Y_true_node->value;
+
+    // Gradient formula: gy * (y_pred - y_true) / (y_pred * (1 - y_pred))
+    float eps = 1e-7f;
+    Tensor grad_input = gy * (y_pred - y_true) / (y_pred * (1.0f - y_pred) + eps);
+
+    if (Y_pred_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(Y_pred_node->grad_mutex);
+        Y_pred_node->grad += grad_input;
+    }
+}
+
+void vjp_CategoricalCrossEntropy(Node* n, const Tensor& gy) {
+    Node* Y_pred_node = n->inputs[0].get();
+    Node* Y_true_node = n->inputs[1].get();
+
+    if (!Y_pred_node->requires_grad()) return;
+
+    const Tensor& y_pred = Y_pred_node->value;
+    const Tensor& y_true = Y_true_node->value;
+
+    // Gradient formula: - (y_true / y_pred)
+    float eps = 1e-7f;
+    Tensor grad_input = gy * (-1.0f *(y_true / (y_pred + eps)));
+
+    if (Y_pred_node->requires_grad()) {
+        std::lock_guard<std::mutex> lock(Y_pred_node->grad_mutex);
+        Y_pred_node->grad += grad_input;
+    }
+}
+
 //Layer Normalization ------------
 void vjp_LayerNorm(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
@@ -387,7 +448,7 @@ void vjp_Dyntanh(Node* n, const Tensor& gy){
     Node* B = n->inputs[2].get();
     Node* G = n->inputs[3].get();
     const Tensor& h = *n->tape[0];
-    Tensor th = OwnTensor::tanh(h);
+    Tensor th = OwnTensor::trig::tanh(h);
     Tensor d_th = 1.0f - th * th;
     if (X->requires_grad()) X->accumulate_grad(gy * G->value * d_th * A->value);
     if (A->requires_grad()) A->accumulate_grad(OwnTensor::reduce_sum(gy * G->value * d_th * X->value, {}, false));
@@ -442,18 +503,18 @@ void vjp_LogSumExpRow(Node* n, const Tensor& gy){
 //Trigonometric Functions --------------------
 void vjp_Sin(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::cos(X->value));
+    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::trig::cos(X->value));
 }
 
 void vjp_Cos(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::sin(X->value));
+    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::trig::sin(X->value));
 }
 
 void vjp_Tan(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
     if (X->requires_grad()) {
-        Tensor c = OwnTensor::cos(X->value);
+        Tensor c = OwnTensor::trig::cos(X->value);
         X->accumulate_grad(gy / (c * c));
     }
 }
@@ -461,11 +522,11 @@ void vjp_Tan(Node* n, const Tensor& gy){
 //Hyperbolic Functions ------------------
 void vjp_Cosh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::sinh(X->value));
+    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::trig::sinh(X->value));
 }
 void vjp_Sinh(Node* n, const Tensor& gy){
     Node* X = n->inputs[0].get();
-    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::cosh(X->value));
+    if (X->requires_grad()) X->accumulate_grad(gy * OwnTensor::trig::cosh(X->value));
 }
 
 //Inverse Trigonometric Functions --------------

@@ -5,19 +5,19 @@
 int main(){
     std::cout << "Building computational graph with 3 branches, 10 layers each..." << std::endl;
     // Weights and biases for each branch (all output size 2048)
-    auto w1 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w1");
-    auto b1 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b1");
+    auto w1 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w1");
+    auto b1 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b1");
 
-    auto w2 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w2");
-    auto b2 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b2");
+    auto w2 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w2");
+    auto b2 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b2");
 
-    auto w3 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w3");
-    auto b3 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b3");
+    auto w3 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{2048,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "w3");
+    auto b3 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(true)), "b3");
 
     // Initial inputs (all [1, 2048])
-    auto x1 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x1");
-    auto x2 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x2");
-    auto x3 = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x3");
+    auto x1 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x1");
+    auto x2 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x2");
+    auto x3 = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1,2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "x3");
 
     // Branch 1: 10,000 linear+relu operations
     std::cout << "Building branch 1..." << std::endl;
@@ -46,7 +46,7 @@ int main(){
     auto y2 = ag::add(y1, l3);           // [1,2048] + [1,2048] = [1,2048]
     auto y3 = ag::relu(y2);              // [1,2048] -> [1,2048]
     // Loss
-    auto target = ag::make_tensor(OwnTensor::Tensor::randn(Shape{{1, 2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "target");
+    auto target = ag::make_tensor(OwnTensor::Tensor::randn<float>(Shape{{1, 2048}}, OwnTensor::TensorOptions().with_req_grad(false)), "target");
     auto loss = ag::mse_loss(y3, target);
 
     std::cout << "\n=== Graph built with ~30,000 nodes! ===" << std::endl;

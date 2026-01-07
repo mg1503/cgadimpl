@@ -123,6 +123,12 @@ namespace ag {
     Value linear(const Value& a, const Value& b, const Value& c){ 
         return Value(ag::detail::linear_nodeops(a.node, b.node, c.node)); 
     }
+    Value dropout(const Value& a, const Value& b){ 
+        return Value(ag::detail::dropout_nodeops(a.node, b.node)); 
+    }
+    Value flatten(const Value& a){ 
+        return Value(ag::detail::flatten_nodeops(a.node)); 
+    }
     Value fmab(const Value& a, const Value& b, const Value& c){ 
         return Value(ag::detail::fmab_nodeops(a.node, b.node, c.node)); 
     }
@@ -141,6 +147,12 @@ namespace ag {
     }
     Value mae_loss(const Value& pred, const Value& target) {
         return Value(ag::detail::mae_loss_nodeops(pred.node, target.node));
+    }
+    Value binary_cross_entropy(const Value& pred, const Value& target) {
+        return Value(ag::detail::binary_cross_entropy_nodeops(pred.node, target.node));
+    }
+    Value categorical_cross_entropy(const Value& pred, const Value& target) {
+        return Value(ag::detail::categorical_cross_entropy_nodeops(pred.node, target.node));
     }
 
 //Layer Normalization ------------
@@ -341,7 +353,7 @@ Tensor forward_eval_node(const std::shared_ptr<Node> &node) {
         // }
         case Op::Tanh: {
             const Tensor &X = node->inputs[0]->value;
-            return tanh(X);
+            return trig::tanh(X);
         }
         case Op::Exp: {
             const Tensor &X = node->inputs[0]->value;

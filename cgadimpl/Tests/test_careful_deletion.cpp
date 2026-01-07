@@ -42,10 +42,10 @@ int main() {
     // 1️⃣ BUILD A COMPLEX COMPUTATION GRAPH
     // -------------------------------------------------------------
     auto opts_param = TensorOptions().with_req_grad(true);
-    Tensor Ta = Tensor::randn(Shape{{3, 3}}, opts_param);
-    Tensor Tb = Tensor::randn(Shape{{3, 3}}, opts_param);
-    Tensor Tc = Tensor::randn(Shape{{3, 3}}, opts_param);
-    Tensor Td = Tensor::randn(Shape{{3, 3}}, opts_param);
+    Tensor Ta = Tensor::randn<float>(Shape{{3, 3}}, opts_param);
+    Tensor Tb = Tensor::randn<float>(Shape{{3, 3}}, opts_param);
+    Tensor Tc = Tensor::randn<float>(Shape{{3, 3}}, opts_param);
+    Tensor Td = Tensor::randn<float>(Shape{{3, 3}}, opts_param);
 
     Value a = make_tensor(Ta, "a");
     Value b = make_tensor(Tb, "b");

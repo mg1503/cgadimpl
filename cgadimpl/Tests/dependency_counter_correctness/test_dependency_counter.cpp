@@ -1,11 +1,11 @@
 #include<iostream>
 #include "ad/ag_all.hpp"
 int main(){
-    Tensor J_tensor=Tensor::randn(Shape{{2,2}},TensorOptions().with_req_grad(true));
-    Tensor G_tensor=Tensor::randn(Shape{{2,2}},TensorOptions().with_req_grad(true));
-    Tensor R_tensor=Tensor::randn(Shape{{2,2}},TensorOptions().with_req_grad(true));
-    Tensor V_tensor=Tensor::randn(Shape{{2,2}},TensorOptions().with_req_grad(true));
-    Tensor K_tensor=Tensor::randn(Shape{{2,2}},TensorOptions().with_req_grad(true));
+    Tensor J_tensor=Tensor::randn<float>(Shape{{2,2}},TensorOptions().with_req_grad(true));
+    Tensor G_tensor=Tensor::randn<float>(Shape{{2,2}},TensorOptions().with_req_grad(true));
+    Tensor R_tensor=Tensor::randn<float>(Shape{{2,2}},TensorOptions().with_req_grad(true));
+    Tensor V_tensor=Tensor::randn<float>(Shape{{2,2}},TensorOptions().with_req_grad(true));
+    Tensor K_tensor=Tensor::randn<float>(Shape{{2,2}},TensorOptions().with_req_grad(true));
    
     auto j=ag::make_tensor(J_tensor,"J");
     auto g=ag::make_tensor(G_tensor,"G");
@@ -13,7 +13,7 @@ int main(){
     auto v=ag::make_tensor(V_tensor,"V");
     auto k=ag::make_tensor(K_tensor,"K");
 
-    auto y_true = ag::make_tensor(Tensor::randn(Shape{{2,2}}, TensorOptions().with_req_grad(true)), "y_true");
+    auto y_true = ag::make_tensor(Tensor::randn<float>(Shape{{2,2}}, TensorOptions().with_req_grad(true)), "y_true");
 
     for(int i=0;i<2;i++){
 

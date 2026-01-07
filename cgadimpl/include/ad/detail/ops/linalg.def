@@ -34,3 +34,5 @@ OP(Transpose, 1,    "transpose")   // X.T, swap last two dimensions
 // --- Fused Operations (better performance, fewer memory accesses) ---
 OP(Linear,    3,    "linear")      // X @ W.T + b, full linear layer (arity=3: input, weight, bias)
 OP(FMA,       3,    "fmab")        // A @ B + C, fused multiply-add
+OP(Dropout,   2,    "dropout")
+OP(Flatten,   1,    "flatten")

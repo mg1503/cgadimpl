@@ -88,7 +88,7 @@ Tensor jvp_GELU(Node* n, const std::function<const Tensor&(Node*)>& t){
     Tensor x2 = x * x;
     Tensor x3 = x2 * x;
     Tensor u = (x + x3 * c2) * c1;
-    Tensor th_u = OwnTensor::tanh(u);
+    Tensor th_u = OwnTensor::trig::tanh(u);
     
     // Compute du/dx = c1 * (1 + 3 * c2 * x^2)
     Tensor du_dx = (1.0f + (x2 * (3.0f * c2))) * c1;
@@ -118,7 +118,7 @@ Tensor jvp_Mish(Node* n, const std::function<const Tensor&(Node*)>& t){
 
     // Re-calculate intermediates needed for the derivative
     Tensor sp = OwnTensor::log(1.0f + OwnTensor::exp(x));
-    Tensor tanh_sp = OwnTensor::tanh(sp);
+    Tensor tanh_sp = OwnTensor::trig::tanh(sp);
     Tensor sig_x = 1.0f / (1.0f + OwnTensor::exp(x * -1.0f));
 
     // The derivative of mish
@@ -166,8 +166,8 @@ Tensor jvp_LiSHT(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
     const Tensor& x_val = X->value;
 
-    Tensor th_x = OwnTensor::tanh(x_val);
-    Tensor ch_x = OwnTensor::cosh(x_val);
+    Tensor th_x = OwnTensor::trig::tanh(x_val);
+    Tensor ch_x = OwnTensor::trig::cosh(x_val);
     Tensor sech_x_sq = 1.0f / (ch_x * ch_x);
     
     Tensor d_lisht = th_x + x_val * sech_x_sq;
@@ -264,6 +264,24 @@ Tensor jvp_Linear(Node* n, const std::function<const Tensor&(Node*)>& t){
     return dA + dB + T(t, C);
 }
 
+Tensor jvp_Flatten(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X_node = n->inputs[0].get(); 
+    const Tensor& v = t(X_node);
+    const Shape& target_shape = n->value.shape();
+    
+    return v.reshape(target_shape);
+}
+
+Tensor jvp_Dropout(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* X_node = n->inputs[0].get();
+    const Tensor& v = t(X_node); 
+
+    // retriving the mask used during the forward pass. (important)
+    const Tensor& mask = *n->tape[0];
+
+    return v * mask;
+}
+
 Tensor jvp_FMA(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* A = n->inputs[0].get();
     Node* B = n->inputs[1].get();
@@ -356,6 +374,39 @@ Tensor jvp_MAELoss(Node* n, const std::function<const Tensor&(Node*)>& t){
     
     return dot_Z + dot_Y;
 }
+
+Tensor jvp_BinaryCrossEntropy(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* Y_pred_node = n->inputs[0].get();
+    Node* Y_true_node = n->inputs[1].get();
+
+    const Tensor& y_pred = Y_pred_node->value;
+    const Tensor& y_true = Y_true_node->value;
+
+    const Tensor& v = t(Y_pred_node);
+
+    // BCE = (ypred - ytrue) / (ypred * (1 - ypred))
+    float eps = 1e-7f;
+    Tensor denominator = (y_pred * (1.0f - y_pred)) + eps;
+    Tensor jvp_val = v * (y_pred - y_true) / denominator;
+
+    return OwnTensor::reduce_mean(jvp_val); 
+}
+
+Tensor jvp_CategoricalCrossEntropy(Node* n, const std::function<const Tensor&(Node*)>& t){
+    Node* Y_pred_node = n->inputs[0].get();
+    Node* Y_true_node = n->inputs[1].get();
+
+    const Tensor& y_pred = Y_pred_node->value;
+    const Tensor& y_true = Y_true_node->value;
+    const Tensor& v = t(Y_pred_node);
+
+    // CCE = -sum( (y_true / y_pred) * v )
+    float eps = 1e-7f;
+    Tensor jvp_val = (((y_true / (y_pred + eps)) * v));
+
+    return OwnTensor::reduce_sum(jvp_val, {-1}, false); 
+}
+
 //Layer Normalization ------------
 
 Tensor jvp_LayerNorm(Node* n, const std::function<const Tensor&(Node*)>& t){
@@ -435,15 +486,15 @@ Tensor jvp_LogSumExpRow(Node* n, const std::function<const Tensor&(Node*)>& t){
 //Trigonometric Functions --------------------
 Tensor jvp_Sin(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
-    return T(t, X) * OwnTensor::cos(X->value);
+    return T(t, X) * OwnTensor::trig::cos(X->value);
 }
 Tensor jvp_Cos(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
-    return T(t, X) * -1.0f * OwnTensor::sin(X->value);
+    return T(t, X) * -1.0f * OwnTensor::trig::sin(X->value);
 }
 Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
-    Tensor cos_x = OwnTensor::cos(X->value);
+    Tensor cos_x = OwnTensor::trig::cos(X->value);
     // JVP is tangent(x) * (1/cos(x)^2)
     return T(t, X) * (1.0f / (cos_x * cos_x));
 }
@@ -451,11 +502,11 @@ Tensor jvp_Tan(Node* n, const std::function<const Tensor&(Node*)>& t){
 //Hyperbolic Functions ------------------
 Tensor jvp_Cosh(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
-    return T(t, X) * OwnTensor::sinh(X->value);
+    return T(t, X) * OwnTensor::trig::sinh(X->value);
 }
 Tensor jvp_Sinh(Node* n, const std::function<const Tensor&(Node*)>& t){
     Node* X = n->inputs[0].get();
-    return T(t, X) * OwnTensor::cosh(X->value);
+    return T(t, X) * OwnTensor::trig::cosh(X->value);
 }
 //Inverse Trigonometric Functions --------------
 Tensor jvp_Asin(Node* n, const std::function<const Tensor&(Node*)>& t){

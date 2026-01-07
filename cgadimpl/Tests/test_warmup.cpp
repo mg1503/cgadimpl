@@ -11,19 +11,19 @@ void bench(const std::string& label, Device device, bool use_dag) {
 
     // Warm up the CUDA context and memory pool
     {
-        Tensor tmp = Tensor::randn(s1, opts);
+        Tensor tmp = Tensor::randn<float>(s1, opts);
         if (device == Device::CUDA) cudaDeviceSynchronize();
     }
 
     auto t1 = std::chrono::high_resolution_clock::now();
     
     if (use_dag) {
-        auto a = make_tensor(Tensor::randn(s1, opts), "A");
-        auto b = make_tensor(Tensor::randn(s2, opts), "B");
+        auto a = make_tensor(Tensor::randn<float>(s1, opts), "A");
+        auto b = make_tensor(Tensor::randn<float>(s2, opts), "B");
         auto d = matmul(a, b);
     } else {
-        Tensor A = Tensor::randn(s1, opts);
-        Tensor B = Tensor::randn(s2, opts);
+        Tensor A = Tensor::randn<float>(s1, opts);
+        Tensor B = Tensor::randn<float>(s2, opts);
         Tensor D = matmul(A, B);
     }
 

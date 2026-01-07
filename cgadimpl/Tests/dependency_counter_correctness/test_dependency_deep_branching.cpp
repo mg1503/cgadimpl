@@ -21,8 +21,8 @@ int main() {
     const int BRANCH_INTERVAL = 10;
     
     // Initial input and weight
-    Tensor X = Tensor::randn(Shape{{1, 16}}, TensorOptions().with_req_grad(false));
-    Tensor W = Tensor::randn(Shape{{16, 16}}, TensorOptions().with_req_grad(true));
+    Tensor X = Tensor::randn<float>(Shape{{1, 16}}, TensorOptions().with_req_grad(false));
+    Tensor W = Tensor::randn<float>(Shape{{16, 16}}, TensorOptions().with_req_grad(true));
     
     auto x = make_tensor(X, "x");
     auto w = make_tensor(W, "w");

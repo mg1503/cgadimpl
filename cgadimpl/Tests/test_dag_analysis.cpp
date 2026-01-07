@@ -14,9 +14,9 @@ void run_benchmark(const std::string& label, Device device) {
 
     // 1. Direct Tensor Operations (No DAG)
     auto t1 = std::chrono::high_resolution_clock::now();
-    Tensor A = Tensor::randn(s1, opts);
-    Tensor B = Tensor::randn(s2, opts);
-    Tensor C = Tensor::randn(s3, opts);
+    Tensor A = Tensor::randn<float>(s1, opts);
+    Tensor B = Tensor::randn<float>(s2, opts);
+    Tensor C = Tensor::randn<float>(s3, opts);
     Tensor D = matmul(A, B);
     Tensor E = matmul(D, C);
 
@@ -31,9 +31,9 @@ void run_benchmark(const std::string& label, Device device) {
 
     // 2. Autograd operations (With DAG)
     auto t3 = std::chrono::high_resolution_clock::now();
-    auto a = make_tensor(Tensor::randn(s1, opts), "A");
-    auto b = make_tensor(Tensor::randn(s2, opts), "B");
-    auto c = make_tensor(Tensor::randn(s3, opts), "C");
+    auto a = make_tensor(Tensor::randn<float>(s1, opts), "A");
+    auto b = make_tensor(Tensor::randn<float>(s2, opts), "B");
+    auto c = make_tensor(Tensor::randn<float>(s3, opts), "C");
     auto d = matmul(a, b);
     auto e = matmul(d, c);
 

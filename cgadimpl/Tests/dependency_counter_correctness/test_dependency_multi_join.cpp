@@ -20,8 +20,8 @@ int main() {
     std::cout << "========================================\n" << std::endl;
 
     // Shared weights
-    Tensor W1 = Tensor::randn(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
-    Tensor W2 = Tensor::randn(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
+    Tensor W1 = Tensor::randn<float>(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
+    Tensor W2 = Tensor::randn<float>(Shape{{4, 4}}, TensorOptions().with_req_grad(true));
     
     auto w1 = make_tensor(W1, "w1");
     auto w2 = make_tensor(W2, "w2");

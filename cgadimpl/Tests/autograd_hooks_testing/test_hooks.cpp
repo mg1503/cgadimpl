@@ -30,8 +30,8 @@ public:
 void test_basic_hook() {
     std::cout << "Running test_basic_hook..." << std::endl;
     
-    auto a = make_tensor(Tensor::randn(Shape{{2, 2}}, TensorOptions().with_req_grad(true)), "a");
-    auto b = make_tensor(Tensor::randn(Shape{{2, 2}}, TensorOptions().with_req_grad(true)), "b");
+    auto a = make_tensor(Tensor::randn<float>(Shape{{2, 2}}, TensorOptions().with_req_grad(true)), "a");
+    auto b = make_tensor(Tensor::randn<float>(Shape{{2, 2}}, TensorOptions().with_req_grad(true)), "b");
     auto c = matmul(a, b);
     auto loss = sum(c);
 
@@ -54,7 +54,7 @@ void test_basic_hook() {
 void test_module_hook() {
     std::cout << "\nRunning test_module_hook..." << std::endl;
     nn::Linear linear(10, 5);
-    auto input = make_tensor(Tensor::randn(Shape{{1, 10}}, TensorOptions()));
+    auto input = make_tensor(Tensor::randn<float>(Shape{{1, 10}}, TensorOptions()));
     auto output = linear(input);
     auto loss = sum(output);
 
@@ -78,7 +78,7 @@ void test_parallel_hook() {
     std::cout << "\nRunning test_parallel_hook..." << std::endl;
     
     nn::Linear linear(10, 5);
-    auto input = make_tensor(Tensor::randn(Shape{{1, 10}}, TensorOptions()));
+    auto input = make_tensor(Tensor::randn<float>(Shape{{1, 10}}, TensorOptions()));
     auto output = linear(input);
     auto loss = sum(output);
 
@@ -108,7 +108,7 @@ void test_complex_module_hook() {
     Device dev = Device::CPU;
     
     DeepLinearModule model(in_features, hidden_features, out_features, dev);
-    auto input = make_tensor(Tensor::randn(Shape{{1, in_features}}, TensorOptions().with_device(dev)));
+    auto input = make_tensor(Tensor::randn<float>(Shape{{1, in_features}}, TensorOptions().with_device(dev)));
     auto output = model(input);
     auto loss = sum(output);
 

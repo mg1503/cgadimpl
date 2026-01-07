@@ -15,13 +15,13 @@ int main() {
 
     // Use default options (CPU, requires_grad=false)
     auto opts_const = TensorOptions();
-    Tensor Xt = Tensor::randn(Shape{{B, In}}, opts_const);
+    Tensor Xt = Tensor::randn<float>(Shape{{B, In}}, opts_const);
     Value X = make_tensor(Xt, "X");
 
     // ---------- Parameters ----------
     // Parameters must have requires_grad=true
     auto opts_param = TensorOptions().with_req_grad(true);
-    auto W1 = make_tensor(Tensor::randn(Shape{{In, Out}}, opts_param), "W1");
+    auto W1 = make_tensor(Tensor::randn<float>(Shape{{In, Out}}, opts_param), "W1");
     auto b1 = make_tensor(Tensor::zeros(Shape{{1, Out}}, opts_param), "b1");
 
     // ---------- Forward Pass (using only JIT-supported ops) ----------

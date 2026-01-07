@@ -209,7 +209,7 @@ void test_cuda_graph(Device device) {
     std::cout << "\n--- Testing CUDA Graph Capture (Directly) ---\n";
 
     SimpleMLP model(10, 20, 5, device);
-    Tensor x_tensor = Tensor::randn(Shape{{4, 10}}, TensorOptions().with_device(device));
+    Tensor x_tensor = Tensor::randn<float>(Shape{{4, 10}}, TensorOptions().with_device(device));
 
     std::cout << "Performing warm-up forward passes (pre-allocates all memory)...\n";
     

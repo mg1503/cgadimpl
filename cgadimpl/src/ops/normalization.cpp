@@ -63,7 +63,7 @@ std::shared_ptr<Node> dyntanh_nodeops(const std::shared_ptr<Node>& x, float& a_v
     std::shared_ptr<Node> B = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), b_val), Op::Leaf, "dyn_b");
     std::shared_ptr<Node> G = std::make_shared<Node>(Tensor::full(Shape{{1}}, TensorOptions().with_req_grad(true), g_val), Op::Leaf, "dyn_g");
     Tensor h = x->value * A->value;
-    Tensor y = OwnTensor::tanh(h) * G->value + B->value;
+    Tensor y = OwnTensor::trig::tanh(h) * G->value + B->value;
     auto n = std::make_shared<Node>(y, Op::Dyntanh, x->requires_grad(), "dyntanh");
     n->inputs={x, A, B, G};
     n->tape.push_back(std::make_shared<Tensor>(h));

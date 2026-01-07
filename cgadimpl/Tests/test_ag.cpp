@@ -87,8 +87,8 @@ int main() {
     using namespace std;
 
     // --- 1. Create Tensors (This part is correct) ---
-    Tensor A_tensor = Tensor::randn(Shape{{2, 3}}, TensorOptions().with_req_grad(true));
-    Tensor B_tensor = Tensor::randn(Shape{{3, 2}}, TensorOptions().with_req_grad(true));
+    Tensor A_tensor = Tensor::randn<float>(Shape{{2, 3}}, TensorOptions().with_req_grad(true));
+    Tensor B_tensor = Tensor::randn<float>(Shape{{3, 2}}, TensorOptions().with_req_grad(true));
     Tensor Bias_tensor = Tensor::zeros(Shape{{1, 2}}, TensorOptions().with_req_grad(true));
     Tensor Yt_tensor = Tensor::zeros(Shape{{2, 2}}, TensorOptions()); // Target tensor
     // ... (logic to fill Yt_tensor is fine) ...

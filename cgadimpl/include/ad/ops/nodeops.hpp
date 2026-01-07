@@ -52,6 +52,8 @@ std::shared_ptr<Node> transpose_nodeops(const std::shared_ptr<Node>& x);
 // Fused Ops --------------
 std::shared_ptr<Node> linear_nodeops(const  std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c); // fused multiply-add a@b + c
 std::shared_ptr<Node> fmab_nodeops(const  std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b, const std::shared_ptr<Node>& c); // fused multiply-add a@b + c
+std::shared_ptr<Node> dropout_nodeops(const  std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b);
+std::shared_ptr<Node> flatten_nodeops(const  std::shared_ptr<Node>& a);
 
 // activations ----------------------------
 std::shared_ptr<Node> relu_nodeops(const std::shared_ptr<Node>& x);
@@ -89,6 +91,8 @@ std::shared_ptr<Node> kldivergence_nodeops(const std::shared_ptr<Node>& logits,c
 // Regression loss --------------- 
 std::shared_ptr<Node> mse_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
 std::shared_ptr<Node> mae_loss_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
+std::shared_ptr<Node> binary_cross_entropy_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
+std::shared_ptr<Node> categorical_cross_entropy_nodeops( const std::shared_ptr<Node>& pred, const std::shared_ptr<Node>& target);
 
 // Layer norm --------------------
 std::shared_ptr<Node> laynor_nodeops(const std::shared_ptr<Node>& x);

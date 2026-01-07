@@ -54,17 +54,17 @@ void test_manual_mlp_training() {
     // --- 1. Manually Create All Parameters ---
     std::vector<Value> parameters;
     // Layer 1
-    parameters.push_back(make_tensor(Tensor::randn(Shape{{hidden_features, in_features}}, opts) * 0.1, "W1"));
+    parameters.push_back(make_tensor(Tensor::randn<float>(Shape{{hidden_features, in_features}}, opts) * 0.1, "W1"));
     parameters.push_back(make_tensor(Tensor::zeros(Shape{{1, hidden_features}}, opts), "b1"));
     // Layer 2
-    parameters.push_back(make_tensor(Tensor::randn(Shape{{out_features, hidden_features}}, opts) * 0.1, "W2"));
+    parameters.push_back(make_tensor(Tensor::randn<float>(Shape{{out_features, hidden_features}}, opts) * 0.1, "W2"));
     parameters.push_back(make_tensor(Tensor::zeros(Shape{{1, out_features}}, opts), "b2"));
     
     std::cout << "Manually created " << parameters.size() << " parameter tensors on CUDA.\n";
 
     // --- 2. Create Data ---
-    Tensor x_data = Tensor::randn(Shape{{batch_size, in_features}}, TensorOptions().with_device(dev));
-    Tensor y_target_data = Tensor::randn(Shape{{batch_size, out_features}}, TensorOptions().with_device(dev));
+    Tensor x_data = Tensor::randn<float>(Shape{{batch_size, in_features}}, TensorOptions().with_device(dev));
+    Tensor y_target_data = Tensor::randn<float>(Shape{{batch_size, out_features}}, TensorOptions().with_device(dev));
     
     Value x = make_tensor(x_data);
     Value y_target = make_tensor(y_target_data);
