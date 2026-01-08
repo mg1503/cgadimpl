@@ -17,6 +17,42 @@ void SGD(const Value& root, const Tensor* grad_seed, float learning_rate) {
     }
 }
 
+float clip_grad_norm_(std::vector<Value>& params, float max_norm) {
+    // Compute total gradient L2 norm across all parameters
+    float total_norm_sq = 0.0f;
+    
+    for (const auto& p : params) {
+        Node* n = p.node.get();
+        if (!n->requires_grad() || n->grad.numel() == 0) continue;
+        
+        // Move to CPU for norm computation
+        Tensor grad_cpu = n->grad;
+        if (grad_cpu.device().device != OwnTensor::Device::CPU) {
+            grad_cpu = grad_cpu.to_cpu();
+        }
+        
+        // Compute sum of squares
+        const float* g_ptr = grad_cpu.data<float>();
+        for (int64_t i = 0; i < grad_cpu.numel(); ++i) {
+            total_norm_sq += g_ptr[i] * g_ptr[i];
+        }
+    }
+    
+    float total_norm = std::sqrt(total_norm_sq);
+    
+    // Clip gradients if norm exceeds max_norm
+    if (total_norm > max_norm) {
+        float clip_coef = max_norm / (total_norm + 1e-6f);
+        for (const auto& p : params) {
+            Node* n = p.node.get();
+            if (!n->requires_grad() || n->grad.numel() == 0) continue;
+            n->grad *= clip_coef;
+        }
+    }
+    
+    return total_norm;
+}
+
 Adam::Adam(const std::vector<Value>& params, float alpha, float beta1, float beta2, float epsilon)
     : params_(params), alpha_(alpha), beta1_(beta1), beta2_(beta2), epsilon_(epsilon), t_(0) {
     
@@ -38,36 +74,35 @@ void Adam::step() {
     for (const auto& p : params_) {
         Node* n = p.node.get();
         if (!n->requires_grad()) continue;
+        
+        // Skip if gradient is empty or has wrong shape
+        if (n->grad.numel() == 0) continue;
+        if (n->grad.shape().dims != n->value.shape().dims) continue;
 
-        Tensor& grad = n->grad;
+        Tensor grad = n->grad;
         Tensor& m = m_[n];
         Tensor& v = v_[n];
+        
+        // Ensure gradient is on same device as parameter
+        if (grad.device().device != n->value.device().device) {
+            if (n->value.device().device == OwnTensor::Device::CUDA) {
+                grad = grad.to(n->value.device());
+            } else {
+                grad = grad.to_cpu();
+            }
+        }
 
         // M  = beta1*M + (1-beta1)*grads;
-        // Using in-place to avoid unnecessary allocations
-        m *= beta1_;
-        m += (1.0f - beta1_) * grad;
+        // Using out-of-place operations to avoid broadcast issues
+        m = m * beta1_ + (1.0f - beta1_) * grad;
 
         // V  = beta2*V + (1-beta2)*grads.^2;
-        v *= beta2_;
-        v += (1.0f - beta2_) * square(grad);
+        v = v * beta2_ + (1.0f - beta2_) * square(grad);
 
-        // M2 = M / (1-beta1^iT);
-        // V2 = V / (1-beta2^iT);
-        // alpha_eff = alpha * sqrt(1-beta2^iT)/(1-beta1^iT);
-        // params = params - alpha_eff * m / (sqrt(v) + epsilon);
-        
-        // Note: The MATLAB implementation is equivalent to the standard bias-corrected update:
-        // params = params - alpha * (m / bias_corr1) / (sqrt(v / bias_corr2) + epsilon)
-        
         float alpha_eff = alpha_ * std::sqrt(bias_corr2) / bias_corr1;
         
-        // We add epsilon inside the sqrt context matching the MATLAB logic: sqrt(V2) + epsilon
-        // Since V2 = V / bias_corr2, sqrt(V2) = sqrt(V) / sqrt(bias_corr2)
-        // Thus: m_hat / (sqrt(v_hat) + epsilon) = (m/bias_corr1) / (sqrt(v)/sqrt(bias_corr2) + epsilon)
-        // = (m * sqrt(bias_corr2) / bias_corr1) / (sqrt(v) + epsilon * sqrt(bias_corr2))
-        
-        n->value -= alpha_eff * m / (sqrt(v) + epsilon_ * std::sqrt(bias_corr2));
+        // params = params - alpha_eff * m / (sqrt(v) + epsilon)
+        n->value = n->value - alpha_eff * m / (sqrt(v) + epsilon_ * std::sqrt(bias_corr2));
     }
 }
 

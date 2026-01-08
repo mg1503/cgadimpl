@@ -273,9 +273,57 @@ void vjp_Linear(Node* n, const Tensor& gy){
     Node* X_node = n->inputs[0].get();
     Node* W_node = n->inputs[1].get();
     Node* b_node = n->inputs[2].get();
-    if (X_node->requires_grad()) X_node->accumulate_grad(OwnTensor::matmul(gy, W_node->value));
-    if (W_node->requires_grad()) W_node->accumulate_grad(OwnTensor::matmul(gy.t(), X_node->value));
-    if (b_node->requires_grad()) b_node->accumulate_grad(OwnTensor::reduce_sum(gy, {0}, false));
+    
+    // Forward: y = X @ W.t() + b
+    // Where: X is (B, T, in) or (B, in), W is (out, in), b is (1, out) or (out,)
+    // gy has same shape as y: (B, T, out) or (B, out)
+    
+    const Tensor& X = X_node->value;
+    const Tensor& W = W_node->value;  // (out, in)
+    
+    auto x_dims = X.shape().dims;
+    auto w_dims = W.shape().dims;
+    auto gy_dims = gy.shape().dims;
+    
+    int64_t in_features = w_dims[1];
+    int64_t out_features = w_dims[0];
+    
+    // Handle 3D case: reshape to 2D for computation
+    bool is_3d = (x_dims.size() == 3);
+    
+    Tensor X_2d = X;
+    Tensor gy_2d = gy;
+    
+    if (is_3d) {
+        int64_t batch = x_dims[0] * x_dims[1];  // B * T
+        X_2d = X.reshape(Shape{{batch, in_features}});
+        gy_2d = gy.reshape(Shape{{batch, out_features}});
+    }
+    
+    // dL/dX = gy @ W, then reshape back if needed
+    if (X_node->requires_grad()) {
+        Tensor grad_X = OwnTensor::matmul(gy_2d, W);  // (batch, in)
+        if (is_3d) {
+            grad_X = grad_X.reshape(X.shape());
+        }
+        X_node->accumulate_grad(grad_X);
+    }
+    
+    // dL/dW = gy.t() @ X = (out, batch) @ (batch, in) = (out, in)
+    if (W_node->requires_grad()) {
+        Tensor grad_W = OwnTensor::matmul(gy_2d.t(), X_2d);  // (out, in)
+        W_node->accumulate_grad(grad_W);
+    }
+    
+    // dL/db = sum(gy, dim=0) for 2D, sum over all but last dim for 3D
+    if (b_node->requires_grad()) {
+        Tensor grad_b = OwnTensor::reduce_sum(gy_2d, {0}, false);  // (out,)
+        // Reshape to match bias shape if needed
+        if (grad_b.shape().dims != b_node->value.shape().dims) {
+            grad_b = grad_b.reshape(b_node->value.shape());
+        }
+        b_node->accumulate_grad(grad_b);
+    }
 }
 
 void vjp_Flatten(Node* n, const Tensor& gy) {
@@ -318,16 +366,25 @@ void vjp_CeWithLogits(Node* n, const Tensor& gy){
     Node* Y_node = n->inputs[1].get();
     const Tensor& Z = Z_node->value;
     const Tensor& Y = Y_node->value;
-    const float inv_batch_size = 1.0f / static_cast<float>(Z.shape().dims[0]);
-    Tensor max_val = OwnTensor::reduce_max(Z, {-1}, true);
-    Tensor z_shifted = Z - max_val;
-    Tensor exp_z = OwnTensor::exp(z_shifted, ag::current_stream());
-    Tensor sum_exp_z = OwnTensor::reduce_sum(exp_z, {-1}, true);
-    Tensor softmax_z = exp_z / sum_exp_z;
+    
+    // For 3D tensors (B, T, C), batch_size = B * T = numel / vocab_size
+    // For 2D tensors (N, C), batch_size = N = numel / vocab_size
+    const int64_t vocab_size = Z.shape().dims.back();
+    const float inv_batch_size = static_cast<float>(vocab_size) / static_cast<float>(Z.numel());
+    
+    // Compute softmax: softmax = exp(Z - max(Z)) / sum(exp(Z - max(Z)))
+    Tensor logit_maxes = OwnTensor::reduce_max(Z, {-1}, true);
+    Tensor norm_logits = Z - logit_maxes;
+    Tensor counts = OwnTensor::exp(norm_logits, ag::current_stream());
+    Tensor counts_sum = OwnTensor::reduce_sum(counts, {-1}, true);
+    Tensor softmax_z = counts / counts_sum;
+    
+    // Gradient = gy * (softmax - onehot) / batch_size
     if (Z_node->requires_grad()) {
         Z_node->accumulate_grad(gy * (softmax_z - Y) * inv_batch_size);
     }
 }
+
 
 void vjp_KLDivergence(Node* n, const Tensor& gy){
     Node* Z_node = n->inputs[0].get();

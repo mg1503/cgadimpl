@@ -69,15 +69,45 @@ std::shared_ptr<Node> categorical_cross_entropy_nodeops(const std::shared_ptr<No
 }
 
 std::shared_ptr<Node> cross_entropy_with_logits_nodeops(const std::shared_ptr<Node>& logits, const std::shared_ptr<Node>& onehot){
+    // Implementation matching user's specified formula:
+    // logit_maxes = logits.max(-1, keepdim=True).values
+    // norm_logits = logits - logit_maxes  # subtract max for numerical stability
+    // counts = norm_logits.exp()
+    // counts_sum = counts.sum(-1, keepdims=True)
+    // counts_sum_inv = counts_sum**-1
+    // probs = counts * counts_sum_inv
+    // logprobs = probs.log()
+    // loss = -logprobs[range(n), Yb].mean()  (using one-hot multiplication)
+    
     const Tensor& Z = logits->value;
     const Tensor& Y = onehot->value;
-    Tensor max_val = OwnTensor::reduce_max(Z, {-1}, true);
-    Tensor z_shifted = Z - max_val;
-    Tensor log_sum_exp = OwnTensor::log(OwnTensor::reduce_sum(OwnTensor::exp(z_shifted, ag::current_stream()), {-1}, true), ag::current_stream());
-    Tensor log_sm = z_shifted - log_sum_exp;
-    Tensor prod = Y * log_sm;
-    Tensor sum_prod = OwnTensor::reduce_sum(prod, {-1}); 
-    Tensor loss = OwnTensor::reduce_mean(sum_prod * -1.0f); 
+    
+    // logit_maxes = logits.max(-1, keepdim=True)
+    Tensor logit_maxes = OwnTensor::reduce_max(Z, {-1}, true);
+    
+    // norm_logits = logits - logit_maxes (subtract max for numerical stability)
+    Tensor norm_logits = Z - logit_maxes;
+    
+    // counts = norm_logits.exp()
+    Tensor counts = OwnTensor::exp(norm_logits, ag::current_stream());
+    
+    // counts_sum = counts.sum(-1, keepdims=True)
+    Tensor counts_sum = OwnTensor::reduce_sum(counts, {-1}, true);
+    
+    // counts_sum_inv = counts_sum**-1 (using reciprocal for exact match with PyTorch)
+    Tensor counts_sum_inv = 1.0f / counts_sum;
+    
+    // probs = counts * counts_sum_inv
+    Tensor probs = counts * counts_sum_inv;
+    
+    // logprobs = probs.log()
+    Tensor logprobs = OwnTensor::log(probs, ag::current_stream());
+    
+    // loss = -logprobs[range(n), Yb].mean() (using one-hot Y to select correct indices)
+    Tensor selected_logprobs = Y * logprobs;
+    Tensor sum_selected = OwnTensor::reduce_sum(selected_logprobs, {-1});
+    Tensor loss = OwnTensor::reduce_mean(sum_selected) * -1.0f;
+    
     auto n = std::make_shared<Node>(loss, Op::CeWithLogits, (logits->requires_grad() || onehot->requires_grad()), "ce_with_logits");
     n->inputs = {logits, onehot};
     if (logits) logits->child_grad_count++;
