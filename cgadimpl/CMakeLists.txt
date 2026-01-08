@@ -203,6 +203,7 @@ if(true)
   add_ag_test(test_autograd_hooks                             Tests/autograd_hooks_testing/test_hooks.cpp)
   add_ag_test(test_register_ops                               Tests/test_register_ops.cpp )
   add_ag_test(test_adam                                       Tests/optimizer_tests/test_adam.cpp)
+  add_ag_test(gpt2_test                                       /home/blubridge-035/Desktop/Backup/parallelism/script/gpt2_test.cpp)
  
   # Ops Tests
 #   add_ag_test(test_activation                  Tests/ops_test/test_activation.cpp)
