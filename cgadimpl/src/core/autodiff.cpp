@@ -91,6 +91,12 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             for (auto& hook : n->post_acc_grad_hooks) {
                 hook(n);
             }
+            
+            // Safe memory cleanup: clear tape after VJP (tape is only used in backward)
+            if (!n->is_leaf) {
+                n->tape.clear();
+                n->saved_inputs.clear();
+            }
         }
         return;
     }

@@ -34,8 +34,9 @@ struct Node : std::enable_shared_from_this<Node> {
     Tensor value;
     Tensor grad;    
     
-    // Graph structure
-    std::vector<std::shared_ptr<Node>> inputs;
+    // Graph structure - use weak_ptr to avoid reference cycles
+    // This prevents memory leaks: child nodes no longer keep parent nodes alive
+    std::vector<std::weak_ptr<Node>> inputs;
     std::vector<Value> saved_inputs;
     std::vector<std::shared_ptr<Tensor>> tape;
     
