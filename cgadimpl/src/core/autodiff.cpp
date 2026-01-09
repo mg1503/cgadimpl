@@ -41,7 +41,8 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
 
     // Count how many children will send gradients to each parent
     for (Node* n : order) {
-        for (auto& parent : n->inputs){
+        for (auto& parent_weak : n->inputs){
+            auto parent = parent_weak.lock();
             if (parent && parent->requires_grad()) {
                 parent->child_grad_count++;
             }
@@ -143,7 +144,8 @@ void backward(const Value& root, const Tensor* grad_seed, bool enable_parallel){
             }
 
             // Update parent counters
-            for (auto& parent_ptr : node->inputs){
+            for (auto& parent_weak : node->inputs){
+                auto parent_ptr = parent_weak.lock();
                 Node* parent = parent_ptr.get();
                 if (!parent || !parent->requires_grad()) continue;
 

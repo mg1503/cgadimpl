@@ -78,6 +78,13 @@ struct Node : std::enable_shared_from_this<Node> {
     
     Node(const Tensor& v, Op op_, bool req_grad, const char* nm="");
     Node() = default;
+    
+    // Helper to get input node - handles weak_ptr locking
+    inline Node* input_node(size_t i) const {
+        if (i >= inputs.size()) return nullptr;
+        auto p = inputs[i].lock();
+        return p ? p.get() : nullptr;
+    }
 };
 
 inline Value make_tensor(const Tensor& v, const char* name = "") {
