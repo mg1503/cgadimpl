@@ -45,7 +45,7 @@ echo "== Configuring Nova Compiler"
 cmake -S "$NOVA_DIR" -B "$NOVA_BUILD" \
     -DCMAKE_BUILD_TYPE="Release" \
     -DCMAKE_INSTALL_PREFIX="$NOVA_INSTALL" \
-    -DMLIR_DIR="/home/blubridge-035/llvm-project/build/lib/cmake/mlir"
+    -DMLIR_DIR="/home/blu-bridge020/Code_Repos/Full-Framework/llvm-project/build/lib/cmake/mlir"
 
 
 echo "== Installing Nova Compiler"
@@ -60,7 +60,7 @@ echo "== Configuring core"
 cmake -S "$CGADIMPL_DIR" -B "$CGADIMPL_BUILD" \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -Dmlir-compiler_DIR="$ROOT/Nova-Compiler/install/lib/cmake/mlir-compiler" \
-    -DMLIR_DIR="/home/blubridge-035/llvm-project/build/lib/cmake/mlir"
+    -DMLIR_DIR="/home/blu-bridge020/Code_Repos/Full-Framework/llvm-project/build/lib/cmake/mlir"
 
 echo "== Building core"
 cmake --build "$CGADIMPL_BUILD" -- -j$(nproc)
